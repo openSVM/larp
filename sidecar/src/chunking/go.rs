@@ -22,17 +22,46 @@ pub fn go_language_config() -> TSLanguageConfig {
             (#match? @comment \"^//\")) @docComment"
             .to_owned()],
         function_query: vec!["[(function_declaration
-            name: (identifier)? @identifier
+            name: (identifier) @identifier
             parameters: (parameter_list)? @parameters
-            result: (type)? @return_type
-            body: (block (short_var_declaration
-                left: (expression_list (identifier) @variable.name)
-              )*
-              (assignment_statement
-                left: (expression_list (identifier) @variable.name)
-                right: (_)
-              )*) @body)
-        ] @function"
+            result: (
+              (type_identifier) @return_type
+            )?
+            body: (block) @body
+          ) (method_declaration 
+            name: (field_identifier) @identifier
+            parameters: (parameter_list) @parameters
+            result: (type_identifier) @result_type)
+           (method_declaration
+            receiver: (parameter_list
+              (parameter_declaration
+                name: (identifier) @receiver_name
+                type: (type_identifier) @receiver_type
+              )
+            )
+            name: (field_identifier) @method_name
+            parameters: (parameter_list)? @parameters
+            result: (
+                (pointer_type
+                  (type_identifier) @return_type
+              )
+            )?
+          )
+          (method_declaration
+            receiver: (parameter_list
+              (parameter_declaration
+                name: (identifier) @receiver_name
+                type: ((pointer_type (type_identifier) @type_identifier))
+              )
+            )
+            name: (field_identifier) @method_name
+            parameters: (parameter_list)? @parameters
+            result: (
+                (pointer_type
+                  (type_identifier) @return_type
+              )
+            )?
+          )] @function"
             .to_owned()],
         construct_types: vec![
             "source_file",
@@ -80,18 +109,6 @@ pub fn go_language_config() -> TSLanguageConfig {
             r#"
             (type_declaration
                 (type_spec
-                    name: (type_identifier) @definition.class.name
-                )
-            ) @definition.class
-            
-            (type_declaration
-                (struct_type
-                    name: (type_identifier) @definition.class.name
-                )
-            ) @definition.class
-            
-            (type_declaration
-                (interface_type
                     name: (type_identifier) @definition.class.name
                 )
             ) @definition.class
