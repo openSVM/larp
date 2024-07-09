@@ -114,7 +114,7 @@ pub struct SymbolList {
 }
 
 #[derive(Debug, Default, serde::Serialize, serde::Deserialize)]
-#[serde(rename = "step_by_step")]
+#[serde(rename = "step_by_step", default)]
 pub struct StepList {
     #[serde(rename = "$value")]
     steps: Vec<StepListItem>,
@@ -6268,19 +6268,110 @@ This struct represents the response of the hybrid search. We should inspect its 
     fn test_parsing_windows_like_path() {
         let response = r#"
 <reply>
-<symbol_list> 
+<symbol_list>
 <symbol>
 <name>
-testing
+server.listen
 </name>
-<thinking>
-thoughts
-</thinking>
 <file_path>
 c:\Users\Nicolas\Documents\2.0\gpt-pilot\workspace\RedesingMarket\server\index.js
 </file_path>
+<thinking>
+The server is listening on a specific port defined by the PORT environment variable or 3002 if not provided.
+</thinking>
+</symbol>
+<symbol>
+<name>
+app.use
+</name>
+<file_path>
+c:\Users\Nicolas\Documents\2.0\gpt-pilot\workspace\RedesingMarket\server\index.js
+</file_path>
+<thinking>
+Defines middleware functions and routes for the Express application.
+</thinking>
+</symbol>
+<symbol>
+<name>
+connectDB
+</name>
+<file_path>
+c:\Users\Nicolas\Documents\2.0\gpt-pilot\workspace\RedesingMarket\server\index.js
+</file_path>
+<thinking>
+Establishes a connection to the MongoDB database.
+</thinking>
 </symbol>
 </symbol_list>
+<step_by_step>
+<step_list>
+<name>
+LLMProvider
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<step>
+Add a new variant 'Grok' to the LLMProvider enum.
+</step>
+</step_list>
+<step_list>
+<name>
+LLMProviderAPIKeys
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<step>
+Add a new variant 'Grok(GrokAPIKey)' to the LLMProviderAPIKeys enum.
+</step>
+</step_list>
+<step_list>
+<name>
+GrokAPIKey
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<new>true</new>
+<step>
+Create a new struct 'GrokAPIKey' to hold the API key for Grok.
+</step>
+</step_list>
+<step_list>
+<name>
+std::fmt::Display for LLMProvider
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<step>
+Update the Display implementation for LLMProvider to include the Grok variant.
+</step>
+</step_list>
+<step_list>
+<name>
+LLMProviderAPIKeys::provider_type
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<step>
+Update the provider_type method to return LLMProvider::Grok for the Grok variant.
+</step>
+</step_list>
+<step_list>
+<name>
+LLMProviderAPIKeys::key
+</name>
+<file_path>
+/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs
+</file_path>
+<step>
+Update the key method to handle the Grok provider and return its API key.
+</step>
+</step_list>
+</step_by_step>
 </reply>
         "#;
         let parsed_reply = Reply::parse_response(response);
