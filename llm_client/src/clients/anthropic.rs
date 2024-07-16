@@ -125,7 +125,8 @@ impl AnthropicRequest {
             None => {
                 // TODO(codestory): Fix this proper
                 if model == &LLMType::ClaudeSonnet {
-                    Some(4096)
+                    Some(8192)
+                    // Some(4096)
                 } else {
                     Some(4096)
                 }
@@ -258,21 +259,43 @@ impl LLMClient for AnthropicClient {
         let anthropic_request =
             AnthropicRequest::from_client_completion_request(request, model_str.to_owned());
 
-        // println!("{:?}", &anthropic_request);
+        println!("Max tokens: {:?}", &anthropic_request.max_tokens);
 
         let current_time = std::time::SystemTime::now()
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
+
+        let mut headers = reqwest::header::HeaderMap::new();
+        for (key, value) in vec![
+            ("x-api-key", self.generate_api_bearer_key(api_key.clone())?),
+            (
+                "anthropic-beta",
+                "max-tokens-3-5-sonnet-2024-07-15".to_owned(),
+            ),
+            ("anthropic-version", "2023-06-01".to_owned()),
+            ("content-type", "application/json".to_owned()),
+        ] {
+            headers.insert(key, value.parse().unwrap());
+        }
+
+        println!("Request Headers:");
+        for (key, value) in &headers {
+            println!(
+                "  {}: {}",
+                key,
+                if key == "x-api-key" {
+                    "[REDACTED]"
+                } else {
+                    value.to_str().unwrap()
+                }
+            );
+        }
+
         let response_stream = self
             .client
-            .post(endpoint)
-            .header(
-                "x-api-key".to_owned(),
-                self.generate_api_bearer_key(api_key)?,
-            )
-            .header("anthropic-version".to_owned(), "2023-06-01".to_owned())
-            .header("content-type".to_owned(), "application/json".to_owned())
+            .post(endpoint.clone())
+            .headers(headers)
             .json(&anthropic_request)
             .send()
             .await
@@ -280,6 +303,21 @@ impl LLMClient for AnthropicClient {
                 println!("sidecar.anthropic.error: {:?}", &e);
                 e
             })?;
+
+        println!("Response Headers:");
+
+        for (key, value) in response_stream.headers().iter() {
+            println!("  {}: {:?}", key, value);
+        }
+
+        if !response_stream.status().is_success() {
+            // Clone the response so we can use it twice
+            let response_error = response_stream.error_for_status_ref().err().unwrap();
+            let error_body = response_stream.text().await?;
+            println!("Error response body: {}", error_body);
+            // Handle the error appropriately, maybe return or throw an error
+            return Err(response_error.into());
+        }
 
         let mut event_source = response_stream.bytes_stream().eventsource();
 
@@ -318,16 +356,27 @@ impl LLMClient for AnthropicClient {
                         model_str.to_owned(),
                     ));
                 }
-                Err(_e) => {
+                Ok(AnthropicEvent::ContentBlockStop { _index, .. }) => {
+                    println!("[DEBUG] ContentBlockStop");
+                    println!("[DEBUG] Buffered string: {:?}", &buffered_string);
+                    println!("[DEBUG] Index: {:?}", _index);
+                }
+                Err(e) => {
+                    eprintln!("[DEBUG] Error parsing event: {:?}", e);
+
                     // dbg!(e);
                     break;
                 }
                 _ => {
+                    eprintln!("[DEBUG] Unhandled event: {:?}", event);
+
                     // dbg!(&event);
                 }
             }
         }
 
+        println!("[DEBUG] Completion finished.");
+        println!("[DEBUG] Buffered string: {:?}", &buffered_string);
         Ok(buffered_string)
     }
 

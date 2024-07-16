@@ -68,8 +68,20 @@ async fn main() {
     ));
 
     // let file_path = "/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs";
-    let file_path =
-        "/Users/skcd/test_repo/sidecar/sidecar/src/agentic/symbol/ui_event.rs".to_owned();
+
+    let zi_test_repo_path = PathBuf::from("/Users/zi/codestory/testing/sidecar");
+    // let skc_test_repo_path = PathBuf::from("/Users/skcd/test_repo/sidecar");
+
+    let file_path = "sidecar/src/agentic/symbol/ui_event.rs";
+
+    let file_path = zi_test_repo_path
+        .join(file_path)
+        .to_str()
+        .unwrap()
+        .to_owned();
+
+    // let file_path =
+    //     "/Users/skcd/test_repo/sidecar/sidecar/src/agentic/symbol/ui_event.rs".to_owned();
 
     // read the file contents
     let file_contents = String::from_utf8(
