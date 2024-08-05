@@ -84,10 +84,8 @@ impl Tool for InlayHints {
             .send()
             .await
             .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
-        let response: InlayHintsResponse = response
-            .json()
-            .await
-            .map_err(|_e| ToolError::SerdeConversionFailed)?;
+        let response: InlayHintsResponse =
+            dbg!(response.json().await).map_err(|_e| ToolError::SerdeConversionFailed)?;
         Ok(ToolOutput::inlay_hints(response))
     }
 }

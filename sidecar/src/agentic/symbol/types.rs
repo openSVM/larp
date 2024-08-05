@@ -1306,7 +1306,7 @@ Satisfy the requirement either by making edits or gathering the required informa
         // TODO(codestory): This is a bit wrong, we will figure this out in due time
     ) -> Result<Option<SymbolEventRequest>, SymbolError> {
         println!(
-            "symbol::generate_follow_along_requests::symbol_name({})",
+            "symbol::generate_initial_request::symbol_name({})",
             self.symbol_name()
         );
         // disable follow_along_requests so we can get to the code editing faster
@@ -1315,7 +1315,7 @@ Satisfy the requirement either by making edits or gathering the required informa
         //     .follow_along_requests(&request_id, original_request)
         //     .await;
         if self.mecha_code_symbol.is_snippet_present().await {
-            let request = if request_data.full_symbol_request() {
+            let request = if dbg!(request_data.full_symbol_request()) {
                 self.mecha_code_symbol
                     .full_symbol_initial_request(
                         self.tools.clone(),
@@ -2029,7 +2029,7 @@ Satisfy the requirement either by making edits or gathering the required informa
                             .await;
                         let request_sender = sender;
                         println!(
-                            "Symbol::initial_request::generated({}).is_ok({})",
+                            "symbol::initial_request::generated({}).is_ok({})",
                             symbol.symbol_name(),
                             initial_request.is_ok(),
                         );
