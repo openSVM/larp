@@ -350,37 +350,37 @@ impl<T: LLMOperations> IterativeSearchSystem<T> {
             println!("===========");
 
             // todo(zi): proper condition
-            // if true {
-            //     let cli = CliCommunicator {};
+            if true {
+                let cli = CliCommunicator {};
 
-            //     let human_tool = Human::new(cli);
+                let human_tool = Human::new(cli);
 
-            //     let question: Question = self
-            //         .llm_ops
-            //         .generate_human_question(&self.context)
-            //         .await?
-            //         .into();
+                let question: Question = self
+                    .llm_ops
+                    .generate_human_question(&self.context)
+                    .await?
+                    .into();
 
-            //     let answer = human_tool.ask(&question)?;
-            //     let choice_id = answer.choice_id();
+                let answer = human_tool.ask(&question)?;
+                let choice_id = answer.choice_id();
 
-            //     let answer_text = question
-            //         .get_choice(choice_id)
-            //         .map(|choice| choice.text())
-            //         .ok_or_else(|| {
-            //             IterativeSearchError::MissingQuestionChoiceError(choice_id.to_string())
-            //         })?;
+                let answer_text = question
+                    .get_choice(choice_id)
+                    .map(|choice| choice.text())
+                    .ok_or_else(|| {
+                        IterativeSearchError::MissingQuestionChoiceError(choice_id.to_string())
+                    })?;
 
-            //     let scratch_pad_entry = format!(
-            //         r#"- Critical information to solving the issue:
-            // Question: {}
-            // Answer: {}"#,
-            //         question.text(),
-            //         answer_text
-            //     );
+                let scratch_pad_entry = format!(
+                    r#"- Critical information to solving the issue:
+Question: {}
+Answer: {}"#,
+                    question.text(),
+                    answer_text
+                );
 
-            //     self.context.extend_scratch_pad(&scratch_pad_entry);
-            // }
+                self.context.extend_scratch_pad(&scratch_pad_entry);
+            }
 
             count += 1;
             println!("===========");

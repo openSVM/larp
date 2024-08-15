@@ -175,28 +175,46 @@ pub enum IterativeSearchSeed {
 impl Tool for BigSearchBroker {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let start = Instant::now();
+
+        // Step 1: Parse input
+        let parse_start = Instant::now();
         let request = input.big_search_query()?;
+        println!("Step 1 - Parse input: {:?}", parse_start.elapsed());
 
+        // Step 2: Validate root directory
+        let validate_start = Instant::now();
         let root_directory = self.validate_root_directory(&request)?;
+        println!(
+            "Step 2 - Validate root directory: {:?}",
+            validate_start.elapsed()
+        );
 
+        // Step 3: Create repository
+        let repo_start = Instant::now();
         let repository = self.create_repository(&root_directory).await?;
+        println!("Step 3 - Create repository: {:?}", repo_start.elapsed());
 
-        // let tree_string =
-        //     TreePrinter::to_string_stacked(Path::new(&root_directory)).map_err(|_| {
-        //         ToolError::FileImportantError(FileImportantError::PrintTreeError(root_directory))
-        //     })?;
-
-        // let tree_seed = IterativeSearchSeed::Tree(tree_string);
-
+        // Step 4: Create search system
+        let system_start = Instant::now();
         let mut system = self.create_search_system(repository, &request)?;
+        println!(
+            "Step 4 - Create search system: {:?}",
+            system_start.elapsed()
+        );
 
+        // Step 5: Run search
+        let search_start = Instant::now();
         let results = system
             .run()
             .await
             .map_err(|e| ToolError::IterativeSearchError(e))?;
+        println!("Step 5 - Run search: {:?}", search_start.elapsed());
 
-        let duration = start.elapsed();
-        println!("BigSearchBroker::invoke::duration: {:?}", duration);
+        let total_duration = start.elapsed();
+        println!(
+            "BigSearchBroker::invoke total duration: {:?}",
+            total_duration
+        );
 
         Ok(ToolOutput::BigSearch(results))
     }
