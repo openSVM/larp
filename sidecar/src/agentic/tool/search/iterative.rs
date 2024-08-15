@@ -268,19 +268,26 @@ impl<T: LLMOperations> IterativeSearchSystem<T> {
     }
 
     pub async fn apply_seed(&mut self) -> Result<(), IterativeSearchError> {
-        if let Some(seed) = self.seed.take() {
-            let scratch_pad_thinking = self
-                .llm_ops
-                .query_relevant_files(&self.context.user_query(), seed)
-                .await?
-                .scratch_pad;
-
-            self.context.update_scratch_pad(&scratch_pad_thinking);
-            println!("Seed applied successfully");
-        } else {
-            println!("No seed provided, skipping seed application");
+        match self.seed.take() {
+            Some(IterativeSearchSeed::Tree(tree_string)) => {
+                // let scratch_pad_thinking = self
+                //     .llm_ops
+                //     .query_relevant_files(&self.context.user_query(), seed)
+                //     .await?
+                //     .scratch_pad;
+                self.context.update_scratch_pad(&tree_string);
+                println!("Seed applied successfully");
+                Ok(())
+            }
+            Some(_) => {
+                println!("Unsupported seed type provided");
+                Ok(())
+            }
+            None => {
+                println!("No seed provided, skipping seed application");
+                Ok(())
+            }
         }
-        Ok(())
     }
 
     pub async fn run(&mut self) -> Result<CodeSymbolImportantResponse, IterativeSearchError> {
