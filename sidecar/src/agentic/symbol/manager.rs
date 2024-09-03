@@ -500,6 +500,7 @@ impl SymbolManager {
                         ));
                         result?
                     } else {
+                        println!("invoking for tool_output - requisite for important_symbols");
                         self.tools
                             .invoke(tool_input)
                             .await

@@ -7035,6 +7035,11 @@ FILEPATH: {fs_file_path}
         // for that symbol
     ) -> Result<Vec<(MechaCodeSymbolThinking, Vec<String>)>, SymbolError> {
         let symbols = important_symbols.ordered_symbols();
+
+        println!(
+            "toolbox::important_symbols::symbols.len({})",
+            &symbols.len()
+        );
         // let ordered_symbols = important_symbols.ordered_symbols();
         // there can be overlaps between these, but for now its fine
         // let mut new_symbols: HashSet<String> = Default::default();
@@ -7096,6 +7101,8 @@ FILEPATH: {fs_file_path}
             }
         }
 
+        dbg!(&bounding_symbol_to_instruction);
+
         // We have categorised the sub-symbols now to belong with their bounding symbols
         // and for the sub-symbols which are unbounded, now we can create the final
         // mecha_code_symbol_thinking
@@ -7124,6 +7131,8 @@ FILEPATH: {fs_file_path}
                 .into_iter()
                 .map(|(idx, code_symbol_with_steps)| (idx, code_symbol_with_steps.steps().to_vec()))
                 .collect::<Vec<_>>();
+
+            dbg!(&ordered_values);
             // sort by the increasing values of orderes
             ordered_values.sort();
             if ordered_values.is_empty() {
@@ -7132,6 +7141,8 @@ FILEPATH: {fs_file_path}
                 mecha_code_symbols.push((ordered_values.remove(0), mecha_code_symbol_thinking));
             }
         }
+
+        println!("mecha_code_symbols.len({})", &mecha_code_symbols.len());
 
         // Now for all the symbols which are new or unbounded by any other symbol right now
         // we need to also add them inside properly
