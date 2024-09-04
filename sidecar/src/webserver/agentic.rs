@@ -943,7 +943,7 @@ pub async fn code_editing(
 
                 let references = references
                     .into_iter()
-                    .take(10) // todo(zi): so we don't go crazy with 1000s of requests
+                    .take(20) // todo(zi): so we don't go crazy with 1000s of requests
                     .collect::<Vec<_>>();
 
                 println!(
