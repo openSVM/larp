@@ -706,7 +706,7 @@ pub async fn code_editing(
         // this is not properly hooked up yet, we need to figure out
         // how to handle this better on the editor side, right now our proxy
         // is having a selection item in the user_context
-        mut anchor_editing,
+        anchor_editing,
     }): Json<AgenticCodeEditing>,
 ) -> Result<impl IntoResponse> {
     println!("webserver::code_editing_start::request_id({})", &request_id);
@@ -725,8 +725,6 @@ pub async fn code_editing(
         sender.clone(),
         editor_url,
     );
-
-    anchor_editing = anchor_editing || user_context.is_anchored_editing();
 
     println!(
         "webserver::code_editing_flow::endpoint_hit::anchor_editing({})",

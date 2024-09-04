@@ -290,12 +290,6 @@ impl UserContext {
         final_string.push_str("\n</selection>");
         Ok(final_string)
     }
-
-    pub fn is_anchored_editing(&self) -> bool {
-        self.variables
-            .iter()
-            .any(|variable| variable.variable_type == VariableType::Selection)
-    }
 }
 
 #[async_recursion]
