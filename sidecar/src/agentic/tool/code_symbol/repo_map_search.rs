@@ -9,9 +9,12 @@ use llm_client::{
     provider::{LLMProvider, LLMProviderAPIKeys},
 };
 
-use crate::agentic::{
-    symbol::identifier::LLMProperties,
-    tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
+use crate::{
+    agentic::{
+        symbol::identifier::LLMProperties,
+        tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
+    },
+    webserver::agentic::AnchoredEditingTracker,
 };
 
 use super::{
@@ -141,6 +144,12 @@ impl RepoMapSearchBroker {
 #[async_trait]
 impl Tool for RepoMapSearchBroker {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
+        let tracker = AnchoredEditingTracker::new();
+        let _reference = tracker.new_relevant_reference(
+            "fs/sidecar/join.ts",
+            "LLMInsertion",
+            "A model has changed within",
+        );
         let context = input.repo_map_search_query()?;
         if let Some(implementation) = self.llms.get(context.llm()) {
             let output = implementation

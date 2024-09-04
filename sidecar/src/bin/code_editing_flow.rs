@@ -18,6 +18,7 @@ use sidecar::{
             },
             identifier::LLMProperties,
             manager::SymbolManager,
+            ui_event::RelevantReference,
         },
         tool::{
             broker::{ToolBroker, ToolBrokerConfiguration},
@@ -63,6 +64,15 @@ async fn main() {
     ));
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
+
+    let reference = RelevantReference::new(
+        "fs/sidecar/join.ts",
+        "LLMInsertion",
+        "A model has changed within",
+    );
+
+    println!("reference: {:?}", reference);
+
     let tool_broker = Arc::new(ToolBroker::new(
         Arc::new(
             LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))

@@ -148,6 +148,15 @@ impl AnchoredEditingTracker {
         }
     }
 
+    pub fn new_relevant_reference(
+        &self,
+        fs_file_path: &str,
+        symbol_name: &str,
+        reason: &str,
+    ) -> RelevantReference {
+        RelevantReference::new(fs_file_path, &symbol_name, reason)
+    }
+
     // consider better error handling
     pub async fn add_join_handle(
         &self,

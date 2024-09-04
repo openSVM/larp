@@ -7,6 +7,7 @@ use axum::routing::get;
 use axum::Extension;
 use clap::Parser;
 use sidecar::{
+    agentic::symbol::ui_event::RelevantReference,
     application::{application::Application, config::configuration::Configuration},
     bg_poll::background_polling::poll_repo_updates,
 };
@@ -135,6 +136,14 @@ fn repo_router() -> Router {
 // This router handles various AI-assisted code operations and benchmarking
 fn agentic_router() -> Router {
     use axum::routing::*;
+
+    let reference = RelevantReference::new(
+        "fs/sidecar/join.ts",
+        "LLMInsertion",
+        "A model has changed within",
+    );
+
+    println!("reference: {:?}", reference);
     Router::new()
         // Probe request routes
         // These routes handle starting and stopping probe requests
