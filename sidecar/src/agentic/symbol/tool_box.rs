@@ -3365,7 +3365,6 @@ Please update this code to accommodate these changes. Consider:
         // those changes are about
         // we want to track the reference location along with the changed symbol_followup
         // so we can pass the correct git-diff to it
-        let mut reference_locations: Vec<SymbolFollowupBFS>;
         let instant = std::time::Instant::now();
         loop {
             if symbol_followups.is_empty() {
@@ -3374,8 +3373,8 @@ Please update this code to accommodate these changes. Consider:
             }
             // empty the reference locations at the start of the invocation as it
             // will get populated down the line
-            reference_locations = vec![];
-            for symbol_followup in symbol_followups.iter() {
+            let reference_locations = stream::iter(symbol_followups.into_iter().map(|reference_location| (reference_location, message_properties.clone(), hub_sender.clone()))).map(|(symbol_followup, message_properties, hub_sender)| async move {
+                let mut reference_locations = vec![];
                 let symbol_edited = symbol_followup.symbol_edited();
                 let symbol_identifier = symbol_followup.symbol_identifier();
                 let original_code = symbol_followup.original_code();
@@ -3389,7 +3388,7 @@ Please update this code to accommodate these changes. Consider:
                         "tool_box::check_for_followup_bfs::same_code_original_edited::({})",
                         symbol_identifier.symbol_name()
                     );
-                    continue;
+                    return vec![];
                 }
                 let outline_node = self
                     .find_sub_symbol_to_edit_with_name(
@@ -3399,7 +3398,7 @@ Please update this code to accommodate these changes. Consider:
                     )
                     .await;
                 if outline_node.is_err() {
-                    continue;
+                    return vec![];
                 }
 
                 let outline_node = outline_node.expect("is_err to not fail above");
@@ -3415,7 +3414,7 @@ Please update this code to accommodate these changes. Consider:
                             message_properties.clone(),
                             tool_properties.clone(),
                         )
-                        .await?,
+                        .await.unwrap_or_default(),
                     );
                 } else if outline_node.is_class_definition() {
                     println!(
@@ -3432,7 +3431,7 @@ Please update this code to accommodate these changes. Consider:
                             message_properties.clone(),
                             tool_properties.clone(),
                         )
-                        .await?,
+                        .await.unwrap_or_default(),
                     );
                 } else {
                     println!(
@@ -3450,10 +3449,11 @@ Please update this code to accommodate these changes. Consider:
                             message_properties.clone(),
                             tool_properties,
                         )
-                        .await?,
+                        .await.unwrap_or_default(),
                     );
                 }
-            }
+                reference_locations
+            }).buffer_unordered(100).collect::<Vec<_>>().await.into_iter().flatten().collect::<Vec<_>>();
             // create a dedup here for the references which we are sending
             // making sure that we are not repeating the followup request with the same data
             let mut already_seen_followup: HashSet<String> = Default::default();
