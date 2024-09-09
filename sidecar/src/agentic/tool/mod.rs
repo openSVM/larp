@@ -34,3 +34,4 @@ pub mod rerank;
 pub mod search;
 pub mod swe_bench;
 pub mod r#type;
+pub mod scratch_pad;
