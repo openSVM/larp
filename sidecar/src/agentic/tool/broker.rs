@@ -50,6 +50,7 @@ use super::{
     ref_filter::ref_filter::ReferenceFilterBroker,
     rerank::base::ReRankBroker,
     search::big_search::BigSearchBroker,
+    skill::skill::SkillBroker,
     swe_bench::test_tool::SWEBenchTestTool,
 };
 
@@ -381,7 +382,11 @@ impl ToolBroker {
         );
         tools.insert(
             ToolType::ScratchPadAgent,
-            Box::new(ScratchPadAgentBroker::new(llm_client)),
+            Box::new(ScratchPadAgentBroker::new(llm_client.clone())),
+        );
+        tools.insert(
+            ToolType::SkillSelector,
+            Box::new(SkillBroker::new(llm_client.clone())),
         );
         // we also want to add the re-ranking tool here, so we invoke it freely
         Self { tools }

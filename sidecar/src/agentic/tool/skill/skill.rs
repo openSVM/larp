@@ -17,7 +17,7 @@ use crate::agentic::{
 pub struct SkillSelectorRequest {
     contents: String,
     root_request_id: String,
-    _ui_sender: UnboundedSender<UIEventWithID>,
+    _ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
     _editor_url: String,
 }
 
@@ -25,7 +25,7 @@ impl SkillSelectorRequest {
     pub fn new(
         contents: String,
         root_request_id: String,
-        ui_sender: UnboundedSender<UIEventWithID>,
+        ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
         editor_url: String,
     ) -> Self {
         Self {
@@ -38,6 +38,10 @@ impl SkillSelectorRequest {
 
     pub fn root_request_id(&self) -> &str {
         &self.root_request_id
+    }
+
+    pub fn contents(&self) -> &str {
+        &self.contents
     }
 }
 
@@ -54,11 +58,19 @@ impl SkillBroker {
     }
 
     pub fn system_message(&self) -> String {
-        r#"system message"#.to_owned()
+        r#"Based on provided information overview of a coding session, you must select a tool to use, and provide necessary arguments/parameters with which to use them
+Tools available:
+- Go to Definition
+- Go to References
+- Keyword Search
+- Make edits
+- Ask question
+        "#
+        .to_owned()
     }
 
-    pub fn user_message(&self) -> String {
-        r#"user message"#.to_owned()
+    pub fn user_message(&self, request: SkillSelectorRequest) -> String {
+        format!(r#"{}"#, request.contents()).to_owned()
     }
 }
 
@@ -66,10 +78,10 @@ impl SkillBroker {
 impl Tool for SkillBroker {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.skill_selector()?;
+        let root_request_id = context.root_request_id();
 
         let system_message = LLMClientMessage::system(self.system_message());
-        let user_message = LLMClientMessage::user(self.user_message());
-        let root_request_id = context.root_request_id();
+        let user_message = LLMClientMessage::user(self.user_message(context.to_owned()));
 
         let request = LLMClientCompletionRequest::new(
             LLMType::ClaudeSonnet,

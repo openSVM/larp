@@ -8,7 +8,10 @@ use std::{collections::HashSet, pin::Pin, sync::Arc};
 use futures::{stream, Stream, StreamExt};
 use tokio::sync::{mpsc::UnboundedSender, Mutex};
 
-use crate::agentic::symbol::{events::types::SymbolEvent, ui_event::UIEventWithID};
+use crate::agentic::{
+    symbol::{events::types::SymbolEvent, ui_event::UIEventWithID},
+    tool::skill::skill::SkillSelectorRequest,
+};
 
 use super::{
     errors::SymbolError,
@@ -439,6 +442,12 @@ impl ScratchPadAgent {
             .await?
             .contents();
 
+        let request = SkillSelectorRequest::new(
+            pad_contents,
+            "1234".to_owned(),
+            self.message_properties.ui_sender().to_owned(),
+            "editor_url".to_owned(),
+        );
         // asking the right questions.
 
         // let's go to LLM for tool use
