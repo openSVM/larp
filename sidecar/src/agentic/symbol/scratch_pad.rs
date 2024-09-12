@@ -428,9 +428,22 @@ impl ScratchPadAgent {
         // we want to tackle for sure
     }
 
-    async fn react_to_ping(&self) {
+    async fn react_to_ping(&self) -> Result<(), SymbolError> {
         println!("PINGED");
-        // now we can roll
+        let pad_contents = self
+            .tool_box
+            .file_open(
+                self.storage_fs_path.to_owned(),
+                self.message_properties.to_owned(),
+            )
+            .await?
+            .contents();
+
+        // let's go to LLM for tool use
+
+        // use the tool
+
+        Ok(())
     }
 
     /// We get to react to the lsp signal over here
