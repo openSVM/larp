@@ -413,6 +413,7 @@ pub struct EditedCodeStreamingRequest {
     fs_file_path: String,
     updated_code: Option<String>,
     event: EditedCodeStreamingEvent,
+    apply_directly: bool,
 }
 
 impl EditedCodeStreamingRequest {
@@ -423,6 +424,7 @@ impl EditedCodeStreamingRequest {
             fs_file_path,
             updated_code: None,
             event: EditedCodeStreamingEvent::Start,
+            apply_directly: false,
         }
     }
 
@@ -438,6 +440,7 @@ impl EditedCodeStreamingRequest {
             fs_file_path,
             updated_code: None,
             event: EditedCodeStreamingEvent::Delta(delta),
+            apply_directly: false,
         }
     }
 
@@ -448,7 +451,13 @@ impl EditedCodeStreamingRequest {
             fs_file_path,
             updated_code: None,
             event: EditedCodeStreamingEvent::End,
+            apply_directly: false,
         }
+    }
+
+    pub fn set_apply_directly(mut self) -> Self {
+        self.apply_directly = true;
+        self
     }
 }
 
@@ -558,6 +567,7 @@ impl SymbolEventSubStepRequest {
                     fs_file_path,
                     event: EditedCodeStreamingEvent::Start,
                     updated_code: None,
+                    apply_directly: false,
                 },
             )),
         }
@@ -578,6 +588,7 @@ impl SymbolEventSubStepRequest {
                     fs_file_path,
                     updated_code: None,
                     event: EditedCodeStreamingEvent::End,
+                    apply_directly: false,
                 },
             )),
         }
@@ -615,6 +626,7 @@ impl SymbolEventSubStepRequest {
                     fs_file_path,
                     event: EditedCodeStreamingEvent::Delta(delta),
                     updated_code: None,
+                    apply_directly: false,
                 },
             )),
         }

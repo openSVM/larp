@@ -232,7 +232,7 @@ impl ToolBox {
             .file_open(scratch_pad_path.to_owned(), message_properties.clone())
             .await;
         if let Ok(scratch_pad_content) = scratch_pad_content {
-            println!("tool_box::scratch_pad_edits_made::edits_made_tool_invocation");
+            println!("tool_box::scratch_pad_edits_made::edits_made_tool_invocation::scratch_pad_content({})", scratch_pad_content.contents_ref());
             let _ = self
                 .tools
                 .invoke(ToolInput::ScratchPadInput(ScratchPadAgentInput::new(

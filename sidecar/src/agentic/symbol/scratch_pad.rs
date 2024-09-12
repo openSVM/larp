@@ -144,7 +144,6 @@ impl ScratchPadAgent {
                         .send(EnvironmentEventType::LSP(lsp_signal));
                 }
                 EnvironmentEventType::Human(message) => {
-                    println!("scratch_pad_agent::human_message::({:?})", &message);
                     let _ = self.handle_human_message(message).await;
                     // whenever the human sends a request over here, encode it and try
                     // to understand how to handle it, some might require search, some
