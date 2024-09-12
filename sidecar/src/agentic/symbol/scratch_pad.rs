@@ -85,6 +85,7 @@ impl ScratchPadAgent {
         symbol_event_sender: UnboundedSender<SymbolEventMessage>,
     ) -> Self {
         let (reaction_sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+
         let scratch_pad_agent = Self {
             storage_fs_path: scratch_pad_path,
             message_properties,
@@ -95,6 +96,7 @@ impl ScratchPadAgent {
             extra_context: Arc::new(Mutex::new("".to_owned())),
             reaction_sender: reaction_sender.clone(),
         };
+
         let cloned_scratch_pad_agent = scratch_pad_agent.clone();
         let mut reaction_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
         tokio::spawn(async move {
@@ -106,20 +108,7 @@ impl ScratchPadAgent {
                 // react to events here
                 let _ = cloned_scratch_pad_agent
                     .react_to_event(reaction_event)
-                    .await;
-            }
-        });
-
-        // Spawn the ping task
-        tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
-            loop {
-                interval.tick().await;
-
-                // if channel closed
-                if let Err(_) = reaction_sender.send(EnvironmentEventType::ping()) {
-                    break;
-                }
+                    .await; // ahhhh, this means one event at a time!
             }
         });
 
@@ -198,6 +187,7 @@ impl ScratchPadAgent {
         match human_event {
             HumanMessage::Anchor(anchor_request) => {
                 let _ = self.handle_user_anchor_request(anchor_request).await;
+                let _ = self.react_to_ping().await;
             }
             HumanMessage::Followup(_followup_request) => {}
         }
@@ -431,7 +421,7 @@ impl ScratchPadAgent {
     }
 
     async fn react_to_ping(&self) -> Result<(), SymbolError> {
-        println!("PINGED");
+        println!("reacting to PING");
         let pad_contents = self
             .tool_box
             .file_open(
