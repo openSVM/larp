@@ -439,6 +439,8 @@ impl ScratchPadAgent {
             .await?
             .contents();
 
+        // asking the right questions.
+
         // let's go to LLM for tool use
 
         // use the tool
