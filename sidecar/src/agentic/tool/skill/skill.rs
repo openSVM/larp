@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::channel::mpsc::UnboundedSender;
 use llm_client::{
     broker::LLMBroker,
     clients::types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
@@ -70,7 +69,7 @@ Tools available:
     }
 
     pub fn user_message(&self, request: SkillSelectorRequest) -> String {
-        format!(r#"{}"#, request.contents()).to_owned()
+        format!(r#"Coding Session scratch pad:\n{}"#, request.contents()).to_owned()
     }
 }
 
@@ -82,6 +81,8 @@ impl Tool for SkillBroker {
 
         let system_message = LLMClientMessage::system(self.system_message());
         let user_message = LLMClientMessage::user(self.user_message(context.to_owned()));
+
+        dbg!(&user_message);
 
         let request = LLMClientCompletionRequest::new(
             LLMType::ClaudeSonnet,
@@ -101,7 +102,7 @@ impl Tool for SkillBroker {
                 LLMProvider::Anthropic,
                 vec![
                     ("root_id".to_owned(), root_request_id.to_owned()),
-                    ("event_type".to_owned(), "skill selection".to_owned()),
+                    ("event_type".to_owned(), "skill_selection".to_owned()),
                 ]
                 .into_iter()
                 .collect(),

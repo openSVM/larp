@@ -112,7 +112,7 @@ impl ScratchPadAgent {
 
         // Spawn the ping task
         tokio::spawn(async move {
-            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(10));
             loop {
                 interval.tick().await;
 
@@ -442,12 +442,16 @@ impl ScratchPadAgent {
             .await?
             .contents();
 
+        dbg!(&pad_contents);
+
         let request = SkillSelectorRequest::new(
             pad_contents,
             "1234".to_owned(),
             self.message_properties.ui_sender().to_owned(),
             "editor_url".to_owned(),
         );
+
+        let _ = self.tool_box.select_tool(request).await;
         // asking the right questions.
 
         // let's go to LLM for tool use

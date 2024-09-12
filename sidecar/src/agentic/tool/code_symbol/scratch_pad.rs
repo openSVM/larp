@@ -31,7 +31,10 @@ use crate::{
     chunking::text_document::{Position, Range},
 };
 
+/// Represents a broker for the ScratchPad Agent, responsible for managing interactions
+/// with the language model and processing scratchpad-related tasks.
 pub struct ScratchPadAgentBroker {
+    /// The LLM (Language Model) client wrapped in an Arc for thread-safe sharing.
     llm_client: Arc<LLMBroker>,
 }
 
