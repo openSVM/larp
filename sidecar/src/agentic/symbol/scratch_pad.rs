@@ -90,20 +90,36 @@ impl ScratchPadAgent {
             focussing: Arc::new(Mutex::new(false)),
             files_context: Arc::new(Mutex::new(vec![])),
             extra_context: Arc::new(Mutex::new("".to_owned())),
-            reaction_sender,
+            reaction_sender: reaction_sender.clone(),
         };
         let cloned_scratch_pad_agent = scratch_pad_agent.clone();
         let mut reaction_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
         tokio::spawn(async move {
             while let Some(reaction_event) = reaction_stream.next().await {
+                // presuming handled here instead of in react_to_event due to criticality
                 if reaction_event.is_shutdown() {
                     break;
                 }
+                // react to events here
                 let _ = cloned_scratch_pad_agent
                     .react_to_event(reaction_event)
                     .await;
             }
         });
+
+        // Spawn the ping task
+        tokio::spawn(async move {
+            let mut interval = tokio::time::interval(std::time::Duration::from_secs(5));
+            loop {
+                interval.tick().await;
+
+                // if channel closed
+                if let Err(_) = reaction_sender.send(EnvironmentEventType::ping()) {
+                    break;
+                }
+            }
+        });
+
         scratch_pad_agent
     }
 }
@@ -111,7 +127,7 @@ impl ScratchPadAgent {
 impl ScratchPadAgent {
     /// We try to contain all the events which are coming in from the symbol
     /// which is being edited by the user, the real interface here will look like this
-    pub async fn process_envrionment(
+    pub async fn process_environment(
         self,
         mut stream: Pin<Box<dyn Stream<Item = EnvironmentEventType> + Send + Sync>>,
     ) {
@@ -139,6 +155,9 @@ impl ScratchPadAgent {
                     // scratchpad can react to it, so for now do not do anything
                     // we might have to split the events later down the line
                 }
+                EnvironmentEventType::Ping => {
+                    let _ = self.reaction_sender.send(EnvironmentEventType::Ping);
+                }
                 EnvironmentEventType::ShutDown => {
                     println!("scratch_pad_agent::shut_down");
                     let _ = self.reaction_sender.send(EnvironmentEventType::ShutDown);
@@ -158,6 +177,9 @@ impl ScratchPadAgent {
             }
             EnvironmentEventType::LSP(lsp_signal) => {
                 self.react_to_lsp_signal(lsp_signal).await;
+            }
+            EnvironmentEventType::Ping => {
+                self.react_to_ping().await;
             }
             _ => {}
         }
@@ -404,6 +426,11 @@ impl ScratchPadAgent {
         // Now we want to grab the diagnostics which come in naturally
         // or via the files we are observing, there are race conditions here which
         // we want to tackle for sure
+    }
+
+    async fn react_to_ping(&self) {
+        println!("PINGED");
+        // now we can roll
     }
 
     /// We get to react to the lsp signal over here

@@ -788,7 +788,6 @@ pub async fn code_editing(
                 .collect::<Vec<_>>()
                 .join(",")
         );
-        let metadata_pregen = Instant::now();
 
         let user_provided_context = app
             .tool_box
@@ -826,8 +825,6 @@ pub async fn code_editing(
         .filter_map(|s| s)
         .collect::<HashMap<_, _>>();
 
-        println!("metadata_pregen::elapsed({:?})", metadata_pregen.elapsed());
-
         let (environment_sender, environment_receiver) = tokio::sync::mpsc::unbounded_channel();
 
         // the storage unit for the scratch pad path
@@ -860,7 +857,7 @@ pub async fn code_editing(
         let _scratch_pad_handle = tokio::spawn(async move {
             // spawning the scratch pad agent
             scratch_pad_agent
-                .process_envrionment(Box::pin(
+                .process_environment(Box::pin(
                     tokio_stream::wrappers::UnboundedReceiverStream::new(environment_receiver),
                 ))
                 .await;

@@ -34,10 +34,17 @@ impl EditorStateChangeRequest {
 }
 
 pub enum EnvironmentEventType {
+    /// Represents a symbol-related event request
     Symbol(SymbolEventRequest),
+    /// Indicates a change in the editor state
     EditorStateChange(EditorStateChangeRequest),
+    /// Represents a Language Server Protocol signal
     LSP(LSPSignal),
+    /// Represents a message from a human user
     Human(HumanMessage),
+    /// A simple ping event, possibly used for keeping connections alive
+    Ping,
+    /// Signals that the system should shut down
     ShutDown,
 }
 
@@ -56,6 +63,10 @@ impl EnvironmentEventType {
             anchored_symbols,
             context,
         )))
+    }
+
+    pub fn ping() -> Self {
+        EnvironmentEventType::Ping
     }
 }
 
