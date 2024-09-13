@@ -69,4 +69,7 @@ pub enum SymbolError {
 
     #[error("Diagnostic snippet error: {0}")]
     DiagnosticSnippetError(DiagnosticSnippetError),
+
+    #[error("GoDefinitionsEvaluatorError: {0}")]
+    GoDefinitionsEvaluatorError(String),
 }

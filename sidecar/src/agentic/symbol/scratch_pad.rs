@@ -571,12 +571,14 @@ impl ScratchPadAgent {
     }
 
     async fn evaluate_go_definition(&self) -> Result<(), SymbolError> {
-        let contents = self.pad_contents().await?;
+        let pad_contents = self.pad_contents().await?;
+        let paths = self.visible_file_paths().await?;
 
         let response = self
             .tool_box
             .evaluate_scratchpad(
-                &contents,
+                &pad_contents,
+                paths,
                 self.reaction_sender.clone(), // cloning reaction_sender may cause oddness
                 self.message_properties.clone(),
             )
@@ -585,6 +587,20 @@ impl ScratchPadAgent {
         // then this LLM result goes back as an environment event?
 
         Ok(())
+    }
+
+    async fn visible_file_paths(&self) -> Result<Vec<String>, SymbolError> {
+        let content = self.pad_contents().await?;
+
+        let file_paths = content
+            .lines()
+            .skip_while(|line| !line.trim().starts_with("<files_visible>"))
+            .skip(1)
+            .take_while(|line| !line.trim().starts_with("</files_visible>"))
+            .map(|line| line.trim().to_string())
+            .collect::<Vec<_>>();
+
+        Ok(file_paths)
     }
 
     async fn pad_contents(&self) -> Result<String, SymbolError> {

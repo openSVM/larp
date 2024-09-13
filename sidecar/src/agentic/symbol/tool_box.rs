@@ -3,7 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::{stream, StreamExt};
+use futures::{stream, StreamExt, TryFutureExt};
 use gix::objs::commit::message;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
@@ -93,6 +93,7 @@ use crate::agentic::tool::lsp::quick_fix::{GetQuickFixRequest, GetQuickFixRespon
     LSPQuickFixInvocationResponse,
 };
 use crate::agentic::tool::go_definition::go_definition::GoDefinitionEvaluatorRequest;
+use crate::agentic::tool::output::ToolOutput;
 use crate::agentic::tool::r#type::Tool;
 use crate::agentic::tool::swe_bench::test_tool::{SWEBenchTestRepsonse, SWEBenchTestRequest};
 use crate::chunking::editor_parsing::EditorParsing;
@@ -8383,15 +8384,22 @@ FILEPATH: {fs_file_path}
     }
 
     /// Bespoke for GoDefinition atm
-    pub async fn evaluate_scratchpad(&self, content: &str, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
-        let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(content.to_owned(), message_properties));
+    pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
 
-        let response = self.tools.invoke(request).await;
+        
+        let res = stream::iter(visible_file_paths.into_iter().map(|path| {
+            (path, message_properties.to_owned(), pad_content.to_owned())
+        }))
+        .map(|(path, message_properties, pad_content)| async move {
+            let file_contents = self.file_open(path, message_properties.to_owned()).await?.contents();
+            let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents, message_properties));
+            let response = self.tools.invoke(request).map_err(|e| SymbolError::ToolError(e)).await?;
 
-        println!("toolbox::evaluate_scratchpad::response:");
-        dbg!(response);
-
-        // send reaction?
+            response.go_definition_evaluator().ok_or(SymbolError::GoDefinitionsEvaluatorError("Something went wrong".to_owned()))
+        })
+        .buffer_unordered(1)
+        .collect::<Vec<Result<_, SymbolError>>>()
+        .await;
 
         Ok(())
     }

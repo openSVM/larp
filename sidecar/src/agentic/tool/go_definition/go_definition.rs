@@ -13,8 +13,12 @@ use crate::agentic::{
 };
 
 #[derive(Debug, Clone)]
+pub struct GoDefinitionEvaluatorResponse {}
+
+#[derive(Debug, Clone)]
 pub struct GoDefinitionEvaluatorRequest {
-    contents: String,
+    pad_contents: String,
+    file_contents: String,
     message_properties: SymbolEventMessageProperties,
 }
 
@@ -25,16 +29,25 @@ impl GoDefinitionEvaluatorRequest {
     ///
     /// * `contents` - The content string to be evaluated.
     /// * `message_properties` - The properties of the symbol event message.
-    pub fn new(contents: String, message_properties: SymbolEventMessageProperties) -> Self {
+    pub fn new(
+        pad_contents: String,
+        file_contents: String,
+        message_properties: SymbolEventMessageProperties,
+    ) -> Self {
         Self {
-            contents,
+            pad_contents,
+            file_contents,
             message_properties,
         }
     }
 
     /// Returns a reference to the contents of the request.
-    pub fn contents(&self) -> &str {
-        &self.contents
+    pub fn pad_contents(&self) -> &str {
+        &self.pad_contents
+    }
+
+    pub fn file_contents(&self) -> &str {
+        &self.file_contents
     }
 
     /// Returns a reference to the message properties of the request.
@@ -53,12 +66,35 @@ impl GoDefinitionEvaluatorBroker {
     }
 
     pub fn system_message(&self) -> String {
-        r#"Your job is to go to a definition. Decide against which symbol this would be most useful to a given task."#
+        r#"Your job is to go to a definition. Decide against which symbol this would be most useful to a given task.
+
+Format - print the line for the Symbol you want the go-to-definition for, along with the Symbol's name.
+
+Example: 
+<go>
+<line>
+pub struct Tag {
+</line>
+<name>
+Tag
+</name>
+<go>
+        "#
         .to_owned()
     }
 
     pub fn user_message(&self, request: GoDefinitionEvaluatorRequest) -> String {
-        format!(r#"Session scratch pad:\n{}"#, request.contents()).to_owned()
+        format!(
+            r#"Session scratch pad:
+{}
+        
+File contents:
+{}
+        "#,
+            request.pad_contents(),
+            request.file_contents()
+        )
+        .to_owned()
     }
 }
 

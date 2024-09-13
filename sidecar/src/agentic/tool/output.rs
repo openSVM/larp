@@ -32,6 +32,7 @@ use super::{
         CodeToProbeSubSymbolList,
     },
     git::diff_client::GitDiffClientResponse,
+    go_definition::go_definition::GoDefinitionEvaluatorResponse,
     grep::file::FindInFileResponse,
     lsp::{
         diagnostics::LSPDiagnosticsOutput,
@@ -162,6 +163,8 @@ pub enum ToolOutput {
     OutlineNodesUsingEditor(OutlineNodesUsingEditorResponse),
     // filter reference
     ReferencesFilter(Vec<RelevantReference>),
+    // go definitions evalutor response
+    GoDefinitionEvaluator(GoDefinitionEvaluatorResponse),
 }
 
 impl ToolOutput {
@@ -617,6 +620,13 @@ impl ToolOutput {
     pub fn get_relevant_references(self) -> Option<Vec<RelevantReference>> {
         match self {
             ToolOutput::ReferencesFilter(response) => Some(response),
+            _ => None,
+        }
+    }
+
+    pub fn go_definition_evaluator(self) -> Option<GoDefinitionEvaluatorResponse> {
+        match self {
+            ToolOutput::GoDefinitionEvaluator(response) => Some(response),
             _ => None,
         }
     }
