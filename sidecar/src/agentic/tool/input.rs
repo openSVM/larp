@@ -48,10 +48,11 @@ use super::{
         open_file::OpenFileRequest,
         quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest},
     },
-    r#type::ToolType,
+    r#type::{Tool, ToolType},
     ref_filter::ref_filter::ReferenceFilterRequest,
     rerank::base::ReRankEntriesForBroker,
     search::big_search::BigSearchRequest,
+    skill::skill::SkillSelectorRequest,
     swe_bench::test_tool::SWEBenchTestRequest,
 };
 
@@ -132,6 +133,8 @@ pub enum ToolInput {
     ReferencesFilter(ReferenceFilterRequest),
     // Scratch pad agent input request
     ScratchPadInput(ScratchPadAgentInput),
+    // Skillz
+    SkillInput(SkillSelectorRequest),
 }
 
 impl ToolInput {
@@ -195,6 +198,7 @@ impl ToolInput {
             ToolInput::OutlineNodesUsingEditor(_) => ToolType::OutlineNodesUsingEditor,
             ToolInput::ReferencesFilter(_) => ToolType::ReferencesFilter,
             ToolInput::ScratchPadInput(_) => ToolType::ScratchPadAgent,
+            ToolInput::SkillInput(_) => ToolType::SkillSelector,
         }
     }
 
@@ -729,6 +733,14 @@ impl ToolInput {
             Ok(request)
         } else {
             Err(ToolError::WrongToolInput(ToolType::PlanningBeforeCodeEdit))
+        }
+    }
+
+    pub fn skill_selector(self) -> Result<SkillSelectorRequest, ToolError> {
+        if let ToolInput::SkillInput(request) = self {
+            Ok(request)
+        } else {
+            Err(ToolError::WrongToolInput(ToolType::SkillSelector))
         }
     }
 }

@@ -32,5 +32,6 @@ pub mod output;
 pub mod ref_filter;
 pub mod rerank;
 pub mod search;
+pub mod skill;
 pub mod swe_bench;
 pub mod r#type;
