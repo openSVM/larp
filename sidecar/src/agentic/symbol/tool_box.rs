@@ -8388,6 +8388,7 @@ FILEPATH: {fs_file_path}
 
         let response = self.tools.invoke(request).await;
 
+        println!("toolbox::evaluate_scratchpad::response:");
         dbg!(response);
 
         // send reaction?

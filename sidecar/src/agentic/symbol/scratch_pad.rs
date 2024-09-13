@@ -130,15 +130,15 @@ impl ScratchPadAgent {
 
         // create a background thread which pings every 2 seconds and gets the lsp
         // signals
-        let _ = tokio::spawn(async move {
-            let cloned_self = cloned_self_second;
-            let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(
-                tokio::time::interval(Duration::from_millis(2000)),
-            );
-            while let Some(_) = interval_stream.next().await {
-                cloned_self.grab_diagnostics().await;
-            }
-        });
+        // let _ = tokio::spawn(async move {
+        //     let cloned_self = cloned_self_second;
+        //     let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(
+        //         tokio::time::interval(Duration::from_millis(2000)),
+        //     );
+        //     while let Some(_) = interval_stream.next().await {
+        //         cloned_self.grab_diagnostics().await;
+        //     }
+        // });
         let _ = tokio::spawn(async move {
             let cloned_sender = sender;
             // damn borrow-checker got hands
@@ -180,6 +180,9 @@ impl ScratchPadAgent {
                     // whenever the human sends a request over here, encode it and try
                     // to understand how to handle it, some might require search, some
                     // might be more automagic
+
+                    // for the sake of testing, evaluate gtd
+                    let _ = self.evaluate_go_definition().await;
                 }
                 EnvironmentEventType::Symbol(_symbol_event) => {
                     // we know a symbol is going to be edited, what should we do about it?
@@ -585,6 +588,10 @@ impl ScratchPadAgent {
     }
 
     async fn pad_contents(&self) -> Result<String, SymbolError> {
+        println!(
+            "scratchpad_agent::pad_contents:file_open: {}",
+            self.storage_fs_path
+        );
         let scratch_pad_content = self
             .tool_box
             .file_open(
@@ -593,6 +600,8 @@ impl ScratchPadAgent {
             )
             .await?
             .contents();
+
+        dbg!(&scratch_pad_content);
 
         Ok(scratch_pad_content)
     }

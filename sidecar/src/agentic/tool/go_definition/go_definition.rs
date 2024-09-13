@@ -19,6 +19,12 @@ pub struct GoDefinitionEvaluatorRequest {
 }
 
 impl GoDefinitionEvaluatorRequest {
+    /// Creates a new `GoDefinitionEvaluatorRequest` instance.
+    ///
+    /// # Arguments
+    ///
+    /// * `contents` - The content string to be evaluated.
+    /// * `message_properties` - The properties of the symbol event message.
     pub fn new(contents: String, message_properties: SymbolEventMessageProperties) -> Self {
         Self {
             contents,
@@ -26,10 +32,12 @@ impl GoDefinitionEvaluatorRequest {
         }
     }
 
+    /// Returns a reference to the contents of the request.
     pub fn contents(&self) -> &str {
         &self.contents
     }
 
+    /// Returns a reference to the message properties of the request.
     pub fn message_properties(&self) -> &SymbolEventMessageProperties {
         &self.message_properties
     }
@@ -45,19 +53,12 @@ impl GoDefinitionEvaluatorBroker {
     }
 
     pub fn system_message(&self) -> String {
-        r#"Based on provided information overview of a coding session, you must select a tool to use, and provide necessary arguments/parameters with which to use them
-Tools available:
-- Go to Definition
-- Go to References
-- Keyword Search
-- Make edits
-- Ask question
-        "#
+        r#"Your job is to go to a definition. Decide against which symbol this would be most useful to a given task."#
         .to_owned()
     }
 
     pub fn user_message(&self, request: GoDefinitionEvaluatorRequest) -> String {
-        format!(r#"Coding Session scratch pad:\n{}"#, request.contents()).to_owned()
+        format!(r#"Session scratch pad:\n{}"#, request.contents()).to_owned()
     }
 }
 
@@ -70,8 +71,6 @@ impl Tool for GoDefinitionEvaluatorBroker {
 
         let system_message = LLMClientMessage::system(self.system_message());
         let user_message = LLMClientMessage::user(self.user_message(context.to_owned()));
-
-        dbg!(&user_message);
 
         let request = LLMClientCompletionRequest::new(
             LLMType::ClaudeSonnet,
@@ -91,7 +90,7 @@ impl Tool for GoDefinitionEvaluatorBroker {
                 LLMProvider::Anthropic,
                 vec![
                     ("root_id".to_owned(), root_request_id.to_owned()),
-                    ("event_type".to_owned(), "skill_selection".to_owned()),
+                    ("event_type".to_owned(), "evaluate_go_definition".to_owned()),
                 ]
                 .into_iter()
                 .collect(),
