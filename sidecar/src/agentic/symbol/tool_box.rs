@@ -3,6 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
+use futures::future::try_join_all;
 use futures::{stream, StreamExt, TryFutureExt};
 use gix::objs::commit::message;
 use llm_client::clients::types::LLMType;
@@ -8403,7 +8404,8 @@ FILEPATH: {fs_file_path}
 
     /// Bespoke for GoDefinition atm
     pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
-        let res = stream::iter(visible_file_paths.into_iter().map(|path| {
+        // for all visible file paths
+        let _res = stream::iter(visible_file_paths.into_iter().map(|path| {
             (path, message_properties.to_owned(), pad_content.to_owned())
         }))
         .map(|(path, message_properties, pad_content)| async move {
@@ -8411,10 +8413,13 @@ FILEPATH: {fs_file_path}
             let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents.to_owned(), message_properties.to_owned()));
             let response = self.tools.invoke(request).map_err(|e| SymbolError::ToolError(e)).await?;
 
+            // evaluate which definitions may need going to
             let res = response.go_definition_evaluator().ok_or(SymbolError::GoDefinitionsEvaluatorError("Something went wrong".to_owned()))?;
 
+            // LLM's suggested actions
             let actions = res.actions();
 
+            // locate Position of actions
             let symbol_positions = actions.iter().map(|action| {
                 let line_contents = action.line_contents();
                 let name = action.name();
@@ -8427,14 +8432,32 @@ FILEPATH: {fs_file_path}
 
             dbg!(&symbol_positions);
 
-            let _gtd_res = stream::iter(symbol_positions.into_iter().map(|position| (path.to_owned(), message_properties.to_owned(), position)).map(|(path, message_properties, position)| async move {
+            // Each gtd can return a vec of outline nodes. Each action Position invokes its own gtd.
+            let gtd_res: Vec<Result<Vec<OutlineNode>, SymbolError>> = stream::iter(symbol_positions.into_iter().map(|position| (path.to_owned(), message_properties.to_owned(), position)).map(|(path, message_properties, position)| async move {
                 println!("toolbox::evaluate_scatchpad::go_to_def({}:{:?})", &path, &position);
-                let gtd_res = self.go_to_definition(&path, position, message_properties.to_owned()).await;
 
-                dbg!(&gtd_res);
+                // execute the action (go to definition)
+                let gtd_response = self.go_to_definition(&path, position, message_properties.to_owned()).await?;
 
-                // this is us going to definition, and we must return...the outline?
+                dbg!(&gtd_response);
+
+                // fk me, another async move??????
+                // Outline nodes from gtd response
+                let outline_nodes = try_join_all(
+                    gtd_response.definitions().iter().map(|definition| {
+                        let range = definition.range();
+                        let path = definition.file_path();
+                        let message_properties = message_properties.to_owned();
+                        async move {
+                            self.get_outline_node_for_range(range, path, message_properties).await
+                        }
+                    })
+                ).await?;
+
+                Ok(outline_nodes)
             })).buffered(5).collect::<Vec<_>>().await;
+
+            dbg!(&gtd_res);
 
             // dunno what to return here honestly
             Ok(res)
@@ -8442,8 +8465,6 @@ FILEPATH: {fs_file_path}
         .buffer_unordered(1)
         .collect::<Vec<Result<_, SymbolError>>>()
         .await;
-
-        dbg!(&res);
 
         Ok(())
     }
