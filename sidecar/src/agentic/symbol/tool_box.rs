@@ -7142,6 +7142,7 @@ FILEPATH: {fs_file_path}
         fs_file_path: &str,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<OutlineNode, SymbolError> {
+        dbg!(&range, &fs_file_path);
         let file_open_request = self
             .file_open(fs_file_path.to_owned(), message_properties)
             .await?;
@@ -8433,35 +8434,64 @@ FILEPATH: {fs_file_path}
             dbg!(&symbol_positions);
 
             // Each gtd can return a vec of outline nodes. Each action Position invokes its own gtd.
-            let gtd_res: Vec<Result<Vec<OutlineNode>, SymbolError>> = stream::iter(symbol_positions.into_iter().map(|position| (path.to_owned(), message_properties.to_owned(), position)).map(|(path, message_properties, position)| async move {
-                println!("toolbox::evaluate_scatchpad::go_to_def({}:{:?})", &path, &position);
-
-                // execute the action (go to definition)
-                let gtd_response = self.go_to_definition(&path, position, message_properties.to_owned()).await?;
-
-                dbg!(&gtd_response);
-
-                // fk me, another async move??????
-                // Outline nodes from gtd response
-                let outline_nodes: Vec<OutlineNode> = stream::iter(gtd_response.definitions().into_iter()
-                    .map(|definition| (message_properties.to_owned(), definition.range().to_owned(), definition.file_path().to_owned()))
-                .map(|(message_properties, range, file_path)| async move {
-                    self.get_outline_node_for_range(&range, &file_path, message_properties).await
-                })).buffer_unordered(10) 
-                    .filter_map(|result| async move {
-                        match result {
-                            Ok(node) => Some(node),
-                            Err(e) => {
-                                eprintln!("Error processing outline node: {:?}", e);
-                                None
+            let gtd_res: Vec<Result<Vec<OutlineNode>, SymbolError>> = stream::iter(
+                symbol_positions
+                    .into_iter()
+                    .map(|position| (path.to_owned(), message_properties.to_owned(), position))
+                    .map(|(path, message_properties, position)| async move {
+                        println!(
+                            "toolbox::evaluate_scatchpad::go_to_def({}:{:?})",
+                            &path, &position
+                        );
+    
+                        // execute the action (go to definition)
+                        let gtd_response = self
+                            .go_to_definition(&path, position, message_properties.to_owned())
+                            .await?;
+    
+                        dbg!(&gtd_response);
+    
+                        // fk me, another async move??????
+                        // Outline nodes from gtd response
+                        let outline_nodes: Vec<OutlineNode> = stream::iter(
+                            gtd_response
+                                .definitions() // for each gtd definition
+                                .into_iter()
+                                .map(|definition| {
+                                    (
+                                        message_properties.to_owned(),
+                                        definition.range().to_owned(),
+                                        definition.file_path().to_owned(),
+                                    )
+                                })
+                                .map(|(message_properties, range, file_path)| async move {
+                                    self.get_outline_node_for_range(
+                                        &range,
+                                        &file_path,
+                                        message_properties,
+                                    )
+                                    .await
+                                }),
+                        )
+                        .buffer_unordered(10)
+                        .filter_map(|result| async move {
+                            match result {
+                                Ok(node) => Some(node),
+                                Err(e) => {
+                                    eprintln!("Error processing outline node: {:?}", e);
+                                    None
+                                }
                             }
-                        }
-                    })
-                    .collect()
-                    .await;
-
-                Ok(outline_nodes)
-            })).buffered(5).collect::<Vec<_>>().await;
+                        })
+                        .collect()
+                        .await;
+    
+                        Ok(outline_nodes)
+                    }),
+            )
+            .buffered(5)
+            .collect::<Vec<_>>()
+            .await;
 
             dbg!(&gtd_res);
 
