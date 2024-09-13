@@ -1,3 +1,5 @@
+use std::time::Instant;
+
 use crate::{
     agentic::tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
     chunking::text_document::{Position, Range},
@@ -64,6 +66,7 @@ impl LSPGoToDefinition {
 impl Tool for LSPGoToDefinition {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.is_go_to_definition()?;
+        let start = Instant::now();
         let editor_endpoint = context.editor_url.to_owned() + "/go_to_definition";
         let response = self
             .client
@@ -72,6 +75,7 @@ impl Tool for LSPGoToDefinition {
             .send()
             .await
             .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+        println!("gtd::invoke::elapsed({:?})", start.elapsed());
         let response: GoToDefinitionResponse = response
             .json()
             .await
