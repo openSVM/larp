@@ -8405,7 +8405,7 @@ FILEPATH: {fs_file_path}
     /// Bespoke for GoDefinition atm
     pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
         // for all visible file paths
-        let _res = stream::iter(visible_file_paths.into_iter().map(|path| {
+        let res = stream::iter(visible_file_paths.into_iter().map(|path| {
             (path, message_properties.to_owned(), pad_content.to_owned())
         }))
         .map(|(path, message_properties, pad_content)| async move {
@@ -8443,24 +8443,32 @@ FILEPATH: {fs_file_path}
 
                 // fk me, another async move??????
                 // Outline nodes from gtd response
-                let outline_nodes = try_join_all(
-                    gtd_response.definitions().iter().map(|definition| {
-                        let range = definition.range();
-                        let path = definition.file_path();
-                        let message_properties = message_properties.to_owned();
-                        async move {
-                            self.get_outline_node_for_range(range, path, message_properties).await
+                let outline_nodes: Vec<OutlineNode> = stream::iter(gtd_response.definitions().into_iter()
+                    .map(|definition| (message_properties.to_owned(), definition.range().to_owned(), definition.file_path().to_owned()))
+                .map(|(message_properties, range, file_path)| async move {
+                    self.get_outline_node_for_range(&range, &file_path, message_properties).await
+                })).buffer_unordered(10) 
+                    .filter_map(|result| async move {
+                        match result {
+                            Ok(node) => Some(node),
+                            Err(e) => {
+                                eprintln!("Error processing outline node: {:?}", e);
+                                None
+                            }
                         }
                     })
-                ).await?;
+                    .collect()
+                    .await;
 
                 Ok(outline_nodes)
             })).buffered(5).collect::<Vec<_>>().await;
 
             dbg!(&gtd_res);
 
+            // possibly at this point, fire event?
+
             // dunno what to return here honestly
-            Ok(res)
+            Ok(gtd_res)
         })
         .buffer_unordered(1)
         .collect::<Vec<Result<_, SymbolError>>>()
