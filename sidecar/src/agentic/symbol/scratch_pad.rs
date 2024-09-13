@@ -617,8 +617,6 @@ impl ScratchPadAgent {
             .await?
             .contents();
 
-        dbg!(&scratch_pad_content);
-
         Ok(scratch_pad_content)
     }
 

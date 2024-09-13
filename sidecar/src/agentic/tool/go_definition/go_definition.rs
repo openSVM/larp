@@ -6,14 +6,26 @@ use llm_client::{
     clients::types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
     provider::{AnthropicAPIKey, LLMProvider, LLMProviderAPIKeys},
 };
+use serde::Deserialize;
+use serde_xml_rs::from_str;
 
 use crate::agentic::{
     symbol::{events::message_event::SymbolEventMessageProperties, ui_event::UIEventWithID},
     tool::{editor, errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
 };
 
-#[derive(Debug, Clone)]
-pub struct GoDefinitionEvaluatorResponse {}
+#[derive(Debug, Deserialize, Clone)]
+#[serde(rename = "response")]
+pub struct GoDefinitionEvaluatorResponse {
+    #[serde(rename = "action", default)]
+    pub actions: Vec<Action>,
+}
+
+#[derive(Debug, Deserialize, Clone)]
+pub struct Action {
+    pub line_contents: String,
+    pub name: String,
+}
 
 #[derive(Debug, Clone)]
 pub struct GoDefinitionEvaluatorRequest {
@@ -66,19 +78,25 @@ impl GoDefinitionEvaluatorBroker {
     }
 
     pub fn system_message(&self) -> String {
-        r#"Your job is to go to a definition. Decide against which symbol this would be most useful to a given task.
+        r#"Your job is to go to a definition. Decide against which symbol this would be most useful for a given task list.
+
+Consider the list of tasks in <tasks>
 
 Format - print the line for the Symbol you want the go-to-definition for, along with the Symbol's name.
 
-Example: 
-<go>
-<line>
+Example:
+<response>
+<action>
+<line_contents>
 pub struct Tag {
-</line>
+</line_contents>
 <name>
 Tag
 </name>
-<go>
+</action>
+</response>
+
+Do not respond with anything other than the XML. Root tag: <response>
         "#
         .to_owned()
     }
@@ -132,10 +150,14 @@ impl Tool for GoDefinitionEvaluatorBroker {
                 .collect(),
                 sender,
             )
-            .await;
+            .await
+            .map_err(|e| ToolError::LLMClientError(e))?;
 
-        dbg!(response);
+        let parsed = from_str::<GoDefinitionEvaluatorResponse>(&response).map_err(|e| {
+            eprintln!("{:?}", e);
+            ToolError::SerdeConversionFailed
+        })?;
 
-        todo!();
+        Ok(ToolOutput::GoDefinitionEvaluator(parsed))
     }
 }

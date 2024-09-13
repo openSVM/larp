@@ -8385,8 +8385,6 @@ FILEPATH: {fs_file_path}
 
     /// Bespoke for GoDefinition atm
     pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
-
-        
         let res = stream::iter(visible_file_paths.into_iter().map(|path| {
             (path, message_properties.to_owned(), pad_content.to_owned())
         }))
@@ -8400,6 +8398,8 @@ FILEPATH: {fs_file_path}
         .buffer_unordered(1)
         .collect::<Vec<Result<_, SymbolError>>>()
         .await;
+
+        dbg!(&res);
 
         Ok(())
     }
