@@ -130,15 +130,15 @@ impl ScratchPadAgent {
 
         // create a background thread which pings every 2 seconds and gets the lsp
         // signals
-        // let _ = tokio::spawn(async move {
-        //     let cloned_self = cloned_self_second;
-        //     let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(
-        //         tokio::time::interval(Duration::from_millis(2000)),
-        //     );
-        //     while let Some(_) = interval_stream.next().await {
-        //         cloned_self.grab_diagnostics().await;
-        //     }
-        // });
+        let _ = tokio::spawn(async move {
+            let cloned_self = cloned_self_second;
+            let mut interval_stream = tokio_stream::wrappers::IntervalStream::new(
+                tokio::time::interval(Duration::from_millis(2000)),
+            );
+            while let Some(_) = interval_stream.next().await {
+                cloned_self.grab_diagnostics().await;
+            }
+        });
         let _ = tokio::spawn(async move {
             let cloned_sender = sender;
             // damn borrow-checker got hands
@@ -584,7 +584,7 @@ impl ScratchPadAgent {
         let pad_contents = self.pad_contents().await?;
         let paths = self.visible_file_paths().await?;
 
-        let response = self
+        let _response = self
             .tool_box
             .evaluate_scratchpad(
                 &pad_contents,

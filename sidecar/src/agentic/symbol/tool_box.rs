@@ -3,9 +3,7 @@ use std::path::Path;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::future::try_join_all;
 use futures::{stream, StreamExt, TryFutureExt};
-use gix::objs::commit::message;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
     AnthropicAPIKey, FireworksAPIKey, GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys,
@@ -95,7 +93,6 @@ use crate::agentic::tool::lsp::quick_fix::{GetQuickFixRequest, GetQuickFixRespon
     LSPQuickFixInvocationResponse,
 };
 use crate::agentic::tool::go_definition::go_definition::GoDefinitionEvaluatorRequest;
-use crate::agentic::tool::output::ToolOutput;
 use crate::agentic::tool::r#type::Tool;
 use crate::agentic::tool::swe_bench::test_tool::{SWEBenchTestRepsonse, SWEBenchTestRequest};
 use crate::chunking::editor_parsing::EditorParsing;
@@ -8407,7 +8404,7 @@ FILEPATH: {fs_file_path}
     /// Bespoke for GoDefinition atm
     pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
         // for all visible file paths
-        let res = stream::iter(visible_file_paths.into_iter().map(|path| {
+        let _res = stream::iter(visible_file_paths.into_iter().map(|path| {
             (path, message_properties.to_owned(), pad_content.to_owned(), reaction_sender.to_owned())
         }))
         .map(|(path, message_properties, pad_content, reaction_sender)| async move {

@@ -10,8 +10,8 @@ use serde::Deserialize;
 use serde_xml_rs::from_str;
 
 use crate::agentic::{
-    symbol::{events::message_event::SymbolEventMessageProperties, ui_event::UIEventWithID},
-    tool::{editor, errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
+    symbol::events::message_event::SymbolEventMessageProperties,
+    tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
 };
 
 #[derive(Debug, Deserialize, Clone)]
@@ -150,7 +150,7 @@ impl Tool for GoDefinitionEvaluatorBroker {
         );
 
         let api_key = LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new("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".to_owned()));
-        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
 
         let response = self
             .llm_client
