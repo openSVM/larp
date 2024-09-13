@@ -8407,8 +8407,8 @@ FILEPATH: {fs_file_path}
             (path, message_properties.to_owned(), pad_content.to_owned())
         }))
         .map(|(path, message_properties, pad_content)| async move {
-            let file_contents = self.file_open(path, message_properties.to_owned()).await?.contents();
-            let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents.to_owned(), message_properties));
+            let file_contents = self.file_open(path.to_owned(), message_properties.to_owned()).await?.contents();
+            let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents.to_owned(), message_properties.to_owned()));
             let response = self.tools.invoke(request).map_err(|e| SymbolError::ToolError(e)).await?;
 
             let res = response.go_definition_evaluator().ok_or(SymbolError::GoDefinitionsEvaluatorError("Something went wrong".to_owned()))?;
@@ -8427,7 +8427,14 @@ FILEPATH: {fs_file_path}
 
             dbg!(&symbol_positions);
 
-            // todo(zi): now we have positions, go to them!
+            let _gtd_res = stream::iter(symbol_positions.into_iter().map(|position| (path.to_owned(), message_properties.to_owned(), position)).map(|(path, message_properties, position)| async move {
+                println!("toolbox::evaluate_scatchpad::go_to_def({}:{:?})", &path, &position);
+                let gtd_res = self.go_to_definition(&path, position, message_properties.to_owned()).await;
+
+                dbg!(&gtd_res);
+
+                // this is us going to definition, and we must return...the outline?
+            })).buffered(5).collect::<Vec<_>>().await;
 
             // dunno what to return here honestly
             Ok(res)
