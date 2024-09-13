@@ -6383,6 +6383,24 @@ FILEPATH: {fs_file_path}
             .ok_or(SymbolError::WrongToolOutput)
     }
 
+    pub fn find_symbol_position(file_contents: &str, line_content: &str, name: &str) -> Option<Position> {
+        // Find the line in the file contents
+        let line_start = file_contents.find(line_content)?;
+        // let line_end = line_start + line_content.len();
+        let line_number = file_contents[..line_start].lines().count();
+    
+        // Find the symbol within the line
+        let symbol_start = line_content.find(name)?;
+        // let symbol_end = symbol_start + name.len();
+    
+        // Calculate byte offsets
+        let byte_offset = line_start + symbol_start;
+    
+        let position = Position::new(line_number, symbol_start, byte_offset);
+    
+        Some(position)
+    }
+
     pub async fn go_to_definition(
         &self,
         fs_file_path: &str,
@@ -8390,10 +8408,29 @@ FILEPATH: {fs_file_path}
         }))
         .map(|(path, message_properties, pad_content)| async move {
             let file_contents = self.file_open(path, message_properties.to_owned()).await?.contents();
-            let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents, message_properties));
+            let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents.to_owned(), message_properties));
             let response = self.tools.invoke(request).map_err(|e| SymbolError::ToolError(e)).await?;
 
-            response.go_definition_evaluator().ok_or(SymbolError::GoDefinitionsEvaluatorError("Something went wrong".to_owned()))
+            let res = response.go_definition_evaluator().ok_or(SymbolError::GoDefinitionsEvaluatorError("Something went wrong".to_owned()))?;
+
+            let actions = res.actions();
+
+            let symbol_positions = actions.iter().map(|action| {
+                let line_contents = action.line_contents();
+                let name = action.name();
+                let symbol_position = ToolBox::find_symbol_position(&file_contents, line_contents, name);
+
+                println!("toolbox::evaluate_scatchpad::symbol_position::found({})", symbol_position.is_some());
+
+                symbol_position
+            }).filter_map(|s| s).collect::<Vec<_>>();
+
+            dbg!(&symbol_positions);
+
+            // todo(zi): now we have positions, go to them!
+
+            // dunno what to return here honestly
+            Ok(res)
         })
         .buffer_unordered(1)
         .collect::<Vec<Result<_, SymbolError>>>()

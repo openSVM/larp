@@ -21,10 +21,26 @@ pub struct GoDefinitionEvaluatorResponse {
     pub actions: Vec<Action>,
 }
 
+impl GoDefinitionEvaluatorResponse {
+    pub fn actions(&self) -> &[Action] {
+        &self.actions.as_slice()
+    }
+}
+
 #[derive(Debug, Deserialize, Clone)]
 pub struct Action {
     pub line_contents: String,
     pub name: String,
+}
+
+impl Action {
+    pub fn line_contents(&self) -> &str {
+        &self.line_contents
+    }
+
+    pub fn name(&self) -> &str {
+        &self.name
+    }
 }
 
 #[derive(Debug, Clone)]
