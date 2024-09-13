@@ -32,6 +32,7 @@ use super::{
     file::file_finder::ImportantFilesFinderBroker,
     filtering::broker::CodeToEditFormatterBroker,
     git::diff_client::GitDiffClient,
+    go_definition::go_definition::GoDefinitionEvaluatorBroker,
     grep::file::FindInFile,
     input::ToolInput,
     lsp::{
@@ -50,7 +51,6 @@ use super::{
     ref_filter::ref_filter::ReferenceFilterBroker,
     rerank::base::ReRankBroker,
     search::big_search::BigSearchBroker,
-    skill::skill::SkillBroker,
     swe_bench::test_tool::SWEBenchTestTool,
 };
 
@@ -385,8 +385,8 @@ impl ToolBroker {
             Box::new(ScratchPadAgentBroker::new(llm_client.clone())),
         );
         tools.insert(
-            ToolType::SkillSelector,
-            Box::new(SkillBroker::new(llm_client.clone())),
+            ToolType::GoDefinitionEvaluator,
+            Box::new(GoDefinitionEvaluatorBroker::new(llm_client.clone())),
         );
         // we also want to add the re-ranking tool here, so we invoke it freely
         Self { tools }

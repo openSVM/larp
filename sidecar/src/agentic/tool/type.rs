@@ -102,7 +102,7 @@ pub enum ToolType {
     // scratch pad agent
     ScratchPadAgent,
     // skilllz
-    SkillSelector,
+    GoDefinitionEvaluator,
 }
 
 impl std::fmt::Display for ToolType {
@@ -174,7 +174,7 @@ impl std::fmt::Display for ToolType {
             ToolType::OutlineNodesUsingEditor => write!(f, "Outline nodes using the editor"),
             ToolType::ReferencesFilter => write!(f, "Filters references"),
             ToolType::ScratchPadAgent => write!(f, "Scratch pad agent"),
-            ToolType::SkillSelector => write!(f, "Skill selector"),
+            ToolType::GoDefinitionEvaluator => write!(f, "Go definition evaluator"),
         }
     }
 }

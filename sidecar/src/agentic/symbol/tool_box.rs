@@ -91,7 +91,7 @@ use crate::agentic::tool::lsp::open_file::OpenFileResponse;
 use crate::agentic::tool::lsp::quick_fix::{GetQuickFixRequest, GetQuickFixResponse, LSPQuickFixInvocationRequest,
     LSPQuickFixInvocationResponse,
 };
-use crate::agentic::tool::skill::skill::SkillSelectorRequest;
+use crate::agentic::tool::go_definition::go_definition::GoDefinitionEvaluatorRequest;
 use crate::agentic::tool::r#type::Tool;
 use crate::agentic::tool::swe_bench::test_tool::{SWEBenchTestRepsonse, SWEBenchTestRequest};
 use crate::chunking::editor_parsing::EditorParsing;
@@ -139,8 +139,8 @@ impl ToolBox {
         }
     }
 
-    pub async fn select_tool(&self, request: SkillSelectorRequest) {
-        let _ = self.tools.invoke(ToolInput::SkillInput(request)).await;
+    pub async fn select_tool(&self, request: GoDefinitionEvaluatorRequest) {
+        let _ = self.tools.invoke(ToolInput::GoDefinitionsEvaluatorInput(request)).await;
     }
 
     /// sends the user query to the scratch-pad agent

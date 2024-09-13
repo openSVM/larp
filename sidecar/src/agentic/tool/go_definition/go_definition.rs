@@ -13,14 +13,14 @@ use crate::agentic::{
 };
 
 #[derive(Debug, Clone)]
-pub struct SkillSelectorRequest {
+pub struct GoDefinitionEvaluatorRequest {
     contents: String,
     root_request_id: String,
     _ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
     _editor_url: String,
 }
 
-impl SkillSelectorRequest {
+impl GoDefinitionEvaluatorRequest {
     pub fn new(
         contents: String,
         root_request_id: String,
@@ -44,14 +44,11 @@ impl SkillSelectorRequest {
     }
 }
 
-// or call it skill?
-pub struct Skill {}
-
-pub struct SkillBroker {
+pub struct GoDefinitionEvaluatorBroker {
     llm_client: Arc<LLMBroker>,
 }
 
-impl SkillBroker {
+impl GoDefinitionEvaluatorBroker {
     pub fn new(llm_client: Arc<LLMBroker>) -> Self {
         Self { llm_client }
     }
@@ -68,13 +65,13 @@ Tools available:
         .to_owned()
     }
 
-    pub fn user_message(&self, request: SkillSelectorRequest) -> String {
+    pub fn user_message(&self, request: GoDefinitionEvaluatorRequest) -> String {
         format!(r#"Coding Session scratch pad:\n{}"#, request.contents()).to_owned()
     }
 }
 
 #[async_trait]
-impl Tool for SkillBroker {
+impl Tool for GoDefinitionEvaluatorBroker {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.skill_selector()?;
         let root_request_id = context.root_request_id();

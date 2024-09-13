@@ -35,6 +35,7 @@ use super::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
     },
     git::diff_client::GitDiffClientRequest,
+    go_definition::go_definition::GoDefinitionEvaluatorRequest,
     grep::file::FindInFileRequest,
     kw_search::tool::KeywordSearchQuery,
     lsp::{
@@ -52,7 +53,6 @@ use super::{
     ref_filter::ref_filter::ReferenceFilterRequest,
     rerank::base::ReRankEntriesForBroker,
     search::big_search::BigSearchRequest,
-    skill::skill::SkillSelectorRequest,
     swe_bench::test_tool::SWEBenchTestRequest,
 };
 
@@ -134,7 +134,7 @@ pub enum ToolInput {
     // Scratch pad agent input request
     ScratchPadInput(ScratchPadAgentInput),
     // Skillz
-    SkillInput(SkillSelectorRequest),
+    GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest),
 }
 
 impl ToolInput {
@@ -198,7 +198,7 @@ impl ToolInput {
             ToolInput::OutlineNodesUsingEditor(_) => ToolType::OutlineNodesUsingEditor,
             ToolInput::ReferencesFilter(_) => ToolType::ReferencesFilter,
             ToolInput::ScratchPadInput(_) => ToolType::ScratchPadAgent,
-            ToolInput::SkillInput(_) => ToolType::SkillSelector,
+            ToolInput::GoDefinitionsEvaluatorInput(_) => ToolType::GoDefinitionEvaluator,
         }
     }
 
@@ -736,11 +736,11 @@ impl ToolInput {
         }
     }
 
-    pub fn skill_selector(self) -> Result<SkillSelectorRequest, ToolError> {
-        if let ToolInput::SkillInput(request) = self {
+    pub fn go_definition_evaluator(self) -> Result<GoDefinitionEvaluatorRequest, ToolError> {
+        if let ToolInput::GoDefinitionsEvaluatorInput(request) = self {
             Ok(request)
         } else {
-            Err(ToolError::WrongToolInput(ToolType::SkillSelector))
+            Err(ToolError::WrongToolInput(ToolType::GoDefinitionEvaluator))
         }
     }
 }
