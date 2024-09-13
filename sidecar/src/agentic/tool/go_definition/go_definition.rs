@@ -8,39 +8,30 @@ use llm_client::{
 };
 
 use crate::agentic::{
-    symbol::ui_event::UIEventWithID,
+    symbol::{events::message_event::SymbolEventMessageProperties, ui_event::UIEventWithID},
     tool::{editor, errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
 };
 
 #[derive(Debug, Clone)]
 pub struct GoDefinitionEvaluatorRequest {
     contents: String,
-    root_request_id: String,
-    _ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
-    _editor_url: String,
+    message_properties: SymbolEventMessageProperties,
 }
 
 impl GoDefinitionEvaluatorRequest {
-    pub fn new(
-        contents: String,
-        root_request_id: String,
-        ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
-        editor_url: String,
-    ) -> Self {
+    pub fn new(contents: String, message_properties: SymbolEventMessageProperties) -> Self {
         Self {
             contents,
-            root_request_id,
-            _ui_sender: ui_sender,
-            _editor_url: editor_url,
+            message_properties,
         }
-    }
-
-    pub fn root_request_id(&self) -> &str {
-        &self.root_request_id
     }
 
     pub fn contents(&self) -> &str {
         &self.contents
+    }
+
+    pub fn message_properties(&self) -> &SymbolEventMessageProperties {
+        &self.message_properties
     }
 }
 
@@ -73,8 +64,9 @@ Tools available:
 #[async_trait]
 impl Tool for GoDefinitionEvaluatorBroker {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
-        let context = input.skill_selector()?;
-        let root_request_id = context.root_request_id();
+        let context = input.go_definition_evaluator()?;
+        let message_properties = context.message_properties();
+        let root_request_id = message_properties.root_request_id();
 
         let system_message = LLMClientMessage::system(self.system_message());
         let user_message = LLMClientMessage::user(self.user_message(context.to_owned()));

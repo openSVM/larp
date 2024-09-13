@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::time::Instant;
 
 use futures::{stream, StreamExt};
+use gix::objs::commit::message;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
     AnthropicAPIKey, FireworksAPIKey, GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys,
@@ -108,6 +109,7 @@ use crate::{
 use super::anchored::AnchoredSymbol;
 use super::errors::SymbolError;
 use super::events::edit::{SymbolToEdit, SymbolToEditRequest};
+use super::events::environment_event::EnvironmentEventType;
 use super::events::initial_request::{SymbolEditedItem, SymbolRequestHistoryItem};
 use super::events::lsp::LSPDiagnosticError;
 use super::events::message_event::{SymbolEventMessage, SymbolEventMessageProperties};
@@ -8378,5 +8380,18 @@ FILEPATH: {fs_file_path}
                 }
             })
             .collect::<Vec<_>>()
+    }
+
+    /// Bespoke for GoDefinition atm
+    pub async fn evaluate_scratchpad(&self, content: &str, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
+        let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(content.to_owned(), message_properties));
+
+        let response = self.tools.invoke(request).await;
+
+        dbg!(response);
+
+        // send reaction?
+
+        Ok(())
     }
 }

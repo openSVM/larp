@@ -567,6 +567,36 @@ impl ScratchPadAgent {
             )));
     }
 
+    async fn evaluate_go_definition(&self) -> Result<(), SymbolError> {
+        let contents = self.pad_contents().await?;
+
+        let response = self
+            .tool_box
+            .evaluate_scratchpad(
+                &contents,
+                self.reaction_sender.clone(), // cloning reaction_sender may cause oddness
+                self.message_properties.clone(),
+            )
+            .await;
+
+        // then this LLM result goes back as an environment event?
+
+        Ok(())
+    }
+
+    async fn pad_contents(&self) -> Result<String, SymbolError> {
+        let scratch_pad_content = self
+            .tool_box
+            .file_open(
+                self.storage_fs_path.to_owned(),
+                self.message_properties.clone(),
+            )
+            .await?
+            .contents();
+
+        Ok(scratch_pad_content)
+    }
+
     async fn is_fixing(&self) -> bool {
         let fixing;
         {
