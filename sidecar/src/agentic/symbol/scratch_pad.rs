@@ -479,6 +479,16 @@ impl ScratchPadAgent {
             LSPSignal::Diagnostics(diagnostics) => {
                 self.react_to_diagnostics(diagnostics).await;
             }
+            LSPSignal::GoDefinition(outline_nodes) => {
+                println!(
+                    "scratchpadAgent::react_to_edits::GoDefinition::outline_nodes: {}",
+                    outline_nodes
+                        .iter()
+                        .map(|n| n.name())
+                        .collect::<Vec<_>>()
+                        .join(", ")
+                );
+            }
         }
     }
 

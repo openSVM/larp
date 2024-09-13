@@ -12,6 +12,7 @@ use llm_client::provider::{
 };
 use tokio::sync::mpsc::UnboundedSender;
 
+use crate::agentic::symbol::events::lsp::LSPSignal;
 use crate::agentic::symbol::helpers::{apply_inlay_hints_to_code, split_file_content_into_parts};
 use crate::agentic::symbol::identifier::{Snippet, SymbolIdentifier};
 use crate::agentic::tool::code_edit::filter_edit::{
@@ -8407,9 +8408,9 @@ FILEPATH: {fs_file_path}
     pub async fn evaluate_scratchpad(&self, pad_content: &str, visible_file_paths: Vec<String>, reaction_sender: UnboundedSender<EnvironmentEventType>, message_properties: SymbolEventMessageProperties) -> Result<(), SymbolError> {
         // for all visible file paths
         let res = stream::iter(visible_file_paths.into_iter().map(|path| {
-            (path, message_properties.to_owned(), pad_content.to_owned())
+            (path, message_properties.to_owned(), pad_content.to_owned(), reaction_sender.to_owned())
         }))
-        .map(|(path, message_properties, pad_content)| async move {
+        .map(|(path, message_properties, pad_content, reaction_sender)| async move {
             let file_contents = self.file_open(path.to_owned(), message_properties.to_owned()).await?.contents();
             let request = ToolInput::GoDefinitionsEvaluatorInput(GoDefinitionEvaluatorRequest::new(pad_content, file_contents.to_owned(), message_properties.to_owned()));
             let response = self.tools.invoke(request).map_err(|e| SymbolError::ToolError(e)).await?;
@@ -8437,8 +8438,8 @@ FILEPATH: {fs_file_path}
             let gtd_res: Vec<Result<Vec<OutlineNode>, SymbolError>> = stream::iter(
                 symbol_positions
                     .into_iter()
-                    .map(|position| (path.to_owned(), message_properties.to_owned(), position))
-                    .map(|(path, message_properties, position)| async move {
+                    .map(|position| (path.to_owned(), message_properties.to_owned(), position, reaction_sender.to_owned()))
+                    .map(|(path, message_properties, position, reaction_sender)| async move {
                         println!(
                             "toolbox::evaluate_scatchpad::go_to_def({}:{:?})",
                             &path, &position
@@ -8485,6 +8486,10 @@ FILEPATH: {fs_file_path}
                         })
                         .collect()
                         .await;
+
+                        // possibly at this point, fire event?
+                        let _ = reaction_sender.send(EnvironmentEventType::LSP(LSPSignal::GoDefinition(outline_nodes.to_owned())));
+
     
                         Ok(outline_nodes)
                     }),
@@ -8495,7 +8500,6 @@ FILEPATH: {fs_file_path}
 
             dbg!(&gtd_res);
 
-            // possibly at this point, fire event?
 
             // dunno what to return here honestly
             Ok(gtd_res)

@@ -1,7 +1,7 @@
 //! Contains the LSP signal which might be sent from the editor
 //! For now, its just the diagnostics when we detect a change in the editor
 
-use crate::chunking::text_document::Range;
+use crate::chunking::{text_document::Range, types::OutlineNode};
 
 #[derive(Debug, Clone)]
 pub struct LSPDiagnosticError {
@@ -32,6 +32,7 @@ impl LSPDiagnosticError {
 /// instead of being poll based we can get a push event over here
 pub enum LSPSignal {
     Diagnostics(Vec<LSPDiagnosticError>),
+    GoDefinition(Vec<OutlineNode>),
 }
 
 impl LSPSignal {
