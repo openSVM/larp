@@ -7142,7 +7142,7 @@ FILEPATH: {fs_file_path}
     ) -> Result<OutlineNode, SymbolError> {
         dbg!(&range, &fs_file_path);
         let file_open_request = self
-            .file_open(fs_file_path.to_owned(), message_properties)
+            .file_open(fs_file_path.to_owned(), message_properties.clone())
             .await?;
         let _ = self
             .force_add_document(
@@ -7151,14 +7151,7 @@ FILEPATH: {fs_file_path}
                 file_open_request.language(),
             )
             .await;
-        let symbols_outline = self
-            .symbol_broker
-            .get_symbols_outline(fs_file_path)
-            .await
-            .ok_or(SymbolError::OutlineNodeNotFound(fs_file_path.to_owned()))?
-            .into_iter()
-            .filter(|outline_node| outline_node.range().contains_check_line(range))
-            .collect::<Vec<_>>();
+        let symbols_outline = self.get_outline_nodes_using_editor(fs_file_path, message_properties.clone()).await?.to_outline_nodes(fs_file_path.to_owned());
         let mut outline_nodes_with_distance = symbols_outline
             .into_iter()
             .map(|outline_node| {
