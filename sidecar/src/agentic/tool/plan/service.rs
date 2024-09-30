@@ -31,11 +31,11 @@ use super::{
 };
 
 /// Operates on Plan
+#[derive(Clone)]
 pub struct PlanService {
     tool_broker: Arc<ToolBroker>,
     tool_box: Arc<ToolBox>,
     llm_properties: LLMProperties,
-    message_properties: SymbolEventMessageProperties,
 }
 
 impl PlanService {
@@ -43,13 +43,11 @@ impl PlanService {
         tool_broker: Arc<ToolBroker>,
         tool_box: Arc<ToolBox>,
         llm_properties: LLMProperties,
-        message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
             tool_broker,
             tool_box,
             llm_properties,
-            message_properties,
         }
     }
 
@@ -70,9 +68,10 @@ impl PlanService {
         &self,
         query: String,
         user_context: UserContext,
+        message_properties: SymbolEventMessageProperties,
     ) -> Result<Plan, ServiceError> {
-        let request_id = self.message_properties.request_id().request_id();
-        let editor_url = self.message_properties.editor_url();
+        let request_id = message_properties.request_id().request_id();
+        let editor_url = message_properties.editor_url();
         let step_generator_request =
             StepGeneratorRequest::new(query.to_owned(), request_id.to_owned(), editor_url)
                 .with_user_context(&user_context);
@@ -126,13 +125,13 @@ impl PlanService {
         full_context_as_string
     }
 
-    pub async fn execute_step(&self, step: &PlanStep, context: String) -> Result<(), ServiceError> {
+    pub async fn execute_step(&self, step: &PlanStep, context: String, message_properties: SymbolEventMessageProperties) -> Result<(), ServiceError> {
         let instruction = step.description();
         let fs_file_path = step.file_to_edit();
 
         let file_content = self
             .tool_box
-            .file_open(fs_file_path.clone(), self.message_properties.clone())
+            .file_open(fs_file_path.clone(), message_properties.clone())
             .await?
             .contents();
         let request = SearchAndReplaceEditingRequest::new(
@@ -144,12 +143,12 @@ impl PlanService {
             self.llm_properties.clone(),
             None,
             instruction.to_owned(),
-            self.message_properties.root_request_id().to_owned(),
+            message_properties.root_request_id().to_owned(),
             SymbolIdentifier::with_file_path("New symbol incoming...!", &fs_file_path), // this is for ui event - consider what to pass for symbol_name
             uuid::Uuid::new_v4().to_string(),
-            self.message_properties.ui_sender().clone(),
+            message_properties.ui_sender().clone(),
             None,
-            self.message_properties.editor_url().clone(),
+            message_properties.editor_url().clone(),
             None,
             vec![],
             vec![],

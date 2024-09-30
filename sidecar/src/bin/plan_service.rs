@@ -145,7 +145,6 @@ async fn main() {
         tool_broker,
         tool_box.clone(),
         anthropic_llm_properties,
-        event_properties.clone(),
     );
 
     let path = "/Users/skcd/scratch/sidecar/sidecar/src/bin/plan.json";
@@ -156,7 +155,7 @@ async fn main() {
         plan_service.load_plan(path).unwrap()
     } else {
         plan_service
-            .create_plan(user_query, user_context)
+            .create_plan(user_query, user_context, event_properties.clone())
             .await
             .expect("Failed to create new plan")
     };
@@ -192,7 +191,7 @@ async fn main() {
             "1" | "next" => {
                 // using file as store for Plan
 
-                let _ = match plan_service.execute_step(step_to_execute, context).await {
+                let _ = match plan_service.execute_step(step_to_execute, context, event_properties.clone()).await {
                     Ok(_) => {
                         println!("Checkpoint {} complete", plan.checkpoint());
                         plan.increment_checkpoint();

@@ -1,0 +1,1 @@
+[something](vscode:///Users/skcd/scratch/sidecar/sidecar/src/agentic/tool/input.rs)
