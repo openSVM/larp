@@ -132,7 +132,7 @@ async fn main() {
         Err(_) => println!("OpenAI API key not found"),
     }
 
-    let terminal_command_generator = TerminalCommandGenerator {
+    let terminal_command_generator = ToolUseGenerator {
         model: LLMType::ClaudeSonnet,
         provider: LLMProvider::Anthropic,
         api_keys: LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(anthropic_api_key)),
@@ -192,12 +192,12 @@ enum SystemState {
 }
 
 pub struct SystemService {
-    terminal_command_generator: TerminalCommandGenerator,
+    terminal_command_generator: ToolUseGenerator,
     chat_history: ChatHistory,
 }
 
 impl SystemService {
-    pub fn new(terminal_command_generator: TerminalCommandGenerator) -> Self {
+    pub fn new(terminal_command_generator: ToolUseGenerator) -> Self {
         Self {
             terminal_command_generator,
             chat_history: ChatHistory::new(10), // for now
@@ -232,8 +232,18 @@ async fn process_input(query: &str, system_service: &mut SystemService) -> Resul
     let state = SystemState::Thinking;
     println!("System state: {:?}", state);
 
-    // Simulate thinking and tool selection
     let selected_tool = rand::random::<u8>() % 2;
+
+    // Simulate thinking and tool selection
+    // let selected_tool = system_service
+    //     .terminal_command_generator
+    //     .select_tool(chat_history)
+    //     .await
+    //     .map_err(CliError::LLMError)?;
+
+    // let as_number = selected_tool.parse::<u8>().map_err(|e| {
+    //     CliError::CommandGenerationError(format!("Failed to parse tool number: {}", e))
+    // })?;
 
     // Transition to appropriate tool state
     let state = match selected_tool {
@@ -316,7 +326,7 @@ fn execute_terminal_command(command: &str) -> std::io::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-pub struct TerminalCommandGenerator {
+pub struct ToolUseGenerator {
     pub model: LLMType,
     pub provider: LLMProvider,
     pub api_keys: LLMProviderAPIKeys,
@@ -325,7 +335,7 @@ pub struct TerminalCommandGenerator {
     pub client: Arc<LLMBroker>,
 }
 
-impl TerminalCommandGenerator {
+impl ToolUseGenerator {
     pub async fn generate_terminal_command(&self, query: &str) -> Result<String, ToolError> {
         let system_message = LLMClientMessage::system(
             "Generate a terminal command based on the user's query. You must respond with only the command, no other text."
@@ -341,20 +351,7 @@ impl TerminalCommandGenerator {
             None,
         );
 
-        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-
-        let res = self
-            .client
-            .stream_completion(
-                self.api_keys.clone(),
-                messages,
-                self.provider.clone(),
-                vec![].into_iter().collect(),
-                sender,
-            )
-            .await
-            .map_err(|e| ToolError::from(e));
-        res
+        self.llm_call(messages).await
     }
 
     pub async fn generate_edit_request(&self, query: &str) -> Result<String, ToolError> {
@@ -384,6 +381,13 @@ impl TerminalCommandGenerator {
             None,
         );
 
+        self.llm_call(messages).await
+    }
+
+    pub async fn llm_call(
+        &self,
+        messages: LLMClientCompletionRequest,
+    ) -> Result<String, ToolError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
 
         let res = self
@@ -399,6 +403,28 @@ impl TerminalCommandGenerator {
             .map_err(|e| ToolError::from(e));
 
         res
+    }
+
+    pub async fn select_tool(&self, chat_history: &ChatHistory) -> Result<String, ToolError> {
+        let system_message = LLMClientMessage::system(
+            "You are a tool selector. Based on the chat history, select the most appropriate tool:
+             1. Terminal (for system commands and operations)
+             2. Edit (for code modifications)
+             3. Task Completed (to indicate that the task is complete)
+             Respond with ONLY the number (1, 2, or 3)."
+                .to_string(),
+        );
+
+        let user_message = LLMClientMessage::user(chat_history.format_for_llm());
+
+        let messages = LLMClientCompletionRequest::new(
+            self.model.to_owned(),
+            vec![system_message.clone(), user_message.clone()],
+            0.2,
+            None,
+        );
+
+        self.llm_call(messages).await
     }
 }
 
