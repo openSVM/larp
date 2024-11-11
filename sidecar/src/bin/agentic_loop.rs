@@ -255,7 +255,8 @@ struct TerminalCommandGenerator {
 impl TerminalCommandGenerator {
     pub async fn generate_terminal_command(&self, query: &str) -> Result<String, ToolError> {
         let system_message = LLMClientMessage::system(
-            "Generate a terminal command to process the following request:".to_string(),
+            "Generate a terminal command. You must respond with only the command, no other text."
+                .to_string(),
         );
 
         let user_message = LLMClientMessage::user(query.to_string());
