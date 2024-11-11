@@ -133,6 +133,8 @@ async fn main() {
         client: Arc::new(llm_broker_clone),
     };
 
+    let system_service = SystemService::new(terminal_command_generator);
+
     println!("Interactive CLI Tool (type 'exit' to quit)");
 
     loop {
@@ -150,7 +152,7 @@ async fn main() {
         }
 
         // Process the input
-        if let Err(e) = process_input(input, &terminal_command_generator).await {
+        if let Err(e) = process_input(input, &system_service).await {
             println!("Error: {:?}", e);
         }
     }
@@ -181,10 +183,33 @@ enum SystemState {
     UsingTool3,
 }
 
-async fn process_input(
-    query: &str,
-    terminal_command_generator: &TerminalCommandGenerator,
-) -> Result<(), CliError> {
+pub struct SystemService {
+    terminal_command_generator: TerminalCommandGenerator,
+    chat_history: ChatHistory,
+}
+
+impl SystemService {
+    pub fn new(terminal_command_generator: TerminalCommandGenerator) -> Self {
+        Self {
+            terminal_command_generator,
+            chat_history: ChatHistory::new(10), // for now
+        }
+    }
+}
+
+async fn process_input(query: &str, system_service: &SystemService) -> Result<(), CliError> {
+    // Add user message to chat history
+    let mut chat_history = system_service.chat_history_mut();
+    chat_history.add_entry(ChatEntry {
+        role: MessageRole::User,
+        content: query.to_string(),
+        tool_used: None,
+        result: None,
+    });
+
+    println!("Current Chat History:");
+    println!("{}", chat_history.format_for_llm());
+
     println!("Received request: {}", query);
 
     // Enter thinking state
@@ -382,5 +407,13 @@ impl ChatHistory {
 
     fn get_context_window(&self, n: usize) -> Vec<&ChatEntry> {
         self.messages.iter().rev().take(n).collect()
+    }
+
+    fn format_for_llm(&self) -> String {
+        self.messages
+            .iter()
+            .map(|m| format!("{}: {}", m.role, m.content))
+            .collect::<Vec<String>>()
+            .join("\n")
     }
 }
