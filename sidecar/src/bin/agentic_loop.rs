@@ -1,4 +1,5 @@
 use std::env;
+use std::fmt::Display;
 use std::process::Command;
 use std::{path::PathBuf, sync::Arc};
 
@@ -133,7 +134,7 @@ async fn main() {
         client: Arc::new(llm_broker_clone),
     };
 
-    let system_service = SystemService::new(terminal_command_generator);
+    let mut system_service = SystemService::new(terminal_command_generator);
 
     println!("Interactive CLI Tool (type 'exit' to quit)");
 
@@ -152,7 +153,7 @@ async fn main() {
         }
 
         // Process the input
-        if let Err(e) = process_input(input, &system_service).await {
+        if let Err(e) = process_input(input, &mut system_service).await {
             println!("Error: {:?}", e);
         }
     }
@@ -195,11 +196,19 @@ impl SystemService {
             chat_history: ChatHistory::new(10), // for now
         }
     }
+
+    pub fn chat_history(&self) -> &ChatHistory {
+        &self.chat_history
+    }
+
+    pub fn chat_history_mut(&mut self) -> &mut ChatHistory {
+        &mut self.chat_history
+    }
 }
 
-async fn process_input(query: &str, system_service: &SystemService) -> Result<(), CliError> {
+async fn process_input(query: &str, system_service: &mut SystemService) -> Result<(), CliError> {
     // Add user message to chat history
-    let mut chat_history = system_service.chat_history_mut();
+    let chat_history = system_service.chat_history_mut();
     chat_history.add_entry(ChatEntry {
         role: MessageRole::User,
         content: query.to_string(),
@@ -208,7 +217,7 @@ async fn process_input(query: &str, system_service: &SystemService) -> Result<()
     });
 
     println!("Current Chat History:");
-    println!("{}", chat_history.format_for_llm());
+    println!("{}", chat_history);
 
     println!("Received request: {}", query);
 
@@ -232,7 +241,8 @@ async fn process_input(query: &str, system_service: &SystemService) -> Result<()
         SystemState::UsingTool1 => {
             println!("Using Tool 1 (terminal)...");
 
-            let terminal_command = terminal_command_generator
+            let terminal_command = system_service
+                .terminal_command_generator
                 .generate_terminal_command(query)
                 .await
                 .map_err(CliError::LLMError)?;
@@ -247,7 +257,8 @@ async fn process_input(query: &str, system_service: &SystemService) -> Result<()
         }
         SystemState::UsingTool2 => {
             println!("Using Tool 2 (edit)...");
-            let edit_request = terminal_command_generator
+            let edit_request = system_service
+                .terminal_command_generator
                 .generate_edit_request(query)
                 .await
                 .map_err(CliError::LLMError)?;
@@ -277,7 +288,7 @@ fn execute_terminal_command(command: &str) -> std::io::Result<String> {
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
 
-struct TerminalCommandGenerator {
+pub struct TerminalCommandGenerator {
     pub model: LLMType,
     pub provider: LLMProvider,
     pub api_keys: LLMProviderAPIKeys,
@@ -372,19 +383,20 @@ enum CliError {
 }
 
 // Add this to your state
-struct ChatHistory {
+pub struct ChatHistory {
     messages: Vec<ChatEntry>,
     max_entries: usize,
 }
 
-struct ChatEntry {
+pub struct ChatEntry {
     role: MessageRole,
     content: String,
     tool_used: Option<SystemState>,
     result: Option<String>, // for tool use results
 }
 
-enum MessageRole {
+#[derive(Debug)]
+pub enum MessageRole {
     User,
     System, // (or assistant)
     Tool,
@@ -412,8 +424,18 @@ impl ChatHistory {
     fn format_for_llm(&self) -> String {
         self.messages
             .iter()
-            .map(|m| format!("{}: {}", m.role, m.content))
+            .map(|m| format!("{:?}: {}", m.role, m.content))
             .collect::<Vec<String>>()
             .join("\n")
+    }
+}
+
+impl Display for ChatHistory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "===History===\n\n{}\n\n===End===\n\n",
+            self.format_for_llm()
+        )
     }
 }
