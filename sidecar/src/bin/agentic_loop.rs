@@ -29,6 +29,8 @@ use sidecar::{
     user_context::types::UserContext,
 };
 
+use clap::{Parser, Subcommand};
+
 fn default_index_dir() -> PathBuf {
     match directories::ProjectDirs::from("ai", "codestory", "sidecar") {
         Some(dirs) => dirs.data_dir().to_owned(),
@@ -107,4 +109,85 @@ async fn main() {
         editor_parsing,
         anthropic_llm_properties.clone(),
     );
+
+    println!("Interactive CLI Tool (type 'exit' to quit)");
+
+    loop {
+        print!("> ");
+        io::stdout().flush().unwrap();
+
+        let mut input = String::new();
+        io::stdin().read_line(&mut input).unwrap();
+
+        let input = input.trim();
+
+        if input == "exit" {
+            println!("Goodbye!");
+            break;
+        }
+
+        // Process the input
+        process_input(input);
+    }
+}
+
+use std::io::{self, Write};
+
+#[derive(Parser)]
+#[command(author, version, about, long_about = None)]
+struct Cli {
+    #[command(subcommand)]
+    command: Option<Commands>,
+}
+
+#[derive(Subcommand, Clone)]
+enum Commands {
+    Request {
+        #[arg(short, long)]
+        query: String,
+    },
+}
+
+#[derive(Debug)]
+enum SystemState {
+    Thinking,
+    UsingTool1,
+    UsingTool2,
+    UsingTool3,
+}
+
+fn process_input(query: &str) {
+    println!("Received request: {}", query);
+
+    // Enter thinking state
+    let state = SystemState::Thinking;
+    println!("System state: {:?}", state);
+
+    // Simulate thinking and tool selection
+    let selected_tool = rand::random::<u8>() % 3;
+
+    // Transition to appropriate tool state
+    let state = match selected_tool {
+        0 => SystemState::UsingTool1,
+        1 => SystemState::UsingTool2,
+        _ => SystemState::UsingTool3,
+    };
+
+    println!("Selected tool state: {:?}", state);
+
+    match state {
+        SystemState::UsingTool1 => {
+            println!("Using Tool 1 to process request...");
+            // Tool 1 specific logic would go here
+        }
+        SystemState::UsingTool2 => {
+            println!("Using Tool 2 to process request...");
+            // Tool 2 specific logic would go here
+        }
+        SystemState::UsingTool3 => {
+            println!("Using Tool 3 to process request...");
+            // Tool 3 specific logic would go here
+        }
+        _ => {}
+    }
 }
