@@ -247,13 +247,27 @@ async fn process_input(query: &str, system_service: &mut SystemService) -> Resul
                 .await
                 .map_err(CliError::LLMError)?;
 
-            dbg!(&terminal_command);
+            let chat_history = system_service.chat_history_mut();
+            // Store the generated command as an assistant response
+            chat_history.add_entry(ChatEntry {
+                role: MessageRole::System,
+                content: format!("Generated terminal command: {}", terminal_command),
+                tool_used: Some(SystemState::UsingTool1),
+                result: None,
+            });
 
             let output = execute_terminal_command(&terminal_command).map_err(CliError::IoError)?;
 
+            // Store the command output as a tool response
+            chat_history.add_entry(ChatEntry {
+                role: MessageRole::Tool,
+                content: output.clone(),
+                tool_used: Some(SystemState::UsingTool1),
+                result: Some(output.clone()),
+            });
+
             println!("Command output: {}", output);
             Ok(())
-            // Tool 1 specific logic would go here
         }
         SystemState::UsingTool2 => {
             println!("Using Tool 2 (edit)...");
@@ -262,12 +276,18 @@ async fn process_input(query: &str, system_service: &mut SystemService) -> Resul
                 .generate_edit_request(query)
                 .await
                 .map_err(CliError::LLMError)?;
-            dbg!(&edit_request);
+
+            let chat_history = system_service.chat_history_mut();
+            // Store the edit request as an assistant response
+            chat_history.add_entry(ChatEntry {
+                role: MessageRole::System,
+                content: format!("Generated edit request: {}", edit_request),
+                tool_used: Some(SystemState::UsingTool2),
+                result: None,
+            });
 
             // this simulates the edit-in-progress experience
-            let mock_generation_message =
-                "Here is the edit request I generated: ".to_string() + &edit_request;
-            println!("{}", mock_generation_message);
+            println!("Edit request: {}", edit_request);
             Ok(())
         }
         SystemState::UsingTool3 => {
