@@ -1,3 +1,5 @@
+use std::env;
+use std::process::Command;
 use std::{path::PathBuf, sync::Arc};
 
 use llm_client::{
@@ -64,12 +66,16 @@ async fn main() {
         LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new("".to_owned()));
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
+    let llm_broker = LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
+        .await
+        .expect("to initialize properly");
+
+    let llm_broker_clone = LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
+        .await
+        .expect("to initialize properly");
+
     let tool_broker = Arc::new(ToolBroker::new(
-        Arc::new(
-            LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
-                .await
-                .expect("to initialize properly"),
-        ),
+        Arc::new(llm_broker),
         Arc::new(CodeEditBroker::new()),
         symbol_broker.clone(),
         Arc::new(TSLanguageParsing::init()),
@@ -109,6 +115,32 @@ async fn main() {
         editor_parsing,
         anthropic_llm_properties.clone(),
     );
+
+    struct TerminalCommandGenerator {
+        pub model: LLMType,
+        pub provider: LLMProvider,
+        pub api_keys: LLMProviderAPIKeys,
+        pub _root_directory: String,
+        pub root_request_id: String,
+        pub client: Arc<LLMBroker>,
+    }
+
+    // ANTHROPIC_API_KEY
+    let api_key = env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "".to_string());
+
+    match env::var("ANTHROPIC_API_KEY") {
+        Ok(key) => println!("API key: {}", key),
+        Err(_) => println!("API key not found"),
+    }
+
+    let terminal_command_generator = TerminalCommandGenerator {
+        model: LLMType::ClaudeSonnet,
+        provider: LLMProvider::Anthropic,
+        api_keys: LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(api_key)),
+        _root_directory: "".to_owned(),
+        root_request_id: "".to_owned(),
+        client: Arc::new(llm_broker_clone),
+    };
 
     println!("Interactive CLI Tool (type 'exit' to quit)");
 
@@ -164,7 +196,7 @@ fn process_input(query: &str) {
     println!("System state: {:?}", state);
 
     // Simulate thinking and tool selection
-    let selected_tool = rand::random::<u8>() % 3;
+    let selected_tool = rand::random::<u8>() % 1;
 
     // Transition to appropriate tool state
     let state = match selected_tool {
@@ -177,7 +209,12 @@ fn process_input(query: &str) {
 
     match state {
         SystemState::UsingTool1 => {
-            println!("Using Tool 1 to process request...");
+            println!("Using Tool 1 (terminal) to process request...");
+
+            let input = "ls";
+            let output = execute_terminal_command(input).unwrap();
+
+            println!("Command output: {}", output);
             // Tool 1 specific logic would go here
         }
         SystemState::UsingTool2 => {
@@ -190,4 +227,11 @@ fn process_input(query: &str) {
         }
         _ => {}
     }
+}
+
+// Simple wrapper that returns Result directly for better error handling
+fn execute_terminal_command(command: &str) -> std::io::Result<String> {
+    let output = Command::new(command).output()?;
+
+    Ok(String::from_utf8_lossy(&output.stdout).into_owned())
 }
