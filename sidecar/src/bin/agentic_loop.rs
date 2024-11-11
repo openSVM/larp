@@ -118,17 +118,24 @@ async fn main() {
     );
 
     // ANTHROPIC_API_KEY
-    let api_key = env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "".to_string());
+    let anthropic_api_key = env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "".to_string());
+
+    let _openai_api_key = env::var("OPENAI_API_KEY").unwrap_or_else(|_| "".to_string());
 
     match env::var("ANTHROPIC_API_KEY") {
-        Ok(key) => println!("API key: {}", key),
-        Err(_) => println!("API key not found"),
+        Ok(key) => println!("Anthropic API key: {}", key),
+        Err(_) => println!("Anthropic API key not found"),
+    }
+
+    match env::var("OPENAI_API_KEY") {
+        Ok(key) => println!("OpenAI API key: {}", key),
+        Err(_) => println!("OpenAI API key not found"),
     }
 
     let terminal_command_generator = TerminalCommandGenerator {
         model: LLMType::ClaudeSonnet,
         provider: LLMProvider::Anthropic,
-        api_keys: LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(api_key)),
+        api_keys: LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(anthropic_api_key)),
         _root_directory: "".to_owned(),
         root_request_id: "".to_owned(),
         client: Arc::new(llm_broker_clone),
@@ -303,6 +310,7 @@ async fn process_input(query: &str, system_service: &mut SystemService) -> Resul
 
 // Simple wrapper that returns Result directly for better error handling
 fn execute_terminal_command(command: &str) -> std::io::Result<String> {
+    println!("Executing command: {}", command);
     let output = Command::new(command).output()?;
 
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
@@ -320,7 +328,7 @@ pub struct TerminalCommandGenerator {
 impl TerminalCommandGenerator {
     pub async fn generate_terminal_command(&self, query: &str) -> Result<String, ToolError> {
         let system_message = LLMClientMessage::system(
-            "Generate a terminal command. You must respond with only the command, no other text."
+            "Generate a terminal command based on the user's query. You must respond with only the command, no other text."
                 .to_string(),
         );
 
@@ -345,14 +353,13 @@ impl TerminalCommandGenerator {
                 sender,
             )
             .await
-            .map_err(ToolError::from);
-
+            .map_err(|e| ToolError::from(e));
         res
     }
 
     pub async fn generate_edit_request(&self, query: &str) -> Result<String, ToolError> {
         let system_message = LLMClientMessage::system(
-            "Generate a code edit request. Make it very short. You must respond with only the edit request, no other text."
+            "Generate a code edit request based on the user's query. Make it very short. You must respond with only the edit request, no other text."
                 .to_string(),
         );
 
@@ -389,7 +396,7 @@ impl TerminalCommandGenerator {
                 sender,
             )
             .await
-            .map_err(ToolError::from);
+            .map_err(|e| ToolError::from(e));
 
         res
     }
@@ -446,7 +453,7 @@ impl ChatHistory {
             .iter()
             .map(|m| format!("{:?}: {}", m.role, m.content))
             .collect::<Vec<String>>()
-            .join("\n")
+            .join("\n\n")
     }
 }
 
