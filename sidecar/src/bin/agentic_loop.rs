@@ -192,7 +192,7 @@ async fn process_input(
     println!("System state: {:?}", state);
 
     // Simulate thinking and tool selection
-    let selected_tool = rand::random::<u8>() % 1;
+    let selected_tool = rand::random::<u8>() % 2;
 
     // Transition to appropriate tool state
     let state = match selected_tool {
@@ -205,7 +205,7 @@ async fn process_input(
 
     match state {
         SystemState::UsingTool1 => {
-            println!("Using Tool 1 (terminal) to process request...");
+            println!("Using Tool 1 (terminal)...");
 
             let terminal_command = terminal_command_generator
                 .generate_terminal_command(query)
@@ -221,8 +221,17 @@ async fn process_input(
             // Tool 1 specific logic would go here
         }
         SystemState::UsingTool2 => {
-            println!("Using Tool 2 to process request...");
-            // Tool 2 specific logic would go here
+            println!("Using Tool 2 (edit)...");
+            let edit_request = terminal_command_generator
+                .generate_edit_request(query)
+                .await
+                .map_err(CliError::LLMError)?;
+            dbg!(&edit_request);
+
+            // this simulates the edit-in-progress experience
+            let mock_generation_message =
+                "Here is the edit request I generated: ".to_string() + &edit_request;
+            println!("{}", mock_generation_message);
             Ok(())
         }
         SystemState::UsingTool3 => {
@@ -260,6 +269,50 @@ impl TerminalCommandGenerator {
         );
 
         let user_message = LLMClientMessage::user(query.to_string());
+
+        let messages = LLMClientCompletionRequest::new(
+            self.model.to_owned(),
+            vec![system_message.clone(), user_message.clone()],
+            0.2,
+            None,
+        );
+
+        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
+
+        let res = self
+            .client
+            .stream_completion(
+                self.api_keys.clone(),
+                messages,
+                self.provider.clone(),
+                vec![].into_iter().collect(),
+                sender,
+            )
+            .await
+            .map_err(ToolError::from);
+
+        res
+    }
+
+    pub async fn generate_edit_request(&self, query: &str) -> Result<String, ToolError> {
+        let system_message = LLMClientMessage::system(
+            "Generate a code edit request. Make it very short. You must respond with only the edit request, no other text."
+                .to_string(),
+        );
+
+        let file_content = format!(
+            r#"
+            fn default_index_dir() -> PathBuf {{
+                match directories::ProjectDirs::from("ai", "codestory", "sidecar") {{
+                    Some(dirs) => dirs.data_dir().to_owned(),
+                    None => "codestory_sidecar".into(),
+                }}
+            }}"#
+        );
+
+        let constructed_query = file_content + "\n\n" + query;
+
+        let user_message = LLMClientMessage::user(constructed_query);
 
         let messages = LLMClientCompletionRequest::new(
             self.model.to_owned(),
