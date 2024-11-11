@@ -2,6 +2,7 @@ use std::env;
 use std::process::Command;
 use std::{path::PathBuf, sync::Arc};
 
+use llm_client::clients::types::{LLMClientCompletionRequest, LLMClientMessage};
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
@@ -11,6 +12,7 @@ use llm_client::{
         OpenAIProvider,
     },
 };
+use sidecar::agentic::tool::errors::ToolError;
 use sidecar::{
     agentic::{
         symbol::{
@@ -58,9 +60,7 @@ async fn main() {
     let _llama_70b_properties = LLMProperties::new(
         LLMType::Llama3_1_70bInstruct,
         LLMProvider::FireworksAI,
-        LLMProviderAPIKeys::FireworksAI(FireworksAPIKey::new(
-            "s8Y7yIXdL0lMeHHgvbZXS77oGtBAHAsfsLviL2AKnzuGpg1n".to_owned(),
-        )),
+        LLMProviderAPIKeys::FireworksAI(FireworksAPIKey::new("".to_owned())),
     );
     let _google_ai_studio_api_keys =
         LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new("".to_owned()));
@@ -116,15 +116,6 @@ async fn main() {
         anthropic_llm_properties.clone(),
     );
 
-    struct TerminalCommandGenerator {
-        pub model: LLMType,
-        pub provider: LLMProvider,
-        pub api_keys: LLMProviderAPIKeys,
-        pub _root_directory: String,
-        pub root_request_id: String,
-        pub client: Arc<LLMBroker>,
-    }
-
     // ANTHROPIC_API_KEY
     let api_key = env::var("ANTHROPIC_API_KEY").unwrap_or_else(|_| "".to_string());
 
@@ -159,7 +150,9 @@ async fn main() {
         }
 
         // Process the input
-        process_input(input);
+        if let Err(e) = process_input(input, &terminal_command_generator).await {
+            println!("Error: {:?}", e);
+        }
     }
 }
 
@@ -188,7 +181,10 @@ enum SystemState {
     UsingTool3,
 }
 
-fn process_input(query: &str) {
+async fn process_input(
+    query: &str,
+    terminal_command_generator: &TerminalCommandGenerator,
+) -> Result<(), CliError> {
     println!("Received request: {}", query);
 
     // Enter thinking state
@@ -211,21 +207,32 @@ fn process_input(query: &str) {
         SystemState::UsingTool1 => {
             println!("Using Tool 1 (terminal) to process request...");
 
-            let input = "ls";
-            let output = execute_terminal_command(input).unwrap();
+            let terminal_command = terminal_command_generator
+                .generate_terminal_command(query)
+                .await
+                .map_err(CliError::LLMError)?;
+
+            dbg!(&terminal_command);
+
+            let output = execute_terminal_command(&terminal_command).map_err(CliError::IoError)?;
 
             println!("Command output: {}", output);
+            Ok(())
             // Tool 1 specific logic would go here
         }
         SystemState::UsingTool2 => {
             println!("Using Tool 2 to process request...");
             // Tool 2 specific logic would go here
+            Ok(())
         }
         SystemState::UsingTool3 => {
             println!("Using Tool 3 to process request...");
             // Tool 3 specific logic would go here
+            Ok(())
         }
-        _ => {}
+        _ => Err(CliError::CommandGenerationError(
+            "Invalid tool state".to_string(),
+        )),
     }
 }
 
@@ -234,4 +241,53 @@ fn execute_terminal_command(command: &str) -> std::io::Result<String> {
     let output = Command::new(command).output()?;
 
     Ok(String::from_utf8_lossy(&output.stdout).into_owned())
+}
+
+struct TerminalCommandGenerator {
+    pub model: LLMType,
+    pub provider: LLMProvider,
+    pub api_keys: LLMProviderAPIKeys,
+    pub _root_directory: String,
+    pub root_request_id: String,
+    pub client: Arc<LLMBroker>,
+}
+
+impl TerminalCommandGenerator {
+    pub async fn generate_terminal_command(&self, query: &str) -> Result<String, ToolError> {
+        let system_message = LLMClientMessage::system(
+            "Generate a terminal command to process the following request:".to_string(),
+        );
+
+        let user_message = LLMClientMessage::user(query.to_string());
+
+        let messages = LLMClientCompletionRequest::new(
+            self.model.to_owned(),
+            vec![system_message.clone(), user_message.clone()],
+            0.2,
+            None,
+        );
+
+        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
+
+        let res = self
+            .client
+            .stream_completion(
+                self.api_keys.clone(),
+                messages,
+                self.provider.clone(),
+                vec![].into_iter().collect(),
+                sender,
+            )
+            .await
+            .map_err(ToolError::from);
+
+        res
+    }
+}
+
+#[derive(Debug)]
+enum CliError {
+    LLMError(ToolError),
+    IoError(std::io::Error),
+    CommandGenerationError(String),
 }
