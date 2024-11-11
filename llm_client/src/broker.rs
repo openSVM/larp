@@ -74,7 +74,7 @@ impl LLMBroker {
             .add_provider(
                 LLMProvider::CodeStory(CodeStoryLLMTypes { llm_type: None }),
                 Box::new(CodeStoryClient::new(
-                    "https://9a64-80-209-142-211.ngrok-free.app", // todo(zi/anton): this is the api_base
+                    "https://codestory-provider-dot-anton-390822.ue.r.appspot.com", // todo(zi/anton): this is the api_base
                 )),
             )
             .add_provider(LLMProvider::FireworksAI, Box::new(FireworksAIClient::new()))
@@ -155,8 +155,8 @@ impl LLMBroker {
             LLMProviderAPIKeys::OpenAIAzureConfig(_) => LLMProvider::OpenAI,
             LLMProviderAPIKeys::TogetherAI(_) => LLMProvider::TogetherAI,
             LLMProviderAPIKeys::LMStudio(_) => LLMProvider::LMStudio,
-            LLMProviderAPIKeys::CodeStory => {
-                LLMProvider::CodeStory(CodeStoryLLMTypes { llm_type: None }) // llm_type is none because Codestory provider determines model based on request
+            LLMProviderAPIKeys::CodeStory(_) => {
+                LLMProvider::CodeStory(CodeStoryLLMTypes { llm_type: None })
             }
             LLMProviderAPIKeys::OpenAICompatible(_) => LLMProvider::OpenAICompatible,
             LLMProviderAPIKeys::Anthropic(_) => LLMProvider::Anthropic,
