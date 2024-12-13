@@ -12,12 +12,17 @@ pub struct AnthropicCodeEditor {
     tool_thinking: String,
 }
 
+const TRUNCATED_MESSAGE: &str =
+    "<response clipped><NOTE>To save on context only part of this file has been shown to you. \
+    You should retry this tool with line numbers of what you are looking for.</NOTE>";
+
 fn maybe_truncate(s: &str) -> String {
     let max_lines = 200; // arbitrary limit to mimic Python code’s truncation
     let lines: Vec<&str> = s.lines().collect();
     if lines.len() > max_lines {
         let mut truncated = lines[..max_lines].join("\n");
-        truncated.push_str("\n... [truncated] ...\n");
+        truncated.push_str("\n... ");
+        truncated.push_str(TRUNCATED_MESSAGE);
         truncated
     } else {
         s.to_string()
