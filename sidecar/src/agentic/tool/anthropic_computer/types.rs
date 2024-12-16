@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use async_trait::async_trait;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FileOperation {
@@ -26,19 +27,16 @@ pub struct AnthropicComputerResponse {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnthropicEditRequest {
-    pub fs_file_path: String,
-    pub editor_url: String,
-    pub changes: String,
-    pub context: Option<String>,
+pub struct StreamUpdate {
+    pub content: String,
     pub language: Option<String>,
+    pub error: Option<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnthropicEditResponse {
-    pub content: String,
-    pub applied_changes: Vec<String>,
-    pub error: Option<String>,
+#[async_trait]
+pub trait StreamProcessor {
+    async fn send_update(&self, update: StreamUpdate) -> Result<(), String>;
+    async fn finalize(&self, final_response: AnthropicComputerResponse) -> Result<String, String>;
 }
 
 impl Default for AnthropicComputerResponse {

@@ -1,43 +1,24 @@
 use async_trait::async_trait;
-use serde_json::json;
 use tokio::sync::mpsc;
 
-use crate::agentic::tool::{Tool, ToolError, ToolOutput};
-use crate::agentic::tool::code_edit::stream::{StreamProcessor, StreamUpdate};
+use crate::agentic::tool::errors::ToolError;
 
-use super::{AnthropicComputerRequest, AnthropicComputerResponse, FileOperation};
+use super::types::{StreamProcessor, StreamUpdate, AnthropicComputerResponse};
 
 pub struct AnthropicStreamProcessor {
-    request: AnthropicComputerRequest,
-    content_buffer: String,
-    language: Option<String>,
-    error: Option<String>,
     tx: mpsc::Sender<StreamUpdate>,
 }
 
 impl AnthropicStreamProcessor {
-    pub fn new(request: AnthropicComputerRequest, tx: mpsc::Sender<StreamUpdate>) -> Self {
-        Self {
-            request,
-            content_buffer: String::new(),
-            language: None,
-            error: None,
-            tx,
-        }
+    pub fn new(tx: mpsc::Sender<StreamUpdate>) -> Self {
+        Self { tx }
     }
 
-    async fn send_update(&mut self) -> Result<(), ToolError> {
-        let response = AnthropicComputerResponse {
-            content: self.content_buffer.clone(),
-            language: self.language.clone(),
-            error: self.error.clone(),
-        };
-
-        self.tx.send(StreamUpdate {
-            data: json!(response),
-            metadata: None,
-            is_final: false,
-        }).await.map_err(|e| ToolError::Other(format!("Failed to send stream update: {}", e)))?;
+    async fn send_update(&self, update: StreamUpdate) -> Result<(), ToolError> {
+        self.tx
+            .send(update)
+            .await
+            .map_err(|e| ToolError::BigSearchError(format!("Failed to send stream update: {}", e)))?;
 
         Ok(())
     }
@@ -45,43 +26,23 @@ impl AnthropicStreamProcessor {
 
 #[async_trait]
 impl StreamProcessor for AnthropicStreamProcessor {
-    async fn process_chunk(&mut self, chunk: String) -> Result<(), ToolError> {
-        match self.request.operation {
-            FileOperation::Open | FileOperation::View => {
-                // For open/view operations, accumulate content
-                self.content_buffer.push_str(&chunk);
-                self.send_update().await?;
-            },
-            FileOperation::Edit => {
-                // For edit operations, process changes incrementally
-                if let Some(changes) = &self.request.changes {
-                    self.content_buffer.push_str(&chunk);
-                    // Process changes will be expanded in streaming implementation
-                    self.send_update().await?;
-                }
-            },
-        }
-
-        Ok(())
+    async fn send_update(&self, update: StreamUpdate) -> Result<(), String> {
+        self.send_update(update)
+            .await
+            .map_err(|e| e.to_string())
     }
 
-    async fn finalize(mut self) -> Result<ToolOutput, ToolError> {
-        // Send final update
-        let final_response = AnthropicComputerResponse {
-            content: self.content_buffer,
-            language: self.language,
-            error: self.error,
+    async fn finalize(&self, final_response: AnthropicComputerResponse) -> Result<String, String> {
+        let final_update = StreamUpdate {
+            content: final_response.content.clone(),
+            language: final_response.language.clone(),
+            error: final_response.error.clone(),
         };
 
-        self.tx.send(StreamUpdate {
-            data: json!(final_response),
-            metadata: None,
-            is_final: true,
-        }).await.map_err(|e| ToolError::Other(format!("Failed to send final update: {}", e)))?;
+        self.send_update(final_update)
+            .await
+            .map_err(|e| e.to_string())?;
 
-        Ok(ToolOutput {
-            data: json!(final_response),
-            metadata: None,
-        })
+        Ok(serde_json::to_string(&final_response).map_err(|e| e.to_string())?)
     }
 }
