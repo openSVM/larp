@@ -3,7 +3,6 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use futures::StreamExt;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
@@ -494,10 +493,11 @@ impl AnthropicCodeEditor {
                         streamed_editor
                             .send_edit_event(
                                 self.editor_url.clone(),
-                                EditedCodeStreamingRequest::new(
-                                    "Computer use operation started".to_owned(),
-                                    params.symbol_identifier.clone(),
-                                    params.root_request_id.clone(),
+                                EditedCodeStreamingRequest::start_edit(
+                                    "computer_use".to_owned(),
+                                    "computer_use".to_owned(),
+                                    Range::default(),
+                                    None,
                                 ),
                             )
                             .await;
@@ -509,10 +509,13 @@ impl AnthropicCodeEditor {
                         streamed_editor
                             .send_edit_event(
                                 self.editor_url.clone(),
-                                EditedCodeStreamingRequest::new(
-                                    status,
-                                    params.symbol_identifier.clone(),
-                                    params.root_request_id.clone(),
+                                EditedCodeStreamingRequest::delta(
+                                    "computer_use".to_owned(),
+                                    "computer_use".to_owned(),
+                                    Range::default(),
+                                    Some(status),
+                                    None,
+                                    None,
                                 ),
                             )
                             .await;
@@ -523,10 +526,11 @@ impl AnthropicCodeEditor {
                         streamed_editor
                             .send_edit_event(
                                 self.editor_url.clone(),
-                                EditedCodeStreamingRequest::new(
-                                    "Computer use operation completed".to_owned(),
-                                    params.symbol_identifier.clone(),
-                                    params.root_request_id.clone(),
+                                EditedCodeStreamingRequest::end(
+                                    "computer_use".to_owned(),
+                                    "computer_use".to_owned(),
+                                    Range::default(),
+                                    None,
                                 ),
                             )
                             .await;
@@ -619,8 +623,8 @@ impl ComputerUseAccumulator {
                         ));
 
                         // Use existing editor read_file method
-                        match self.editor.read_file(&path).await {
-                            Ok(content) => {
+                        match self.editor.read_file(std::path::Path::new(&path)).await {
+                            Ok(_content) => {
                                 self.operation_status = format!("Successfully read file: {}", path);
                                 let _ = self.sender.send(ComputerUseDelta::OperationProgress(
                                     self.operation_status.clone(),
@@ -641,7 +645,7 @@ impl ComputerUseAccumulator {
                         ));
 
                         // Use existing editor write_file method
-                        match self.editor.write_file(&path, &content).await {
+                        match self.editor.write_file(std::path::Path::new(&path), &content).await {
                             Ok(_) => {
                                 self.operation_status = format!("Successfully wrote to file: {}", path);
                                 let _ = self.sender.send(ComputerUseDelta::OperationProgress(

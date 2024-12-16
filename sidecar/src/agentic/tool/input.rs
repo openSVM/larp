@@ -1122,3 +1122,4 @@ impl ToolInput {
     pub fn is_computer_use(&self) -> bool {
         matches!(self, Self::ComputerUse(_))
     }
+}
