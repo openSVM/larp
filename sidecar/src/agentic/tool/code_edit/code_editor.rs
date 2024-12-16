@@ -29,6 +29,16 @@ impl std::fmt::Display for EditorCommand {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[serde(rename_all = "snake_case")]
+pub struct ComputerUseParams {
+    pub operation: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub target_path: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(rename_all = "snake_case")]
 pub struct CodeEditorParameters {
     pub command: EditorCommand,
     pub path: String,
@@ -42,6 +52,8 @@ pub struct CodeEditorParameters {
     pub old_str: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub view_range: Option<Vec<i32>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub computer_use_params: Option<ComputerUseParams>,
 }
 
 impl CodeEditorParameters {
@@ -96,6 +108,24 @@ impl CodeEditorParameters {
                     .collect::<Vec<_>>()
                     .join(",")
             ))
+        }
+        if let Some(computer_use_params) = &self.computer_use_params {
+            remaining_parts.push(format!(
+                r#"<computer_use_params>
+<operation>{}</operation>
+{}{}</computer_use_params>"#,
+                computer_use_params.operation,
+                computer_use_params
+                    .content
+                    .as_ref()
+                    .map(|content| format!("<content>{}</content>", content))
+                    .unwrap_or_default(),
+                computer_use_params
+                    .target_path
+                    .as_ref()
+                    .map(|path| format!("<target_path>{}</target_path>", path))
+                    .unwrap_or_default()
+            ));
         }
         let remainig_parts_str = remaining_parts.join("\n");
         format!(

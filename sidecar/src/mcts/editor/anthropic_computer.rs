@@ -1,9 +1,26 @@
 use std::fmt::Write;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+
+use async_trait::async_trait;
+use futures::StreamExt;
+use tokio::sync::mpsc::UnboundedSender;
 
 use crate::{
     agentic::tool::code_edit::code_editor::{CodeEditorParameters, EditorCommand},
     mcts::action_node::ActionObservation,
+    agentic::{
+        symbol::{
+            identifier::SymbolIdentifier,
+            ui_event::{EditedCodeStreamingRequest, UIEventWithID},
+        },
+        tool::{
+            code_edit::{
+                search_and_replace::StreamedEditingForEditor,
+            },
+            errors::ToolError,
+        },
+    },
 };
 
 use super::error::AnthropicEditorError;
@@ -444,22 +461,84 @@ impl AnthropicCodeEditor {
         &self,
         params: CodeEditorParameters,
     ) -> Result<ActionObservation, AnthropicEditorError> {
-        // Validate required parameters
+        if !self.computer_use_enabled {
+            return Ok(ActionObservation::errored(
+                "Computer use operations are not enabled".to_owned(),
+                Some(self.tool_thinking.to_owned()),
+                true,
+                false,
+            ));
+        }
+
         let file_text = params.file_text.ok_or_else(|| {
             AnthropicEditorError::InputParametersMissing(
                 "Parameter `file_text` required for computer use operations".to_owned(),
             )
         })?;
 
-        // Create a new observation for the computer use operation
-        let message = format!(
-            "Computer use operation completed successfully on file: {:?}",
-            params.path
-        );
+        let (sender, mut receiver) = tokio::sync::mpsc::unbounded_channel();
+        let mut accumulator = ComputerUseAccumulator::new(sender.clone(), self);
+
+        // Set up streaming for UI updates
+        let streamed_editor = StreamedEditingForEditor::new();
+
+        // Add the operation to accumulator
+        accumulator.add_delta(file_text).await;
+
+        // Process the computer use operation
+        let mut operation_result = String::new();
+        while let Some(delta) = receiver.recv().await {
+            match delta {
+                ComputerUseDelta::OperationStarted => {
+                    if self.streaming_enabled {
+                        streamed_editor
+                            .send_edit_event(
+                                self.editor_url.clone(),
+                                EditedCodeStreamingRequest::new(
+                                    "Computer use operation started".to_owned(),
+                                    params.symbol_identifier.clone(),
+                                    params.root_request_id.clone(),
+                                ),
+                            )
+                            .await;
+                    }
+                }
+                ComputerUseDelta::OperationProgress(status) => {
+                    operation_result = status.clone();
+                    if self.streaming_enabled {
+                        streamed_editor
+                            .send_edit_event(
+                                self.editor_url.clone(),
+                                EditedCodeStreamingRequest::new(
+                                    status,
+                                    params.symbol_identifier.clone(),
+                                    params.root_request_id.clone(),
+                                ),
+                            )
+                            .await;
+                    }
+                }
+                ComputerUseDelta::OperationComplete => {
+                    if self.streaming_enabled {
+                        streamed_editor
+                            .send_edit_event(
+                                self.editor_url.clone(),
+                                EditedCodeStreamingRequest::new(
+                                    "Computer use operation completed".to_owned(),
+                                    params.symbol_identifier.clone(),
+                                    params.root_request_id.clone(),
+                                ),
+                            )
+                            .await;
+                    }
+                    break;
+                }
+            }
+        }
 
         Ok(ActionObservation::new(
-            message.to_owned(),
-            message.to_owned(),
+            "Computer use operation completed successfully".to_owned(),
+            operation_result,
             Some(self.tool_thinking.to_owned()),
             false,
         ))
@@ -486,3 +565,187 @@ impl AnthropicCodeEditor {
 
         snippet.into_iter().map(|s| s.to_string()).collect()
     }
+}
+
+#[derive(Debug, Clone)]
+pub enum ComputerUseDelta {
+    OperationStarted,
+    OperationProgress(String),
+    OperationComplete,
+}
+
+#[derive(Debug)]
+pub enum ComputerUseOperation {
+    ReadFile(String),
+    WriteFile(String, String),
+    CreateDirectory(String),
+    DeleteFile(String),
+    Invalid(String),
+}
+
+pub struct ComputerUseAccumulator {
+    answer_up_until_now: String,
+    operation_status: String,
+    sender: UnboundedSender<ComputerUseDelta>,
+    editor: &'static AnthropicCodeEditor,
+}
+
+impl ComputerUseAccumulator {
+    pub fn new(sender: UnboundedSender<ComputerUseDelta>, editor: &'static AnthropicCodeEditor) -> Self {
+        Self {
+            answer_up_until_now: String::new(),
+            operation_status: String::new(),
+            sender,
+            editor,
+        }
+    }
+
+    pub async fn add_delta(&mut self, delta: String) {
+        self.answer_up_until_now.push_str(&delta);
+        self.process_operation().await;
+    }
+
+    async fn process_operation(&mut self) {
+        let _ = self.sender.send(ComputerUseDelta::OperationStarted);
+
+        // Parse and validate the operation
+        match self.parse_operation() {
+            Some(operation) => {
+                match operation {
+                    ComputerUseOperation::ReadFile(path) => {
+                        self.operation_status = format!("Reading file: {}", path);
+                        let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                            self.operation_status.clone(),
+                        ));
+
+                        // Use existing editor read_file method
+                        match self.editor.read_file(&path).await {
+                            Ok(content) => {
+                                self.operation_status = format!("Successfully read file: {}", path);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                            Err(e) => {
+                                self.operation_status = format!("Error reading file {}: {}", path, e);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                        }
+                    }
+                    ComputerUseOperation::WriteFile(path, content) => {
+                        self.operation_status = format!("Writing to file: {}", path);
+                        let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                            self.operation_status.clone(),
+                        ));
+
+                        // Use existing editor write_file method
+                        match self.editor.write_file(&path, &content).await {
+                            Ok(_) => {
+                                self.operation_status = format!("Successfully wrote to file: {}", path);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                            Err(e) => {
+                                self.operation_status = format!("Error writing to file {}: {}", path, e);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                        }
+                    }
+                    ComputerUseOperation::CreateDirectory(path) => {
+                        self.operation_status = format!("Creating directory: {}", path);
+                        let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                            self.operation_status.clone(),
+                        ));
+
+                        // Use tokio's create_dir_all for directory creation
+                        match tokio::fs::create_dir_all(&path).await {
+                            Ok(_) => {
+                                self.operation_status = format!("Successfully created directory: {}", path);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                            Err(e) => {
+                                self.operation_status = format!("Error creating directory {}: {}", path, e);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                        }
+                    }
+                    ComputerUseOperation::DeleteFile(path) => {
+                        self.operation_status = format!("Deleting file: {}", path);
+                        let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                            self.operation_status.clone(),
+                        ));
+
+                        // Use tokio's remove_file for file deletion
+                        match tokio::fs::remove_file(&path).await {
+                            Ok(_) => {
+                                self.operation_status = format!("Successfully deleted file: {}", path);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                            Err(e) => {
+                                self.operation_status = format!("Error deleting file {}: {}", path, e);
+                                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                                    self.operation_status.clone(),
+                                ));
+                            }
+                        }
+                    }
+                    ComputerUseOperation::Invalid(reason) => {
+                        self.operation_status = format!("Invalid operation: {}", reason);
+                        let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                            self.operation_status.clone(),
+                        ));
+                    }
+                }
+            }
+            None => {
+                self.operation_status = "No valid operation found".to_owned();
+                let _ = self.sender.send(ComputerUseDelta::OperationProgress(
+                    self.operation_status.clone(),
+                ));
+            }
+        }
+
+        let _ = self.sender.send(ComputerUseDelta::OperationComplete);
+    }
+
+    fn parse_operation(&self) -> Option<ComputerUseOperation> {
+        // Parse the operation from the accumulated response
+        // Expected format: <operation>:<parameters>
+        // Example: read_file:/path/to/file
+        let input = self.answer_up_until_now.trim();
+        let parts: Vec<&str> = input.split(':').collect();
+
+        match parts.as_slice() {
+            [operation, path] => {
+                let path = path.trim();
+                match *operation {
+                    "read_file" => Some(ComputerUseOperation::ReadFile(path.to_owned())),
+                    "write_file" if parts.len() >= 3 => {
+                        let content = parts[2..].join(":");
+                        Some(ComputerUseOperation::WriteFile(path.to_owned(), content))
+                    }
+                    "create_directory" => Some(ComputerUseOperation::CreateDirectory(path.to_owned())),
+                    "delete_file" => Some(ComputerUseOperation::DeleteFile(path.to_owned())),
+                    _ => Some(ComputerUseOperation::Invalid(format!(
+                        "Unknown operation: {}",
+                        operation
+                    ))),
+                }
+            }
+            _ => Some(ComputerUseOperation::Invalid(
+                "Invalid operation format".to_owned(),
+            )),
+        }
+    }
+}

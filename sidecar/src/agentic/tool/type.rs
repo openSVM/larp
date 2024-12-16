@@ -150,6 +150,8 @@ pub enum ToolType {
     FeedbackGeneration,
     // Code editor tool (this is special for anthropic)
     CodeEditorTool,
+    // Computer use operations (special for anthropic)
+    ComputerUse,
 }
 
 impl std::fmt::Display for ToolType {

@@ -46,6 +46,11 @@ pub enum TextEditStreaming {
         code_block_index: usize,
         reason: String,
     },
+    ComputerUseStreaming {
+        operation: String,
+        content: String,
+        progress: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
