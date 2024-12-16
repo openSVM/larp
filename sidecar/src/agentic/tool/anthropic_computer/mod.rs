@@ -4,7 +4,10 @@ use crate::agentic::tool::Tool;
 use llm_client::broker::LLMBroker;
 
 mod operations;
+mod types;
+
 pub use operations::*;
+pub use types::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AnthropicComputerError {
