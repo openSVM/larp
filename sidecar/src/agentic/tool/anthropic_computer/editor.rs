@@ -1,10 +1,12 @@
 use async_trait::async_trait;
 use serde_json::json;
+use tokio::sync::mpsc;
 
 use crate::agentic::tool::{Tool, ToolError, ToolInput, ToolOutput};
 use crate::agentic::tool::code_edit::code_editor::{CodeEditorParameters, CodeEditorResponse};
+use crate::agentic::tool::code_edit::stream::StreamUpdate;
 
-use super::{AnthropicComputerRequest, AnthropicComputerResponse, FileOperation};
+use super::{AnthropicComputerRequest, AnthropicComputerResponse, FileOperation, AnthropicStreamProcessor};
 
 #[async_trait]
 impl AnthropicComputerTool {
@@ -15,9 +17,23 @@ impl AnthropicComputerTool {
             read_only: request.operation == FileOperation::View,
         };
 
+        // Create streaming channel
+        let (tx, mut rx) = mpsc::channel::<StreamUpdate>(32);
+        let mut processor = AnthropicStreamProcessor::new(request.clone(), tx);
+
+        // Handle streaming updates
+        tokio::spawn(async move {
+            while let Some(update) = rx.recv().await {
+                if update.is_final {
+                    break;
+                }
+                // Process intermediate updates
+            }
+        });
+
         let editor_response: CodeEditorResponse = match request.operation {
             FileOperation::Open | FileOperation::View => {
-                // Handle file opening/viewing through editor
+                // Handle file opening/viewing through editor with streaming
                 let response = self.lsp_open_file.invoke(ToolInput {
                     action: "open".to_string(),
                     data: json!({
@@ -27,13 +43,19 @@ impl AnthropicComputerTool {
                     }),
                 }).await?;
 
-                serde_json::from_value(response.data)
+                // Process response through stream processor
+                processor.process_chunk(response.data.to_string()).await?;
+                let final_output = processor.finalize().await?;
+
+                serde_json::from_value(final_output.data)
                     .map_err(|e| ToolError::InvalidInput(format!("Failed to parse editor response: {}", e)))?
             },
             FileOperation::Edit => {
                 if let Some(changes) = request.changes {
-                    // Process edit request using Anthropic capabilities
-                    // This will be expanded in the streaming support step
+                    // Process edit request using Anthropic capabilities with streaming
+                    processor.process_chunk(changes.clone()).await?;
+                    let final_output = processor.finalize().await?;
+
                     CodeEditorResponse {
                         content: changes,
                         language: None,

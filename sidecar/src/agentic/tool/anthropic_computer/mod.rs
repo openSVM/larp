@@ -6,10 +6,12 @@ use llm_client::broker::LLMBroker;
 mod operations;
 mod types;
 mod editor;
+mod stream;
 
 pub use operations::*;
 pub use types::*;
 pub use editor::*;
+pub use stream::*;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AnthropicComputerError {
