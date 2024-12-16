@@ -11,6 +11,7 @@ pub enum EditorCommand {
     StrReplace,
     Insert,
     UndoEdit,
+    ComputerUse,
 }
 
 impl std::fmt::Display for EditorCommand {
@@ -21,6 +22,7 @@ impl std::fmt::Display for EditorCommand {
             Self::StrReplace => write!(f, "str_replace"),
             Self::Insert => write!(f, "insert"),
             Self::UndoEdit => write!(f, "undo_edit"),
+            Self::ComputerUse => write!(f, "computer_use"),
         }
     }
 }

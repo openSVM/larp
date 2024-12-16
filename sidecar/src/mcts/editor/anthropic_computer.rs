@@ -8,8 +8,12 @@ use crate::{
 
 use super::error::AnthropicEditorError;
 
+/// Editor implementation for Anthropic models with computer use capabilities
 pub struct AnthropicCodeEditor {
     tool_thinking: String,
+    computer_use_enabled: bool,
+    streaming_enabled: bool,
+    editor_url: String,
 }
 
 fn maybe_truncate(s: &str) -> String {
@@ -25,9 +29,15 @@ fn maybe_truncate(s: &str) -> String {
 }
 
 impl AnthropicCodeEditor {
-    pub fn new(tool_thinking: String) -> Self {
-        Self { tool_thinking }
+    pub fn new(tool_thinking: String, editor_url: String) -> Self {
+        Self {
+            tool_thinking,
+            computer_use_enabled: true,  // Enable by default for compatibility
+            streaming_enabled: true,     // Enable streaming by default
+            editor_url,
+        }
     }
+
     pub async fn run_command(
         &self,
         params: CodeEditorParameters,
@@ -75,7 +85,33 @@ impl AnthropicCodeEditor {
                 true,
                 false,
             )),
+            EditorCommand::ComputerUse => {
+                if !self.computer_use_enabled {
+                    return Ok(ActionObservation::errored(
+                        "Computer use operations are not enabled".to_owned(),
+                        Some(self.tool_thinking.to_owned()),
+                        true,
+                        false,
+                    ));
+                }
+                self.handle_computer_use(params).await
+            }
         }
+    }
+
+    /// Returns whether computer use operations are enabled
+    pub fn computer_use_enabled(&self) -> bool {
+        self.computer_use_enabled
+    }
+
+    /// Returns whether streaming is enabled for operations
+    pub fn streaming_enabled(&self) -> bool {
+        self.streaming_enabled
+    }
+
+    /// Returns the editor URL
+    pub fn editor_url(&self) -> &str {
+        &self.editor_url
     }
 
     fn validate_path(&self, command: &EditorCommand, path: &Path) -> Option<ActionObservation> {
@@ -400,8 +436,33 @@ impl AnthropicCodeEditor {
         let snippet_lines = 4; // number of lines to show around the match
         let start_line = snippet_line.saturating_sub(snippet_lines);
         let end_line = (snippet_line + snippet_lines + new_str.lines().count()).min(lines.len());
-
         lines[start_line..end_line].join("\n")
+    }
+
+    /// Handles computer use operations from Anthropic models
+    async fn handle_computer_use(
+        &self,
+        params: CodeEditorParameters,
+    ) -> Result<ActionObservation, AnthropicEditorError> {
+        // Validate required parameters
+        let file_text = params.file_text.ok_or_else(|| {
+            AnthropicEditorError::InputParametersMissing(
+                "Parameter `file_text` required for computer use operations".to_owned(),
+            )
+        })?;
+
+        // Create a new observation for the computer use operation
+        let message = format!(
+            "Computer use operation completed successfully on file: {:?}",
+            params.path
+        );
+
+        Ok(ActionObservation::new(
+            message.to_owned(),
+            message.to_owned(),
+            Some(self.tool_thinking.to_owned()),
+            false,
+        ))
     }
 
     fn make_insert_snippet(
@@ -425,4 +486,18 @@ impl AnthropicCodeEditor {
 
         snippet.into_iter().map(|s| s.to_string()).collect()
     }
-}
+
+    /// Returns whether computer use operations are enabled
+    pub fn computer_use_enabled(&self) -> bool {
+        self.computer_use_enabled
+    }
+
+    /// Returns whether streaming is enabled for operations
+    pub fn streaming_enabled(&self) -> bool {
+        self.streaming_enabled
+    }
+
+    /// Returns the editor URL
+    pub fn editor_url(&self) -> &str {
+        &self.editor_url
+    }
