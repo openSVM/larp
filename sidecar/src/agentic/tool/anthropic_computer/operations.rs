@@ -2,9 +2,8 @@ use async_trait::async_trait;
 use serde_json::json;
 
 use crate::agentic::tool::{Tool, ToolError, ToolInput, ToolOutput};
-use crate::agentic::tool::lsp::open_file::LSPOpenFileRequest;
 
-use super::{AnthropicComputerTool, AnthropicComputerRequest, AnthropicComputerResponse, FileOperation};
+use super::{AnthropicComputerTool, AnthropicComputerRequest};
 
 #[async_trait]
 impl Tool for AnthropicComputerTool {
@@ -12,38 +11,8 @@ impl Tool for AnthropicComputerTool {
         let request: AnthropicComputerRequest = serde_json::from_value(input.data.clone())
             .map_err(|e| ToolError::InvalidInput(format!("Failed to parse request: {}", e)))?;
 
-        let response = match request.operation {
-            FileOperation::Open | FileOperation::View => {
-                // Delegate to LSPOpenFile for file opening/viewing
-                let open_request = LSPOpenFileRequest {
-                    fs_file_path: request.fs_file_path,
-                    editor_url: request.editor_url,
-                    read_only: request.operation == FileOperation::View,
-                };
-
-                let result = self.lsp_open_file.invoke(ToolInput {
-                    action: "open".to_string(),
-                    data: serde_json::to_value(open_request)
-                        .map_err(|e| ToolError::InvalidInput(format!("Failed to serialize open request: {}", e)))?,
-                }).await?;
-
-                AnthropicComputerResponse {
-                    content: result.data.to_string(),
-                    language: None,
-                    error: None,
-                }
-            },
-            FileOperation::Edit => {
-                // Process edit request using Anthropic capabilities
-                // This will be expanded in the streaming support step
-                AnthropicComputerResponse::default()
-            },
-        };
-
-        Ok(ToolOutput {
-            data: json!(response),
-            metadata: None,
-        })
+        // Delegate to editor communication implementation
+        self.send_to_editor(request).await
     }
 
     fn name(&self) -> String {
