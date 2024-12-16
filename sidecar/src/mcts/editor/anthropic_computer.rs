@@ -486,18 +486,3 @@ impl AnthropicCodeEditor {
 
         snippet.into_iter().map(|s| s.to_string()).collect()
     }
-
-    /// Returns whether computer use operations are enabled
-    pub fn computer_use_enabled(&self) -> bool {
-        self.computer_use_enabled
-    }
-
-    /// Returns whether streaming is enabled for operations
-    pub fn streaming_enabled(&self) -> bool {
-        self.streaming_enabled
-    }
-
-    /// Returns the editor URL
-    pub fn editor_url(&self) -> &str {
-        &self.editor_url
-    }
