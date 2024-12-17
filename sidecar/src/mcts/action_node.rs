@@ -1579,6 +1579,10 @@ impl SearchTree {
                 // resetting iteration count here and starting again for the new traj
                 println!("=== RESETTING ITERATION UNIT ===");
                 iteration = 0;
+
+                // print git diff
+                println!("=== GIT DIFF ===");
+                println!("{}", self.root().unwrap().git_diff_from_main());
             } else {
                 break;
             }

@@ -146,7 +146,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     );
                 } else {
                     println!("NO VALID KEY FOUND, TERMINATING");
-                    return Ok::<(), Box<dyn std::error::Error + Send + Sync>>(());
+                    return Ok::<String, Box<dyn std::error::Error + Send + Sync>>("".to_owned());
                 }
 
                 let session_id = format!("{}_{}", run_id.to_string(), index.to_string());
@@ -198,7 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 let mut search_tree = SearchTree::new(
                     expansions,
-                    30,
+                    10, // lowering for faster iters
                     400,
                     Some(5),
                     None,
@@ -217,15 +217,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 );
 
                 search_tree.run_search(message_properties).await;
-                Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
+
+                let diff = search_tree.root().unwrap().git_diff_from_main();
+
+                Ok::<String, Box<dyn std::error::Error + Send + Sync>>(diff)
             })
         })
         .collect();
 
-    // Wait for all tasks to complete
+    let mut final_diffs: Vec<String> = vec![];
     for handle in handles {
-        handle.await??;
+        let diff = handle.await??;
+        final_diffs.push(diff);
     }
+
+    println!("{:?}", final_diffs);
 
     Ok(())
 }
