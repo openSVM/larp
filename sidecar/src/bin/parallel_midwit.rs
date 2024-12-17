@@ -198,7 +198,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 let mut search_tree = SearchTree::new(
                     expansions,
-                    10, // lowering for faster iters
+                    15, // lowering for faster iters
                     400,
                     Some(5),
                     None,
@@ -218,7 +218,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 search_tree.run_search(message_properties).await;
 
-                let diff = search_tree.root().unwrap().git_diff_from_main();
+                let diff = search_tree.git_diff().await.map_err(|e| e.to_string())?;
 
                 Ok::<String, Box<dyn std::error::Error + Send + Sync>>(diff)
             })

@@ -1632,6 +1632,24 @@ impl SearchTree {
         }
     }
 
+    pub async fn git_diff(&self) -> Result<String, Box<dyn std::error::Error>> {
+        let output = tokio::process::Command::new("git")
+            .arg("diff")
+            .current_dir(&self.root_directory)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .output()
+            .await?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            Err(format!("`git diff` command failed: {}", stderr))?
+        }
+
+        let diff = String::from_utf8_lossy(&output.stdout).to_string();
+        Ok(diff)
+    }
+
     fn print_tree(&self) {
         println!("MCTS Tree");
         self.print_node(self.root_node_index, "", true);
