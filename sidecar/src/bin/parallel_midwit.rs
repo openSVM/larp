@@ -72,6 +72,15 @@ fn default_index_dir() -> PathBuf {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = CliArgs::parse();
 
+    const NUM_CLONES: usize = 3;
+    const APPLICATION_NAME: &str = "parallel_midwit";
+
+    let run_id = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clocks to not drift")
+        .as_secs()
+        .to_string();
+
     // Ensure that the default_index_dir exists
     let index_dir = default_index_dir();
     if tokio::fs::metadata(&index_dir).await.is_err() {
@@ -79,15 +88,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         tokio::fs::create_dir_all(&index_dir).await?;
     }
 
-    // Clone the repo paths
-    let cloner = PathCloner::new(&args.repo_location, index_dir);
-    let clone_paths = cloner.clone_paths(3)?;
+    // Clone the repo paths with the run_id
+    let cloner = PathCloner::new(
+        &args.repo_location,
+        index_dir.join(APPLICATION_NAME).join(&run_id),
+    );
+    let clone_paths = cloner.clone_paths(NUM_CLONES)?;
     dbg!(&clone_paths);
 
     let handles: Vec<_> = clone_paths
         .into_iter()
         .enumerate()
         .map(|(index, repo_location)| {
+            let run_id_clone = run_id.clone();
+
             let problem_statement = args.problem_statement.clone();
             let anthropic_api_key = args.anthropic_api_key.clone();
             let openrouter_api_key = args.openrouter_api_key.clone();
@@ -118,11 +132,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let tool_box = Arc::new(ToolBox::new(tool_broker, symbol_broker, editor_parsing));
 
                 let editor_url = "".to_owned();
-                let run_id = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .expect("clocks to not drift")
-                    .as_secs()
-                    .to_string();
 
                 let log_directory;
                 {
@@ -134,7 +143,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     }
                     log_directory = default_index_dir()
                         .join("tool_use")
-                        .join(run_id.to_owned())
+                        .join(run_id_clone.to_owned())
                         .join(index.to_string());
                 }
 
@@ -156,7 +165,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     return Ok::<String, Box<dyn std::error::Error + Send + Sync>>("".to_owned());
                 }
 
-                let session_id = format!("{}_{}", run_id.to_string(), index.to_string());
+                let session_id = format!("{}_{}", run_id_clone.to_string(), index.to_string());
                 println!("session_id:{}", &session_id);
 
                 let initial_exchange_id = 0;
@@ -165,7 +174,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let message_properties = SymbolEventMessageProperties::new(
                     SymbolEventRequestId::new(
                         initial_exchange_id.to_string().to_owned(),
-                        run_id.to_string() + "_" + index.to_string().as_str(),
+                        run_id_clone.to_string() + "_" + index.to_string().as_str(),
                     ),
                     sender.clone(),
                     editor_url,

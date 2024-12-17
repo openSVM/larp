@@ -37,16 +37,10 @@ impl PathCloner {
             .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in directory name"))?;
         println!("Original directory name: {}", original_name);
 
-        let clones_dir = self.index_dir.join(format!("{}_clones", original_name));
-        println!("Creating clones directory at {:?}", clones_dir);
-        if !clones_dir.exists() {
-            fs::create_dir_all(&clones_dir)?;
-        }
-
         // Perform the actual cloning
         let mut cloned_paths = Vec::with_capacity(num_clones);
         for i in 1..=num_clones {
-            let clone_path = clones_dir.join(format!("clone_{}", i));
+            let clone_path = self.index_dir.join(format!("clone_{}", i));
             println!("Creating clone {} at {:?}", i, clone_path);
             fs::create_dir_all(&clone_path)?;
 
