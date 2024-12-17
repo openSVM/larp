@@ -1493,7 +1493,12 @@ impl SearchTree {
                 traj_counter = traj_counter + 1;
                 loop {
                     iteration += 1;
-                    println!("\n--- Traj: {}, Iteration {} ---", traj_counter, iteration);
+                    println!(
+                        "\n--- Run: {} Traj: {}, Iteration {} ---",
+                        message_properties.root_request_id(),
+                        traj_counter,
+                        iteration
+                    );
 
                     // Add tree visualization after each iteration
                     self.print_tree();
