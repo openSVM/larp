@@ -105,22 +105,48 @@ impl TerminalTool {
 impl Tool for TerminalTool {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.is_terminal_command()?;
-        let editor_endpoint = context.editor_url.to_owned() + "/execute_terminal_command";
+        let editor_url = context.editor_url.to_owned();
 
-        let response = self
-            .client
-            .post(editor_endpoint)
-            .body(serde_json::to_string(&context).map_err(|_e| ToolError::SerdeConversionFailed)?)
-            .send()
-            .await
-            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+        // If the editor_url is empty or some known sentinel value, we run commands locally.
+        if editor_url.is_empty() {
+            // Directly run the command locally without altering the signature.
+            let output = std::process::Command::new("sh")
+                .arg("-c")
+                .arg(&context.command)
+                .output()
+                .map_err(|_e| ToolError::ErrorExecutingTerminalCommand)?;
 
-        let terminal_response: TerminalOutput = response
-            .json()
-            .await
-            .map_err(|_e| ToolError::SerdeConversionFailed)?;
+            let stdout = String::from_utf8_lossy(&output.stdout).to_string();
+            let stderr = String::from_utf8_lossy(&output.stderr).to_string();
 
-        Ok(ToolOutput::TerminalCommand(terminal_response))
+            let terminal_response = TerminalOutput {
+                output: format!("{}{}", stdout, stderr),
+            };
+
+            dbg!(&terminal_response);
+
+            return Ok(ToolOutput::TerminalCommand(terminal_response));
+        } else {
+            // Otherwise, fall back to the existing HTTP request-based approach.
+            let editor_endpoint = editor_url + "/execute_terminal_command";
+            let response = self
+                .client
+                .post(editor_endpoint)
+                .body(
+                    serde_json::to_string(&context)
+                        .map_err(|_e| ToolError::SerdeConversionFailed)?,
+                )
+                .send()
+                .await
+                .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+
+            let terminal_response: TerminalOutput = response
+                .json()
+                .await
+                .map_err(|_e| ToolError::SerdeConversionFailed)?;
+
+            Ok(ToolOutput::TerminalCommand(terminal_response))
+        }
     }
 
     // credit Cline.

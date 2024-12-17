@@ -32,6 +32,9 @@ pub enum ToolError {
     #[error("Communication with editor failed")]
     ErrorCommunicatingWithEditor,
 
+    #[error("Error executing terminal command")]
+    ErrorExecutingTerminalCommand,
+
     #[error("Language not supported")]
     NotSupportedLanguage,
 
