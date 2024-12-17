@@ -79,7 +79,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let handles: Vec<_> = repo_locations
         .into_iter()
-        .map(|repo_location| {
+        .enumerate()
+        .map(|(index, repo_location)| {
             let problem_statement = args.problem_statement.clone();
             let anthropic_api_key = args.anthropic_api_key.clone();
             let openrouter_api_key = args.openrouter_api_key.clone();
@@ -124,7 +125,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                             .await
                             .expect("directory creation to not fail");
                     }
-                    log_directory = default_index_dir().join("tool_use").join(run_id.to_owned());
+                    log_directory = default_index_dir()
+                        .join("tool_use")
+                        .join(run_id.to_owned())
+                        .join(index.to_string());
                 }
 
                 let model_configuration: LLMProperties;
@@ -145,7 +149,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     return Ok::<(), Box<dyn std::error::Error + Send + Sync>>(());
                 }
 
-                let session_id = format!("{}", run_id.to_string());
+                let session_id = format!("{}_{}", run_id.to_string(), index.to_string());
                 println!("session_id:{}", &session_id);
 
                 let initial_exchange_id = 0;
@@ -154,7 +158,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 let message_properties = SymbolEventMessageProperties::new(
                     SymbolEventRequestId::new(
                         initial_exchange_id.to_string().to_owned(),
-                        run_id.to_string(),
+                        run_id.to_string() + "_" + index.to_string().as_str(),
                     ),
                     sender.clone(),
                     editor_url,
@@ -213,7 +217,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                 );
 
                 search_tree.run_search(message_properties).await;
-                Ok(())
+                Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
             })
         })
         .collect();
