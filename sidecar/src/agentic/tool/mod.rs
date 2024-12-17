@@ -31,6 +31,7 @@ pub mod jitter;
 pub mod kw_search;
 pub mod lsp;
 pub mod output;
+pub mod path_cloner;
 pub mod plan;
 pub mod ref_filter;
 pub mod repo_map;

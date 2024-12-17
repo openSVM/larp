@@ -18,6 +18,7 @@ use sidecar::{
         tool::{
             broker::{ToolBroker, ToolBrokerConfiguration},
             code_edit::models::broker::CodeEditBroker,
+            path_cloner::path_cloner::PathCloner,
             r#type::ToolType,
         },
     },
@@ -71,13 +72,19 @@ fn default_index_dir() -> PathBuf {
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let args = CliArgs::parse();
 
-    let repo_locations = vec![
-        PathBuf::from("/Users/zi/codestory/website/"),
-        PathBuf::from("/Users/zi/codestory/website_clones/clone_1"),
-        PathBuf::from("/Users/zi/codestory/website_clones/clone_2"),
-    ];
+    // Ensure that the default_index_dir exists
+    let index_dir = default_index_dir();
+    if tokio::fs::metadata(&index_dir).await.is_err() {
+        eprintln!("Index directory does not exist, creating it");
+        tokio::fs::create_dir_all(&index_dir).await?;
+    }
 
-    let handles: Vec<_> = repo_locations
+    // Clone the repo paths
+    let cloner = PathCloner::new(&args.repo_location);
+    let clone_paths = cloner.clone_paths(3)?;
+    dbg!(&clone_paths);
+
+    let handles: Vec<_> = clone_paths
         .into_iter()
         .enumerate()
         .map(|(index, repo_location)| {
