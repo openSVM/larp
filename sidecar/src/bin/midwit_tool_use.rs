@@ -166,7 +166,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         0.8,         // depth_weight
         0.0,         // depth_bonus_factor
         50.0,        // high_value_threshold
-        0.0,         // low_value_threshold
+        0.0,         // low_value_threshold - termination condition
         75.0,        // very_high_value_threshold
         50.0,        // high_value_leaf_bonus_constant
         20.0,        // high_value_bad_children_bonus_constant
