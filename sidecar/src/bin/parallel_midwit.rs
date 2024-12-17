@@ -105,7 +105,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
             let problem_statement = args.problem_statement.clone();
             let anthropic_api_key = args.anthropic_api_key.clone();
             let openrouter_api_key = args.openrouter_api_key.clone();
-            let timeout = args.timeout;
+            // let timeout = args.timeout;
             let repo_name = args.repo_name.clone();
 
             tokio::spawn(async move {
@@ -162,10 +162,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     );
                 } else {
                     println!("NO VALID KEY FOUND, TERMINATING");
-                    return Ok::<(String, PathBuf), Box<dyn std::error::Error + Send + Sync>>((
-                        "".to_owned(),
-                        repo_location,
-                    ));
+                    return Ok::<(String, f32, PathBuf), Box<dyn std::error::Error + Send + Sync>>(
+                        ("".to_owned(), 0.0, repo_location),
+                    );
                 }
 
                 let session_id = format!("{}_{}", run_id_clone.to_string(), index.to_string());
@@ -239,26 +238,38 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 let diff = search_tree.git_diff().await.map_err(|e| e.to_string())?;
 
-                Ok::<(String, PathBuf), Box<dyn std::error::Error + Send + Sync>>((
+                // not sure how much we wish to depend on this
+                let mean_reward =
+                    search_tree.calculate_mean_reward(search_tree.index_to_node.len() - 1);
+                println!("Mean reward: {}", mean_reward);
+
+                Ok::<(String, f32, PathBuf), Box<dyn std::error::Error + Send + Sync>>((
                     diff,
+                    mean_reward,
                     repo_location,
                 ))
             })
         })
         .collect();
 
-    let mut results: Vec<(String, PathBuf)> = vec![];
+    let mut results: Vec<(String, f32, PathBuf)> = vec![];
     for handle in handles {
-        let (diff, repo_location) = handle.await??;
-        results.push((diff, repo_location));
+        let (diff, mean_reward, repo_location) = handle.await??;
+        results.push((diff, mean_reward, repo_location));
     }
 
-    for (i, (diff, path)) in results.iter().enumerate() {
+    for (i, (diff, mean_reward, path)) in results.iter().enumerate() {
         println!("==================== Diff #{} ====================", i + 1);
         println!("Path: {:?}", path);
         println!("{}", diff);
+        println!("Mean reward: {}", mean_reward);
         println!();
     }
+
+    // yup, another. lol jk it's the same one
+    let yet_another_anthropic_api_key = args.anthropic_api_key.clone();
+
+    // consider putting up to LLM to summarise work, and propose best option.
 
     // rm -rf the entire /parallel_midwit directory to save your hard drive from intensely wasteful cloning
 
