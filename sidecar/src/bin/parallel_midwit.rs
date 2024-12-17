@@ -80,7 +80,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     }
 
     // Clone the repo paths
-    let cloner = PathCloner::new(&args.repo_location);
+    let cloner = PathCloner::new(&args.repo_location, index_dir);
     let clone_paths = cloner.clone_paths(3)?;
     dbg!(&clone_paths);
 
@@ -238,7 +238,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         final_diffs.push(diff);
     }
 
-    println!("{:?}", final_diffs);
+    for (i, diff) in final_diffs.iter().enumerate() {
+        println!("==================== Diff #{} ====================", i + 1);
+        println!("{}", diff);
+        println!();
+    }
 
     Ok(())
 }

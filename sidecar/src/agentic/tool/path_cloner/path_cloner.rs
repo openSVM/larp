@@ -4,13 +4,15 @@ use std::path::{Path, PathBuf};
 
 pub struct PathCloner {
     original: PathBuf,
+    index_dir: PathBuf,
 }
 
 impl PathCloner {
     /// Create a new PathCloner from the given directory path.
-    pub fn new<P: AsRef<Path>>(original: P) -> Self {
+    pub fn new<P: AsRef<Path>>(original: P, index_dir: PathBuf) -> Self {
         PathCloner {
             original: original.as_ref().to_path_buf(),
+            index_dir,
         }
     }
 
@@ -35,12 +37,7 @@ impl PathCloner {
             .ok_or_else(|| anyhow::anyhow!("Invalid UTF-8 in directory name"))?;
         println!("Original directory name: {}", original_name);
 
-        // Determine the parent directory and create a clones directory
-        let parent = self
-            .original
-            .parent()
-            .ok_or_else(|| anyhow::anyhow!("No parent directory found"))?;
-        let clones_dir = parent.join(format!("{}_clones", original_name));
+        let clones_dir = self.index_dir.join(format!("{}_clones", original_name));
         println!("Creating clones directory at {:?}", clones_dir);
         if !clones_dir.exists() {
             fs::create_dir_all(&clones_dir)?;
