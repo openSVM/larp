@@ -162,7 +162,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     );
                 } else {
                     println!("NO VALID KEY FOUND, TERMINATING");
-                    return Ok::<String, Box<dyn std::error::Error + Send + Sync>>("".to_owned());
+                    return Ok::<(String, PathBuf), Box<dyn std::error::Error + Send + Sync>>((
+                        "".to_owned(),
+                        repo_location,
+                    ));
                 }
 
                 let session_id = format!("{}_{}", run_id_clone.to_string(), index.to_string());
@@ -236,22 +239,28 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 let diff = search_tree.git_diff().await.map_err(|e| e.to_string())?;
 
-                Ok::<String, Box<dyn std::error::Error + Send + Sync>>(diff)
+                Ok::<(String, PathBuf), Box<dyn std::error::Error + Send + Sync>>((
+                    diff,
+                    repo_location,
+                ))
             })
         })
         .collect();
 
-    let mut final_diffs: Vec<String> = vec![];
+    let mut results: Vec<(String, PathBuf)> = vec![];
     for handle in handles {
-        let diff = handle.await??;
-        final_diffs.push(diff);
+        let (diff, repo_location) = handle.await??;
+        results.push((diff, repo_location));
     }
 
-    for (i, diff) in final_diffs.iter().enumerate() {
+    for (i, (diff, path)) in results.iter().enumerate() {
         println!("==================== Diff #{} ====================", i + 1);
+        println!("Path: {:?}", path);
         println!("{}", diff);
         println!();
     }
+
+    // rm -rf the entire /parallel_midwit directory to save your hard drive from intensely wasteful cloning
 
     Ok(())
 }
