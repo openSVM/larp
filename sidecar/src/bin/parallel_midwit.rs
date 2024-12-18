@@ -2,7 +2,11 @@ use anyhow::Result;
 use clap::Parser;
 use llm_client::{
     broker::LLMBroker,
-    clients::types::LLMType,
+    clients::{
+        anthropic::AnthropicClient,
+        open_router::OpenRouterClient,
+        types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
+    },
     config::LLMBrokerConfiguration,
     provider::{
         AnthropicAPIKey, GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys, OpenRouterAPIKey,
@@ -238,7 +242,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
                 let diff = search_tree.git_diff().await.map_err(|e| e.to_string())?;
 
-                // not sure how much we wish to depend on this
+                // not sure how much we wish to depend on this - currently bugged at always 0
                 let mean_reward =
                     search_tree.calculate_mean_reward(search_tree.index_to_node.len() - 1);
                 println!("Mean reward: {}", mean_reward);
@@ -266,10 +270,94 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
         println!();
     }
 
-    // yup, another. lol jk it's the same one
-    let yet_another_anthropic_api_key = args.anthropic_api_key.clone();
+    // Analyze diffs using LLM
+    let llm_broker = Arc::new(
+        LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
+            .await
+            .expect("to initialize properly"),
+    );
 
-    // consider putting up to LLM to summarise work, and propose best option.
+    let mut diffs_prompt = String::from("I have multiple solutions to a coding problem. Please analyze these diffs and tell me which one is the best solution and why:\n\n");
+
+    for (i, (diff, mean_reward, path)) in results.iter().enumerate() {
+        diffs_prompt.push_str(&format!(
+            "Solution #{} (Mean reward: {}):\nPath: {:?}\n{}\n\n",
+            i + 1,
+            mean_reward,
+            path,
+            diff
+        ));
+    }
+
+    let messages = vec![LLMClientMessage::user(diffs_prompt)];
+    let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
+
+    let model_configuration = if let Some(anthropic_key) = args.anthropic_api_key.clone() {
+        LLMProperties::new(
+            LLMType::ClaudeSonnet,
+            LLMProvider::Anthropic,
+            LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(anthropic_key)),
+        )
+    } else if let Some(open_router_key) = args.openrouter_api_key.clone() {
+        LLMProperties::new(
+            LLMType::ClaudeSonnet,
+            LLMProvider::OpenRouter,
+            LLMProviderAPIKeys::OpenRouter(OpenRouterAPIKey::new(open_router_key)),
+        )
+    } else {
+        println!("No valid API key found for analysis");
+        return Ok(());
+    };
+
+    let analysis_result = if model_configuration.provider().is_anthropic_api_key() {
+        AnthropicClient::new()
+            .stream_completion_with_tool(
+                model_configuration.api_key().clone(),
+                LLMClientCompletionRequest::new(
+                    model_configuration.llm().clone(),
+                    messages,
+                    0.2,
+                    None,
+                ),
+                vec![
+                    ("event_type".to_owned(), "diff_analysis".to_owned()),
+                    ("run_id".to_owned(), run_id.clone()),
+                ]
+                .into_iter()
+                .collect(),
+                sender,
+            )
+            .await
+    } else {
+        OpenRouterClient::new()
+            .stream_completion_with_tool(
+                model_configuration.api_key().clone(),
+                LLMClientCompletionRequest::new(
+                    model_configuration.llm().clone(),
+                    messages,
+                    0.2,
+                    None,
+                ),
+                vec![
+                    ("event_type".to_owned(), "diff_analysis".to_owned()),
+                    ("run_id".to_owned(), run_id.clone()),
+                ]
+                .into_iter()
+                .collect(),
+                sender,
+            )
+            .await
+    };
+
+    match analysis_result {
+        Ok((analysis, _)) => {
+            println!("\n==================== Analysis ====================");
+            println!("{}", analysis);
+        }
+        Err(e) => {
+            println!("Error analyzing diffs: {:?}", e);
+        }
+    }
 
     // rm -rf the entire /parallel_midwit directory to save your hard drive from intensely wasteful cloning
 
