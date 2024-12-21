@@ -242,8 +242,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         // now we also want to create the trajs file
         // for the trajs we will do the following:
         // - cap the maximum results we will show in the instance_id to 5
-        // - always pick the one which has been resolved and the one we are using
-        // at the very end as the selection result
         // - for the traj itself we also want to show the mcts tree at the very top
         // followed by all the steps the agent took and verbosly
         // - as a separator for the trajs we will put =================================== START OF TRAJECTORY ===================================
@@ -252,11 +250,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut traj_content = vec![];
 
         if resolved {
-            // pick the resolved one over here for the all_preds.jsonl
-            let tree_instance = tree_with_reward
-                .iter()
-                .find(|tree_instance| tree_instance.0 .1)
-                .expect("to work");
+            let tree_with_reward_len = tree_with_reward.len();
+            let tree_instance = tree_with_reward.get(0).expect("to exist");
             let instance_run_id = &tree_instance.0 .0;
             let patch = &tree_instance.0 .3;
             all_preds_content.push(serde_json::json!({
