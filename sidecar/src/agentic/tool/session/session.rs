@@ -2967,6 +2967,12 @@ Terminal output: {}"#,
                     .map_err(|e| SymbolError::ToolError(e))?
                     .get_search_file_content_with_regex()
                     .ok_or(SymbolError::WrongToolOutput)?;
+
+                // if the cancellation token is set, then we should not update
+                // our state over here with the broken terminal output
+                if message_properties.cancellation_token().is_cancelled() {
+                    return Ok(self);
+                }
                 let response = response.response();
                 let _ =
                     message_properties
