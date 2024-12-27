@@ -38,6 +38,7 @@ impl GoogleAIStdioClient {
         match model {
             LLMType::GeminiPro => Some("gemini-1.5-pro".to_owned()),
             LLMType::GeminiProFlash => Some("gemini-1.5-flash".to_owned()),
+            LLMType::Custom(llm_name) => Some(llm_name.to_owned()),
             _ => None,
         }
     }
