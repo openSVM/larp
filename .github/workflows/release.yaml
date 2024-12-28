@@ -174,5 +174,5 @@ jobs:
         ls -l "./sidecar.zip"
 
         # Copy with verbose flag
-        gsutil -v cp "./sidecar.zip" "gs://sidecar-bin/${SPECIFIC_VERSION_PATH}"
-        gsutil -v cp "./sidecar.zip" "gs://sidecar-bin/${LATEST_VERSION_PATH}"
+        gsutil cp "./sidecar.zip" "gs://sidecar-bin/${SPECIFIC_VERSION_PATH}"
+        gsutil cp "./sidecar.zip" "gs://sidecar-bin/${LATEST_VERSION_PATH}"
