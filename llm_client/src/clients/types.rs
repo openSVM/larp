@@ -68,6 +68,10 @@ pub enum LLMType {
     GeminiPro,
     /// Gemini Pro Flash model
     GeminiProFlash,
+    /// Gemini 2.0 Flash experimental
+    Gemini2_0FlashExperimental,
+    /// Gemini 2.0 Flash thinking experimental
+    Gemini2_0FlashThinkingExperimental,
     /// Custom model type with a specified name
     Custom(String),
 }
@@ -122,6 +126,10 @@ impl<'de> Deserialize<'de> for LLMType {
                     "PPLXSonnetSmall" => Ok(LLMType::PPLXSonnetSmall),
                     "CohereRerankV3" => Ok(LLMType::CohereRerankV3),
                     "GeminiPro1.5" => Ok(LLMType::GeminiPro),
+                    "gemini-2.0-flash-exp" => Ok(LLMType::Gemini2_0FlashExperimental),
+                    "gemini-2.0-flash-thinking-exp-1219" => {
+                        Ok(LLMType::Gemini2_0FlashThinkingExperimental)
+                    }
                     "Llama3_8bInstruct" => Ok(LLMType::Llama3_8bInstruct),
                     "Llama3_1_8bInstruct" => Ok(LLMType::Llama3_1_8bInstruct),
                     "Llama3_1_70bInstruct" => Ok(LLMType::Llama3_1_70bInstruct),
@@ -213,6 +221,10 @@ impl fmt::Display for LLMType {
             LLMType::CohereRerankV3 => write!(f, "CohereRerankV3"),
             LLMType::Llama3_8bInstruct => write!(f, "Llama3_8bInstruct"),
             LLMType::GeminiPro => write!(f, "GeminiPro1.5"),
+            LLMType::Gemini2_0FlashExperimental => write!(f, "gemini-2.0-flash-exp"),
+            LLMType::Gemini2_0FlashThinkingExperimental => {
+                write!(f, "gemini-2.0-flash-thinking-exp-1219")
+            }
             LLMType::Gpt4O => write!(f, "Gpt4O"),
             LLMType::GeminiProFlash => write!(f, "GeminiProFlash"),
             LLMType::DeepSeekCoderV2 => write!(f, "DeepSeekCoderV2"),
