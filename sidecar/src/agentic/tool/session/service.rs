@@ -405,14 +405,16 @@ impl SessionService {
             Some(repo_name),
         );
 
-        session = session.human_message_tool_use(
-            exchange_id.to_owned(),
-            user_message.to_owned(),
-            all_files,
-            open_files,
-            shell,
-            UserContext::default(),
-        );
+        session = session
+            .human_message_tool_use(
+                exchange_id.to_owned(),
+                user_message.to_owned(),
+                all_files,
+                open_files,
+                shell,
+                UserContext::default(),
+            )
+            .await;
         println!("session_service::session_human_message_tool_use");
         let _ = self.save_to_storage(&session).await;
 
@@ -570,14 +572,16 @@ impl SessionService {
             None,
         );
 
-        session = session.human_message_tool_use(
-            exchange_id.to_owned(),
-            user_message.to_owned(),
-            all_files,
-            open_files,
-            shell,
-            user_context,
-        );
+        session = session
+            .human_message_tool_use(
+                exchange_id.to_owned(),
+                user_message.to_owned(),
+                all_files,
+                open_files,
+                shell,
+                user_context,
+            )
+            .await;
         let _ = self.save_to_storage(&session).await;
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());

@@ -1,7 +1,11 @@
 //! We can create a new session over here and its composed of exchanges
 //! The exchanges can be made by the human or the agent
 
-use std::{collections::HashMap, sync::Arc, time::Duration};
+use std::{
+    collections::{HashMap, HashSet},
+    sync::Arc,
+    time::Duration,
+};
 
 use futures::StreamExt;
 use tokio::io::AsyncWriteExt;
@@ -891,7 +895,7 @@ impl Session {
         self
     }
 
-    pub fn human_message_tool_use(
+    pub async fn human_message_tool_use(
         mut self,
         exchange_id: String,
         human_message: String,
@@ -909,11 +913,19 @@ impl Session {
 {}
 </visible_files>
 </editor_status>
+<user_provided_context>
+{}
+</user_provided_context>
 <user_query>
 {}
 </user_query>"#,
             all_files.join("\n"),
             open_files.join("\n"),
+            user_context
+                .clone()
+                .to_xml(HashSet::default())
+                .await
+                .unwrap_or_default(),
             human_message
         );
         let exchange = Exchange::human_chat(
