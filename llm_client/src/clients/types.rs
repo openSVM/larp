@@ -126,6 +126,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "Llama3_1_8bInstruct" => Ok(LLMType::Llama3_1_8bInstruct),
                     "Llama3_1_70bInstruct" => Ok(LLMType::Llama3_1_70bInstruct),
                     "Gpt4O" => Ok(LLMType::Gpt4O),
+                    "gpt-4o" => Ok(LLMType::Gpt4O),
                     "GeminiProFlash" => Ok(LLMType::GeminiProFlash),
                     "DeepSeekCoderV2" => Ok(LLMType::DeepSeekCoderV2),
                     "o1-preview" => Ok(LLMType::O1Preview),

@@ -3003,6 +3003,11 @@ Terminal output: {}"#,
                     .map_err(|e| SymbolError::ToolError(e))?
                     .terminal_command()
                     .ok_or(SymbolError::WrongToolOutput)?;
+                // if the cancellation token is set, then we should not update
+                // our state over here with the broken terminal output
+                if message_properties.cancellation_token().is_cancelled() {
+                    return Ok(self);
+                }
                 let output = tool_output.output().to_owned();
                 let _ =
                     message_properties
