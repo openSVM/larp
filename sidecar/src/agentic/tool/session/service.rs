@@ -507,7 +507,6 @@ impl SessionService {
         Ok(())
     }
 
-    /// TODO(skcd): Pick up the integration from here for the tool use
     pub async fn tool_use_agentic(
         &self,
         session_id: String,
@@ -629,8 +628,6 @@ impl SessionService {
                     )
                     .await
             };
-
-            println!("tool_use_output::{:?}", tool_use_output);
 
             match tool_use_output {
                 Ok(AgentToolUseOutput::Success((tool_input_partial, new_session))) => {
