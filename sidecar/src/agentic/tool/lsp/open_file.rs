@@ -250,8 +250,7 @@ Usage:
 <fs_file_path>
 File path here
 </fs_file_path>
-</read_file>
-"#
+</read_file>"#
         )
     }
 

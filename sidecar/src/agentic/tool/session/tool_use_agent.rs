@@ -438,7 +438,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
     }
 
     fn system_message(&self, context: &ToolUseAgentInput) -> String {
-        let tool_descriptions = context.tool_descriptions.join("\n");
+        let tool_descriptions = context.tool_descriptions.join("\n\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
         let default_shell = self.shell.to_owned();
