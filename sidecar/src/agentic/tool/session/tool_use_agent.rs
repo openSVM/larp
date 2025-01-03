@@ -75,6 +75,7 @@ pub struct ToolUseAgentInput {
     // pass in the messages
     session_messages: Vec<SessionChatMessage>,
     tool_descriptions: Vec<String>,
+    tool_format_reminder: Vec<String>,
     pending_spawned_process_output: Option<String>,
     symbol_event_message_properties: SymbolEventMessageProperties,
 }
@@ -83,12 +84,14 @@ impl ToolUseAgentInput {
     pub fn new(
         session_messages: Vec<SessionChatMessage>,
         tool_descriptions: Vec<String>,
+        tool_format_reminder: Vec<String>,
         pending_spawned_process_output: Option<String>,
         symbol_event_message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
             session_messages,
             tool_descriptions,
+            tool_format_reminder,
             pending_spawned_process_output,
             symbol_event_message_properties,
         }
@@ -1038,6 +1041,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 }
             })
             .collect::<Vec<_>>();
+
+        // Add a reminder about the format of the tools
+        previous_messages.push(LLMClientMessage::user(format!(
+            r#"## Reminder about the format of the tool:
+{}"#,
+            input.tool_format_reminder.join("\n\n")
+        )));
 
         // anthropic allows setting up to 4 cache points, we are going to be more
         // lax here and set 3, since system_messgae takes 1 slot

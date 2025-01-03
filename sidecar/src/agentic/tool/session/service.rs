@@ -528,38 +528,42 @@ impl SessionService {
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
-        let mut session = if let Ok(session) = self.load_from_storage(storage_path.to_owned()).await
-        {
-            println!(
-                "session_service::load_from_storage_ok::session_id({})",
-                &session_id
-            );
-            session
-        } else {
-            self.create_new_session_with_tools(
-                &session_id,
-                project_labels.to_vec(),
-                repo_ref.clone(),
-                storage_path,
-                vec![
-                    ToolType::ListFiles,
-                    ToolType::SearchFileContentWithRegex,
-                    ToolType::OpenFile,
-                    if is_midwit_tool_agent {
-                        ToolType::CodeEditorTool
-                    } else {
-                        ToolType::CodeEditing
-                    },
-                    ToolType::LSPDiagnostics,
-                    // disable for testing
-                    ToolType::AskFollowupQuestions,
-                    ToolType::AttemptCompletion,
-                    ToolType::RepoMapGeneration,
-                    ToolType::TerminalCommand,
-                ],
-                UserContext::default(),
-            )
-        };
+        let mut session =
+            if let Ok(session) = self.load_from_storage(storage_path.to_owned()).await {
+                println!(
+                    "session_service::load_from_storage_ok::session_id({})",
+                    &session_id
+                );
+                session
+            } else {
+                self.create_new_session_with_tools(
+                    &session_id,
+                    project_labels.to_vec(),
+                    repo_ref.clone(),
+                    storage_path,
+                    vec![],
+                    UserContext::default(),
+                )
+            }
+            // always update the tools over here, no matter what the session had before
+            // this is essential because the same session might be crossing over from
+            // a chat or edit
+            .set_tools(vec![
+                ToolType::ListFiles,
+                ToolType::SearchFileContentWithRegex,
+                ToolType::OpenFile,
+                if is_midwit_tool_agent {
+                    ToolType::CodeEditorTool
+                } else {
+                    ToolType::CodeEditing
+                },
+                ToolType::LSPDiagnostics,
+                // disable for testing
+                ToolType::AskFollowupQuestions,
+                ToolType::AttemptCompletion,
+                ToolType::RepoMapGeneration,
+                ToolType::TerminalCommand,
+            ]);
 
         // os can be passed over here safely since we can assume the sidecar is running
         // close to the vscode server

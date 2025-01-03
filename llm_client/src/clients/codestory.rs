@@ -392,7 +392,6 @@ impl LLMClient for CodeStoryClient {
         self.stream_completion(api_key, request, sender).await
     }
 
-    // here...
     async fn stream_completion(
         &self,
         api_key: LLMProviderAPIKeys,
