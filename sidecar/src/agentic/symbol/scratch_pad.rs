@@ -503,9 +503,9 @@ impl ScratchPadAgent {
         let start_instant = std::time::Instant::now();
         let mut input_event = SymbolInputEvent::new(
             user_context,
-            LLMType::ClaudeSonnet,
-            LLMProvider::Anthropic,
-            LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new("".to_owned())),
+            message_properties.llm_properties().llm().clone(),
+            message_properties.llm_properties().provider().clone(),
+            message_properties.llm_properties().api_key().clone(),
             user_query.to_owned(),
             edit_request_id.to_owned(),
             edit_request_id,
