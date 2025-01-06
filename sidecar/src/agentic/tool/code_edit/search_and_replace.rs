@@ -1364,48 +1364,7 @@ fn get_range_for_search_block(
 
 #[cfg(test)]
 mod tests {
-    use crate::agentic::tool::{
-        errors::ToolError, input::ToolInput, lsp::open_file::OpenFileResponse, output::ToolOutput,
-        r#type::Tool,
-    };
-
     use super::SearchAndReplaceAccumulator;
-    use async_trait::async_trait;
-
-    struct CacheFileOutput {
-        content: String,
-    }
-
-    #[async_trait]
-    impl Tool for CacheFileOutput {
-        async fn invoke(&self, _input: ToolInput) -> Result<ToolOutput, ToolError> {
-            Ok(ToolOutput::file_open(OpenFileResponse::new(
-                "something".to_owned(),
-                self.content.to_owned(),
-                true,
-                "something".to_owned(),
-            )))
-        }
-
-        fn tool_description(&self) -> String {
-            "".to_owned()
-        }
-
-        fn tool_input_format(&self) -> String {
-            "".to_owned()
-        }
-
-        fn get_evaluation_criteria(&self, trajectory_length: usize) -> Vec<String> {
-            vec![]
-        }
-
-        fn get_reward_scale(
-            &self,
-            _trajectory_length: usize,
-        ) -> Vec<crate::agentic::tool::r#type::ToolRewardScale> {
-            vec![]
-        }
-    }
 
     /// TODO(skcd): Broken test here to debug multiple search and replace blocks being
     /// part of the same edit
