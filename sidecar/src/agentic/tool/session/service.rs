@@ -585,9 +585,11 @@ impl SessionService {
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
         let mut human_message_ticker = 0;
+        let mut previous_failure = false;
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
         loop {
+            println!("tool_use_agentic::looping_again");
             let _ = self.save_to_storage(&session).await;
             let tool_exchange_id = self
                 .tool_box
@@ -606,6 +608,16 @@ impl SessionService {
             self.track_exchange(&session_id, &tool_exchange_id, cancellation_token.clone())
                 .await;
 
+            // update the setting for the tool agent
+            let tool_agent = if previous_failure {
+                tool_agent.clone().set_temperature(0.4)
+            } else {
+                tool_agent.clone()
+            };
+
+            // reset all dynamic properties here, starting with previous_failure
+            previous_failure = false;
+
             let tool_use_output = session
                 // the clone here is pretty bad but its the easiest and the sanest
                 // way to keep things on the happy path
@@ -614,7 +626,7 @@ impl SessionService {
                     tool_box.clone(),
                     tool_exchange_id.to_owned(),
                     exchange_id.to_owned(),
-                    tool_agent.clone(),
+                    tool_agent,
                     message_properties.clone(),
                 )
                 .await;
@@ -647,10 +659,12 @@ impl SessionService {
                     }
                 }
                 Ok(AgentToolUseOutput::Cancelled) => {
+                    println!("session_service::tool_use_agentic::cancelled");
                     // if it is cancelled then we should break
                     break;
                 }
                 Ok(AgentToolUseOutput::Failed(failed_to_parse_output)) => {
+                    previous_failure = true;
                     let human_message = format!(
                         r#"Your output was incorrect, please give me the output in the correct format:
 {}"#,
@@ -673,6 +687,7 @@ impl SessionService {
                         ));
                 }
                 Err(e) => {
+                    eprintln!("{}", &e);
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_not_found(

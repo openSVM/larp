@@ -32,6 +32,7 @@
     "listwise",
     "logit",
     "logprob",
+    "midwit",
     "Mixtral",
     "Mmap",
     "nareshr",
@@ -76,6 +77,6 @@
     "vector": "cpp",
     "string": "cpp",
     "__availability": "cpp"
-},
-"aide.deepReasoning": true
+  },
+  "aide.deepReasoning": true
 }

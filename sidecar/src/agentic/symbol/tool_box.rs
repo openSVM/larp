@@ -8918,7 +8918,7 @@ FILEPATH: {fs_file_path}
             .collect::<Vec<_>>();
 
         // sort it in increasing order based on the updated timestamp
-        recently_edited_files.sort_by_key(|edited_file| edited_file.updated_tiemstamp_ms());
+        recently_edited_files.sort_by_key(|edited_file| edited_file.updated_timestamp_ms());
         let (l1_cache, l2_cache): (Vec<_>, Vec<_>) = recently_edited_files
             .into_iter()
             .partition(|edited_file| important_file_paths.contains(edited_file.fs_file_path()));
@@ -8976,7 +8976,7 @@ FILEPATH: {fs_file_path}
             .collect::<Vec<_>>();
 
         // sort it in increasing order based on the updated timestamp
-        recently_edited_files.sort_by_key(|edited_file| edited_file.updated_tiemstamp_ms());
+        recently_edited_files.sort_by_key(|edited_file| edited_file.updated_timestamp_ms());
         let (l1_cache, l2_cache): (Vec<_>, Vec<_>) = recently_edited_files
             .into_iter()
             .partition(|edited_file| important_file_paths.contains(edited_file.fs_file_path()));

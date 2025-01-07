@@ -7,7 +7,6 @@ use llm_client::{
     broker::LLMBroker,
     clients::{
         anthropic::AnthropicClient,
-        codestory::CodeStoryClient,
         open_router::OpenRouterClient,
         types::{LLMClientCompletionRequest, LLMClientMessage},
     },
@@ -46,7 +45,6 @@ pub struct ToolUseAgentInputOnlyTools {
     tools: Vec<serde_json::Value>,
     problem_statement: String,
     is_midwit_mode: bool,
-    pending_spawned_process_output: Option<String>,
     symbol_event_message_properties: SymbolEventMessageProperties,
 }
 
@@ -56,7 +54,6 @@ impl ToolUseAgentInputOnlyTools {
         tools: Vec<serde_json::Value>,
         problem_statement: String,
         is_midwit_mode: bool,
-        pending_spawned_process_output: Option<String>,
         symbol_event_message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
@@ -64,7 +61,6 @@ impl ToolUseAgentInputOnlyTools {
             tools,
             problem_statement,
             is_midwit_mode,
-            pending_spawned_process_output,
             symbol_event_message_properties,
         }
     }
@@ -121,6 +117,7 @@ pub struct ToolUseAgent {
     operating_system: String,
     shell: String,
     swe_bench_repo_name: Option<String>,
+    temperature: f32,
 }
 
 impl ToolUseAgent {
@@ -137,60 +134,21 @@ impl ToolUseAgent {
             operating_system,
             shell,
             swe_bench_repo_name,
+            // we always default to 0.2 temp to start with
+            temperature: 0.2,
         }
     }
 
-    fn system_message_midwit_json_with_notes(&self) -> String {
-        let working_directory = self.working_directory.to_owned();
-        let operating_system = self.operating_system.to_owned();
-        let shell = self.shell.to_owned();
-        format!(
-            r#"You are an expert software engineer taked with helping the developer.
-You know in detail everything about this repository and all the different code structures which are present in it source code for it.
-
-<uploaded_files>
-{working_directory}
-</uploaded_files>
-I've uploaded a code repository in the directory {working_directory} (not in /tmp/inputs).
-
-Can you help me implement the necessary changes to the repository so that the requirements specified by the user are met?
-I've also setup the developer environment in {working_directory}.
-
-Your task is to make the minimal changes to files in the {working_directory} directory to ensure the developer is satisfied.
-
-Tool capabilities:
-- You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
-- You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
-- When using the search_files tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the developer needs you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis.
-- Once a file has been created using `create` on `str_replace_editor` tool, you should not keep creating the same file again and again. Focus on editing the file after it has been created.
-- You can run long running terminal commands which can run in the background, we will present you with the updated logs. This can be useful if the user wants you to start a debug server in the terminal and then look at the logs or other long running processes.
-- If the `create` command on `str_replace_editor` shows up as success you do not need to view it again.
-- Use the `execute_command` to run terminal command for the user, this can be especially useful for running a debug server, or a test script or a docker container.
-====
-
-SYSTEM INFORMATION
-
-Operating System: {operating_system}
-Default Shell: {shell}
-Current Working Directory: {working_directory}
-
-====
-
-FOLLOW these steps to resolve the issue:
-1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
-2. Once you have understood the repository structure being by making minimal edits to make sure that the user request is answered. The user request could also be about understanding the codebase in which case you don't need to make any edits.
-3. Once you have made the edits it is important that you look at the diagnostic messages which might be present so you can fix any errors or bugs which you have introduced.
-4. You also have access to the terminal, you should ALWAYS run commands from the {working_directory} (any command run outside this directory will lead to errors)
-5. Once you have done everything to help the user out, use attempt_completion to summarise what you have done and end the task assigned to you by the user.
-
-Your thinking should be thorough and so it's fine if it's very long."#
-        )
+    /// Update the temperature for the tool use agent
+    pub fn set_temperature(mut self, temperature: f32) -> Self {
+        self.temperature = temperature;
+        self
     }
 
     fn system_message_midwit_json_mode(&self, repo_name: &str, problem_statement: &str) -> String {
         let working_directory = self.working_directory.to_owned();
         format!(
-            r#"You are an expert software engineer taked with solving the <pr_description> the I am going to provide. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the <pr_description>.
+            r#"You are an expert software engineer tasked with solving the <pr_description> the I am going to provide. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the <pr_description>.
 You are an expert in {repo_name} and know in detail everything about this repository and all the different code structures which are present in it source code for it.
 
 <uploaded_files>
@@ -572,241 +530,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         )
     }
 
-    /// Use this when invoking the agent for the normal tool use flow
-    pub async fn invoke_json_tool_use(
-        &self,
-        input: ToolUseAgentInputOnlyTools,
-    ) -> Result<ToolUseAgentOutputWithTools, SymbolError> {
-        println!("tool_use_agent::invoke_json_tool_use_prompt");
-        let system_message = LLMClientMessage::system(self.system_message_midwit_json_with_notes())
-            .insert_tools(input.tools);
-
-        // grab the previous messages as well
-        let llm_properties = input
-            .symbol_event_message_properties
-            .llm_properties()
-            .clone();
-        let mut previous_messages = input
-            .session_messages
-            .into_iter()
-            .map(|session_message| {
-                let role = session_message.role();
-                let tool_use = session_message.tool_use();
-                match role {
-                    SessionChatRole::User => {
-                        LLMClientMessage::user(session_message.message().to_owned())
-                            .with_images(
-                                session_message
-                                    .images()
-                                    .into_iter()
-                                    .map(|session_image| session_image.to_llm_image())
-                                    .collect(),
-                            )
-                            .insert_tool_return_values(
-                                session_message
-                                    .tool_return()
-                                    .into_iter()
-                                    .map(|tool_return| tool_return.to_llm_tool_return())
-                                    .collect(),
-                            )
-                    }
-                    SessionChatRole::Assistant => {
-                        LLMClientMessage::assistant(session_message.message().to_owned())
-                            .insert_tool_use_values(
-                                tool_use
-                                    .into_iter()
-                                    .map(|tool_use| tool_use.to_llm_tool_use())
-                                    .collect(),
-                            )
-                    }
-                }
-            })
-            .collect::<Vec<_>>();
-
-        let mut cache_points_set = 0;
-        let cache_points_allowed = 3;
-        previous_messages
-            .iter_mut()
-            .rev()
-            .into_iter()
-            .for_each(|message| {
-                if cache_points_set >= cache_points_allowed {
-                    return;
-                }
-                if message.is_human_message() {
-                    message.set_cache_point();
-                    cache_points_set = cache_points_set + 1;
-                }
-            });
-
-        // TODO(skcd): This will not work since we have to grab the pending spawned process output here properly
-        if previous_messages
-            .last()
-            .map(|last_message| last_message.is_human_message())
-            .unwrap_or_default()
-        {
-            if let Some(pending_spawned_process_output) = input.pending_spawned_process_output {
-                previous_messages.push(LLMClientMessage::user(format!(
-                    r#"<executed_terminal_output>
-{}
-</executed_terminal_output>"#,
-                    pending_spawned_process_output
-                )));
-            }
-        }
-
-        let root_request_id = input
-            .symbol_event_message_properties
-            .root_request_id()
-            .to_owned();
-        let final_messages: Vec<_> = vec![system_message]
-            .into_iter()
-            .chain(previous_messages)
-            .collect::<Vec<_>>();
-
-        let cancellation_token = input.symbol_event_message_properties.cancellation_token();
-
-        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        let cloned_root_request_id = root_request_id.to_owned();
-        let response = run_with_cancellation(
-            cancellation_token.clone(),
-            tokio::spawn(async move {
-                if llm_properties.provider().is_anthropic_api_key() {
-                    AnthropicClient::new()
-                        .stream_completion_with_tool(
-                            llm_properties.api_key().clone(),
-                            LLMClientCompletionRequest::new(
-                                llm_properties.llm().clone(),
-                                final_messages,
-                                0.2,
-                                None,
-                            ),
-                            // llm_properties.provider().clone(),
-                            vec![
-                                ("event_type".to_owned(), "tool_use".to_owned()),
-                                ("root_id".to_owned(), cloned_root_request_id),
-                            ]
-                            .into_iter()
-                            .collect(),
-                            sender,
-                        )
-                        .await
-                } else if llm_properties.provider().is_codestory() {
-                    CodeStoryClient::new(
-                        "https://codestory-provider-dot-anton-390822.ue.r.appspot.com",
-                    )
-                    .stream_completion_with_tool(
-                        llm_properties.api_key().clone(),
-                        LLMClientCompletionRequest::new(
-                            llm_properties.llm().clone(),
-                            final_messages,
-                            0.2,
-                            None,
-                        ),
-                        // llm_properties.provider().clone(),
-                        vec![
-                            ("event_type".to_owned(), "tool_use".to_owned()),
-                            ("root_id".to_owned(), cloned_root_request_id),
-                        ]
-                        .into_iter()
-                        .collect(),
-                        sender,
-                    )
-                    .await
-                } else {
-                    OpenRouterClient::new()
-                        .stream_completion_with_tool(
-                            llm_properties.api_key().clone(),
-                            LLMClientCompletionRequest::new(
-                                llm_properties.llm().clone(),
-                                final_messages,
-                                0.2,
-                                None,
-                            ),
-                            // llm_properties.provider().clone(),
-                            vec![
-                                ("event_type".to_owned(), "tool_use".to_owned()),
-                                ("root_id".to_owned(), cloned_root_request_id),
-                            ]
-                            .into_iter()
-                            .collect(),
-                            sender,
-                        )
-                        .await
-                }
-            }),
-        )
-        .await;
-
-        println!("tool_use_agent::invoke_json_tool");
-        if let Some(Ok(Ok(response))) = response {
-            println!("tool_use_agent::invoke_json_tool::reply({:?})", &response);
-            // we will have a string here representing the thinking and another with the various tool inputs and their json representation
-            let thinking = response.0;
-            let tool_inputs = response.1;
-            let mut tool_inputs_parsed = vec![];
-            for (tool_type, tool_input) in tool_inputs.into_iter() {
-                let tool_use_id = tool_input.0;
-                let tool_input = tool_input.1;
-                let tool_input = match tool_type.as_ref() {
-                    "list_files" => ToolInputPartial::ListFiles(
-                        serde_json::from_str::<ListFilesInput>(&tool_input).map_err(|_e| {
-                            SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                        })?,
-                    ),
-                    "search_files" => ToolInputPartial::SearchFileContentWithRegex(
-                        serde_json::from_str::<SearchFileContentInputPartial>(&tool_input)
-                            .map_err(|_e| {
-                                SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                            })?,
-                    ),
-                    "read_file" => ToolInputPartial::OpenFile(
-                        serde_json::from_str::<OpenFileRequestPartial>(&tool_input).map_err(
-                            |_e| SymbolError::ToolError(ToolError::SerdeConversionFailed),
-                        )?,
-                    ),
-                    "execute_command" => ToolInputPartial::TerminalCommand({
-                        serde_json::from_str::<TerminalInputPartial>(&tool_input)
-                            .map_err(|_e| SymbolError::ToolError(ToolError::SerdeConversionFailed))?
-                            // well gotta do the hard things sometimes right?
-                            // or the dumb things
-                            .sanitise_for_repro_script()
-                    }),
-                    "attempt_completion" => ToolInputPartial::AttemptCompletion(
-                        serde_json::from_str::<AttemptCompletionClientRequest>(&tool_input)
-                            .map_err(|_e| {
-                                SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                            })?,
-                    ),
-                    "test_runner" => ToolInputPartial::TestRunner(
-                        serde_json::from_str::<TestRunnerRequestPartial>(&tool_input).map_err(
-                            |_e| SymbolError::ToolError(ToolError::SerdeConversionFailed),
-                        )?,
-                    ),
-                    "str_replace_editor" => ToolInputPartial::CodeEditorParameters(
-                        serde_json::from_str::<CodeEditorParameters>(&tool_input).map_err(|e| {
-                            println!("str_replace_editor::error::{:?}", e);
-                            SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                        })?,
-                    ),
-                    _ => {
-                        println!("unknow tool found: {}", tool_type);
-                        return Err(SymbolError::WrongToolOutput);
-                    }
-                };
-                tool_inputs_parsed.push((tool_use_id, tool_input));
-            }
-
-            Ok(ToolUseAgentOutputWithTools::Success((
-                tool_inputs_parsed,
-                // trim the string properly so we remove all the \n
-                thinking.trim().to_owned(),
-            )))
-        } else {
-            Err(SymbolError::CancelledResponseStream)
-        }
-    }
-
     /// TODO(skcd): This is a special call we are using only for anthropic and nothing
     /// else right now
     pub async fn invoke_json_tool_swe_bench(
@@ -883,6 +606,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         let cancellation_token = input.symbol_event_message_properties.cancellation_token();
 
+        let agent_temperature = self.temperature;
+
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let cloned_root_request_id = root_request_id.to_owned();
         let response = run_with_cancellation(
@@ -895,7 +620,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                             LLMClientCompletionRequest::new(
                                 llm_properties.llm().clone(),
                                 final_messages,
-                                0.2,
+                                agent_temperature,
                                 None,
                             ),
                             // llm_properties.provider().clone(),
@@ -915,7 +640,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                             LLMClientCompletionRequest::new(
                                 llm_properties.llm().clone(),
                                 final_messages,
-                                0.2,
+                                agent_temperature,
                                 None,
                             ),
                             // llm_properties.provider().clone(),
@@ -1093,6 +818,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         let cancellation_token = input.symbol_event_message_properties.cancellation_token();
 
+        let agent_temperature = self.temperature;
+
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let cloned_llm_client = self.llm_client.clone();
         let cloned_root_request_id = root_request_id.to_owned();
@@ -1105,7 +832,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                         LLMClientCompletionRequest::new(
                             llm_properties.llm().clone(),
                             final_messages,
-                            0.2,
+                            agent_temperature,
                             None,
                         ),
                         llm_properties.provider().clone(),
