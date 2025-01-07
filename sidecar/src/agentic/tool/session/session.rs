@@ -1148,7 +1148,6 @@ impl Session {
 
         // now we can invoke the tool use agent over here and get the parsed input and store it
         let output = tool_use_agent.invoke(tool_use_agent_input).await;
-        println!("tool_agent_output::({})::({:?})", &exchange_id, &output);
         match output {
             Ok(ToolUseAgentOutput::Success((tool_input_partial, thinking))) => {
                 // send over a UI event over here to inform the editor layer that we found a tool to use
