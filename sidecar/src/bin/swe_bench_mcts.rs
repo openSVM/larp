@@ -76,6 +76,10 @@ struct CliArgs {
     /// Run in single trajectory but a lot of them
     #[arg(long, default_value = None)]
     single_traj_search: Option<usize>,
+
+    /// Maximum depth for the search tree
+    #[arg(long, default_value = "30")]
+    max_depth: u32,
 }
 
 /// Define the SWEbenchInstance struct for serialization
@@ -251,7 +255,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Instantiate the mcts tree over here and start the search
     let mut search_tree = SearchTree::new(
         expansions,                                  // max_expansions
-        30,                                          // max_depth of the tree
+        args.max_depth,                              // max_depth of the tree
         400,                                         // max_iterations
         Some(5),                                     // max_finished_nodes
         None,                                        // reward_threshold
