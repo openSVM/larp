@@ -42,6 +42,8 @@ pub enum LLMType {
     DeepSeekCoder6BInstruct,
     /// DeepSeek Coder V2 model
     DeepSeekCoderV2,
+    /// DeepSeek Coder V3 model
+    DeepSeekCoderV3,
     /// CodeLLama 70B Instruct model
     CodeLLama70BInstruct,
     /// CodeLlama 13B Instruct model
@@ -116,6 +118,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "Gpt4Turbo" => Ok(LLMType::Gpt4Turbo),
                     "DeepSeekCoder1.3BInstruct" => Ok(LLMType::DeepSeekCoder1_3BInstruct),
                     "DeepSeekCoder6BInstruct" => Ok(LLMType::DeepSeekCoder6BInstruct),
+                    "deepseek/deepseek-chat" => Ok(LLMType::DeepSeekCoderV3),
                     "CodeLLama70BInstruct" => Ok(LLMType::CodeLLama70BInstruct),
                     "CodeLlama13BInstruct" => Ok(LLMType::CodeLlama13BInstruct),
                     "CodeLlama7BInstruct" => Ok(LLMType::CodeLlama7BInstruct),
@@ -126,6 +129,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "PPLXSonnetSmall" => Ok(LLMType::PPLXSonnetSmall),
                     "CohereRerankV3" => Ok(LLMType::CohereRerankV3),
                     "GeminiPro1.5" => Ok(LLMType::GeminiPro),
+                    "gemini-1.5-pro" => Ok(LLMType::GeminiPro),
                     "gemini-2.0-flash-exp" => Ok(LLMType::Gemini2_0FlashExperimental),
                     "gemini-2.0-flash-thinking-exp-1219" => {
                         Ok(LLMType::Gemini2_0FlashThinkingExperimental)
@@ -214,6 +218,7 @@ impl fmt::Display for LLMType {
             LLMType::CodeLlama13BInstruct => write!(f, "CodeLlama13BInstruct"),
             LLMType::CodeLlama7BInstruct => write!(f, "CodeLlama7BInstruct"),
             LLMType::DeepSeekCoder33BInstruct => write!(f, "DeepSeekCoder33BInstruct"),
+            LLMType::DeepSeekCoderV3 => write!(f, "deepseek/deepseek-chat"),
             LLMType::ClaudeOpus => write!(f, "ClaudeOpus"),
             LLMType::ClaudeSonnet => write!(f, "ClaudeSonnet"),
             LLMType::ClaudeHaiku => write!(f, "ClaudeHaiku"),
