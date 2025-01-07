@@ -589,6 +589,7 @@ impl SessionService {
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
         loop {
+            println!("tool_use_agentic::looping_again");
             let _ = self.save_to_storage(&session).await;
             let tool_exchange_id = self
                 .tool_box
@@ -658,6 +659,7 @@ impl SessionService {
                     }
                 }
                 Ok(AgentToolUseOutput::Cancelled) => {
+                    println!("session_service::tool_use_agentic::cancelled");
                     // if it is cancelled then we should break
                     break;
                 }
@@ -685,6 +687,7 @@ impl SessionService {
                         ));
                 }
                 Err(e) => {
+                    eprintln!("{}", &e);
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_not_found(

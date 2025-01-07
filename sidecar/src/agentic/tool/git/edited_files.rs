@@ -42,7 +42,7 @@ impl EditedGitDiffFile {
         &self.diff
     }
 
-    pub fn updated_tiemstamp_ms(&self) -> i64 {
+    pub fn updated_timestamp_ms(&self) -> i64 {
         self.updated_timestamp_ms
     }
 
@@ -86,10 +86,10 @@ impl Tool for EditedFiles {
             .send()
             .await
             .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
-        let response: EditedFilesResponse = response
-            .json()
-            .await
-            .map_err(|_e| ToolError::SerdeConversionFailed)?;
+        let response: EditedFilesResponse = response.json().await.map_err(|e| {
+            eprintln!("edited_files::{:?}", &e);
+            ToolError::SerdeConversionFailed
+        })?;
         Ok(ToolOutput::edited_files(response))
     }
 
