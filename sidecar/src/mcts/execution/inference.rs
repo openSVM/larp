@@ -281,7 +281,6 @@ impl InferenceEngine {
                 .collect(),
             problem_statement,
             self.agent_settings.is_midwit(),
-            None,
             message_properties.clone(),
         );
 
