@@ -584,7 +584,6 @@ impl SessionService {
         let _ = self.save_to_storage(&session).await;
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
-        let mut human_message_ticker = 0;
         let mut previous_failure = false;
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
@@ -663,21 +662,8 @@ impl SessionService {
                     // if it is cancelled then we should break
                     break;
                 }
-                Ok(AgentToolUseOutput::Failed(failed_to_parse_output)) => {
+                Ok(AgentToolUseOutput::Failed(_failed_to_parse_output)) => {
                     previous_failure = true;
-                    let human_message = format!(
-                        r#"Your output was incorrect, please give me the output in the correct format:
-{}"#,
-                        failed_to_parse_output.to_owned()
-                    );
-                    human_message_ticker = human_message_ticker + 1;
-                    session = session.human_message(
-                        human_message_ticker.to_string(),
-                        human_message,
-                        UserContext::default(),
-                        vec![],
-                        repo_ref.clone(),
-                    );
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_not_found(
