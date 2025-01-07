@@ -480,14 +480,15 @@ impl Tool for CodeEditingTool {
 
     fn tool_description(&self) -> String {
         "### code_edit_input
-Edit a file. The tool is able to edit the file precisely based on instruction. If the file doesn't exist, it will be CREATED. The tool will automatically CREATE any directories needed to write the file.".to_owned()
+Edit a file. The tool is able to edit the file precisely based on instruction. If the file doesn't exist, it will be CREATED. The tool will automatically CREATE any directories needed to write the file. BE CONCISE AND DIRECT, DO NOT BE VERBOSE IN YOUR CODEBLOCKS and only give an overview of the chagnes.".to_owned()
     }
 
     fn tool_input_format(&self) -> String {
         format!(
             r#"Parameters: 
 - fs_file_path: (required) The ABSOLUTE path of the file to write to, will be created if not already present
-- instruction: (required) The edit instruction, if you are going to output code blocks make sure they are properly placed in ```{{language}} blocks so we can present them properly to the user. Only given instructions here which are concise and contain the relevant changes, DO NOT BE VERBOSE, BE CONCISE AND DIRECT.
+- instruction: (required) The edit instruction, if you are going to output code blocks make sure they are properly placed in ```{{language}} blocks and extensively use `rest of the code` and `...` placeholders, the goal is to be concise. 
+Only given instructions here which are concise and contain the relevant changes, DO NOT BE VERBOSE, BE CONCISE AND DIRECT.
 
 Usage:
 <code_edit_input>
