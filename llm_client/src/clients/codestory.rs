@@ -105,15 +105,7 @@ impl CodeStoryRequest {
                 .into_iter()
                 .filter_map(|message| match message.role() {
                     LLMClientRole::System => {
-                        if llm_type.is_anthropic() {
-                            None
-                        } else {
-                            Some(CodeStoryMessage {
-                                role: "system".to_owned(),
-                                content: message.content().to_owned(),
-                                cache_point: message.is_cache_point(),
-                            })
-                        }
+                        None
                     }
                     LLMClientRole::User => Some(CodeStoryMessage {
                         role: "user".to_owned(),
@@ -219,11 +211,12 @@ impl CodeStoryClient {
             }
             LLMType::ClaudeSonnet => Ok("claude-3-5-sonnet-20241022".to_owned()), // updated to latest sonnet
             LLMType::ClaudeHaiku => Ok("claude-3-5-haiku-20241022".to_owned()), // updated to latest haiku
-            LLMType::GeminiPro => Ok("gemini-1.5-pro".to_owned()),
+            LLMType::GeminiPro => Ok("google/gemini-flash-1.5".to_owned()),
             LLMType::GeminiProFlash => Ok("gemini-1.5-flash".to_owned()),
             LLMType::O1Preview => Ok("o1-preview".to_owned()),
             LLMType::O1 => Ok("o1".to_owned()),          // o1
             LLMType::O1Mini => Ok("o1-mini".to_owned()), // o1 mini
+            LLMType::DeepSeekCoderV3 => Ok("deepseek/deepseek-chat".to_owned()),
             _ => Err(LLMClientError::UnSupportedModel),
         }
     }
@@ -248,10 +241,12 @@ impl CodeStoryClient {
                 Ok(self.anthropic_endpoint(&self.api_base))
             }
             LLMType::GeminiPro | LLMType::GeminiProFlash => {
-                Ok(self.gemini_endpoint(&self.api_base))
+                Ok(self.anthropic_endpoint(&self.api_base))
             }
+            LLMType::DeepSeekCoderV3 => Ok(self.anthropic_endpoint(&self.api_base)),
             // we do not allow this to be overriden yet
             LLMType::CohereRerankV3 => Ok(self.rerank_endpoint()),
+            LLMType::Custom(_) => Ok(self.anthropic_endpoint(&self.api_base)),
             _ => Err(LLMClientError::UnSupportedModel),
         }
     }
