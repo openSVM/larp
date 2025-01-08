@@ -490,7 +490,8 @@ Your search block should be a code snippet from the <code_to_edit> section. Make
         let fs_file_path = context.fs_file_path;
         user_message = user_message
             + &format!(
-                r#"Only edit the code in <code_to_edit_selection> my instructions are:
+                r#"Only edit the code in <code_to_edit_selection>
+my instructions are:
 <user_instruction>
 {instructions}
 </user_instruction>

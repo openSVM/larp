@@ -2260,7 +2260,8 @@ impl Session {
                                 vec![DiffFileContent::new(
                                     fs_file_path.to_owned(),
                                     old_file_content.contents(),
-                                )]
+                                )
+                                .set_read_fresh_from_editor(true)]
                             }
                             Err(_) => vec![],
                         },

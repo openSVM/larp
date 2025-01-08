@@ -9,6 +9,9 @@ use llm_client::clients::types::LLMClientMessage;
 pub struct DiffFileContent {
     fs_file_path: String,
     file_content_latest: String,
+    /// We read the content fresh from the editor when we do not care about the
+    /// historical tracking and only for the current editing session
+    read_fresh_from_editor: bool,
 }
 
 impl DiffFileContent {
@@ -16,7 +19,13 @@ impl DiffFileContent {
         Self {
             fs_file_path,
             file_content_latest,
+            read_fresh_from_editor: false,
         }
+    }
+
+    pub fn set_read_fresh_from_editor(mut self, read_fresh_from_editor: bool) -> Self {
+        self.read_fresh_from_editor = read_fresh_from_editor;
+        self
     }
 
     pub fn fs_file_path(&self) -> &str {
