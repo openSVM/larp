@@ -642,7 +642,10 @@ impl Exchange {
                 } else {
                     SessionChatMessage::user(
                         format!(
-                            "Tool Output ({}): {}",
+                            // tool output is generally an observation for the AI
+                            // this looks like a small nit in the naming of the output but has
+                            // big consequences
+                            "Observation ({}): {}",
                             tool_output.tool_type.to_string(),
                             tool_output.output,
                         ),
