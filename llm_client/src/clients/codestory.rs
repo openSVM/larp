@@ -104,9 +104,7 @@ impl CodeStoryRequest {
                 .messages()
                 .into_iter()
                 .filter_map(|message| match message.role() {
-                    LLMClientRole::System => {
-                        None
-                    }
+                    LLMClientRole::System => None,
                     LLMClientRole::User => Some(CodeStoryMessage {
                         role: "user".to_owned(),
                         content: message.content().to_owned(),
@@ -202,6 +200,7 @@ impl CodeStoryClient {
         match model {
             LLMType::GPT3_5_16k => Ok("gpt-3.5-turbo-16k-0613".to_owned()),
             LLMType::Gpt4 => Ok("gpt-4-0613".to_owned()),
+            LLMType::Gpt4O => Ok("openai/gpt-4o-2024-11-20".to_owned()),
             LLMType::Gpt4OMini => Ok("gpt-4o-mini".to_owned()),
             LLMType::Gpt4Turbo => Ok("gpt-4-vision-preview".to_owned()),
             LLMType::CodeLlama13BInstruct => Ok("codellama/CodeLlama-13b-Instruct-hf".to_owned()),
@@ -229,6 +228,7 @@ impl CodeStoryClient {
         match model {
             LLMType::GPT3_5_16k => Ok(self.gpt3_endpoint(&self.api_base)),
             LLMType::Gpt4 => Ok(self.gpt4_endpoint(&self.api_base)),
+            LLMType::Gpt4O => Ok(self.anthropic_endpoint(&self.api_base)),
             LLMType::Gpt4Turbo => Ok(self.gpt4_preview_endpoint(&self.api_base)),
             LLMType::Gpt4OMini => Ok(self.gpt4_preview_endpoint(&self.api_base)),
             LLMType::O1Preview => Ok(self.o1_preview_endpoint(&self.api_base)), // this is legacy endpoint
