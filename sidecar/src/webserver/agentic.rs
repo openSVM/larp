@@ -982,6 +982,8 @@ pub struct AgentSessionChatRequest {
     all_files: Vec<String>,
     open_files: Vec<String>,
     shell: String,
+    #[serde(default)]
+    reasoning: bool,
 }
 
 /// Handles the agent session and either creates it or appends to it
@@ -1005,6 +1007,7 @@ pub async fn agent_session_chat(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1115,6 +1118,7 @@ pub async fn agent_session_edit_anchored(
         open_files: _open_files,
         all_files: _all_files,
         shell: _shell,
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1235,6 +1239,7 @@ pub async fn agent_session_edit_agentic(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1435,6 +1440,8 @@ pub async fn agent_tool_use(
         all_files,
         open_files,
         shell,
+        // TODO(skcd): use the reasoning here to force the agentic llm to behave better
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1547,6 +1554,7 @@ pub async fn agent_session_plan_iterate(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1668,6 +1676,7 @@ pub async fn agent_session_plan(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
