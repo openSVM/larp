@@ -237,6 +237,7 @@ pub struct SessionChatClientRequest {
     diff_recent_edits: DiffRecentChanges,
     user_context: UserContext,
     previous_messages: Vec<SessionChatMessage>,
+    aide_rules: Option<String>,
     repo_ref: RepoRef,
     project_labels: Vec<String>,
     session_id: String,
@@ -251,6 +252,7 @@ impl SessionChatClientRequest {
         diff_recent_edits: DiffRecentChanges,
         user_context: UserContext,
         previous_messages: Vec<SessionChatMessage>,
+        aide_rules: Option<String>,
         repo_ref: RepoRef,
         project_labels: Vec<String>,
         session_id: String,
@@ -263,6 +265,7 @@ impl SessionChatClientRequest {
             diff_recent_edits,
             user_context,
             previous_messages,
+            aide_rules,
             session_id,
             exchange_id,
             repo_ref,
@@ -311,6 +314,17 @@ impl SessionChatClient {
                     project_labels_context.push(project_label.to_string());
                 }
             });
+
+        let aide_rules = match context.aide_rules.as_ref() {
+            Some(aide_rules) => {
+                format!(
+                    r#"
+- The user has taken the time to write out a set of guidelines called Aide Rules for you to follow and always respect, given below:
+{aide_rules}"#
+                )
+            }
+            None => "".to_owned(),
+        };
         let project_labels_str = project_labels_context.join(",");
         let project_labels_context = format!(
             r#"- You are given the following project labels which are associated with the codebase:
@@ -324,7 +338,7 @@ Your job is to answer the user query which is a followup to the conversation we 
 Provide only as much information and code as is necessary to answer the query, but be concise. Keep number of quoted lines to a minimum when possible.
 When referring to code, you must provide an example in a code block.
 
-{project_labels_context}
+{project_labels_context}{aide_rules}
 
 Respect these rules at all times:
 - When asked for your name, you must respond with "Aide".

@@ -154,6 +154,7 @@ pub struct StepGeneratorRequest {
     // the exchange id which belongs to the session
     exchange_id: String,
     ui_event: UnboundedSender<UIEventWithID>,
+    aide_rules: Option<String>,
     // if we should stream the steps which we are generating
     // the caller takes care of reacting to this stream if they are interested in
     // this
@@ -172,6 +173,7 @@ impl StepGeneratorRequest {
         editor_url: String,
         exchange_id: String,
         ui_event: UnboundedSender<UIEventWithID>,
+        aide_rules: Option<String>,
         stream_steps: Option<UnboundedSender<StepSenderEvent>>,
         cancellation_token: tokio_util::sync::CancellationToken,
         llm_properties: LLMProperties,
@@ -187,6 +189,7 @@ impl StepGeneratorRequest {
             diagnostics: None,
             exchange_id,
             ui_event,
+            aide_rules,
             stream_steps,
             cancellation_token,
             llm_properties,
@@ -225,6 +228,11 @@ impl StepGeneratorRequest {
 
     pub fn user_context(&self) -> Option<&UserContext> {
         self.user_context.as_ref()
+    }
+
+    pub fn set_aide_rules(mut self, aide_rules: Option<String>) -> Self {
+        self.aide_rules = aide_rules;
+        self
     }
 }
 
@@ -369,9 +377,20 @@ Separation of Concerns: Keeps execution state separate from other data, making t
         )
     }
 
-    pub fn system_message() -> String {
+    pub fn system_message(context: &StepGeneratorRequest) -> String {
+        let aide_rules = context.aide_rules.clone();
+        let aide_rules = match aide_rules {
+            Some(aide_rules) => {
+                format!(
+                    r#"- The user has additionally provided the following rules and guidelines which you must ALWAYS follow:
+{aide_rules}"#
+                )
+            }
+            None => format!(""),
+        };
         format!(
             r#"You are a senior software engineer, expert planner and system architect working alongside a software engineer.
+{aide_rules}
 - Given a request and context, you will generate a step by step plan to accomplish it. Use prior art seen in context where applicable.
 - Your job is to be precise and effective, so avoid extraneous steps even if they offer convenience.
 - Do not talk about testing out the changes unless you are instructed to do so.
@@ -502,7 +521,7 @@ impl Tool for StepGeneratorClient {
         let is_deep_reasoning = context.is_deep_reasoning;
         let stream_steps = context.stream_steps.clone();
 
-        let mut messages = vec![LLMClientMessage::system(Self::system_message())];
+        let mut messages = vec![LLMClientMessage::system(Self::system_message(&context))];
         // Add the previous running messages over here
         messages.extend(previous_messages.into_iter().map(|previous_message| {
             match previous_message.role() {

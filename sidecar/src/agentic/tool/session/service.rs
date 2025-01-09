@@ -112,6 +112,7 @@ impl SessionService {
         project_labels: Vec<String>,
         repo_ref: RepoRef,
         agent_mode: AideAgentMode,
+        aide_rules: Option<String>,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::human_message::start");
@@ -161,6 +162,7 @@ impl SessionService {
                 agent_mode,
                 self.tool_box.clone(),
                 exchange_id,
+                aide_rules,
                 message_properties,
             )
             .await?;
@@ -182,6 +184,7 @@ impl SessionService {
         exchange_id: String,
         iteration_request: String,
         user_context: UserContext,
+        aide_rules: Option<String>,
         project_labels: Vec<String>,
         repo_ref: RepoRef,
         _root_directory: String,
@@ -259,6 +262,7 @@ impl SessionService {
                 plan_id,
                 user_plan_exchange_id,
                 user_plan_request_exchange,
+                aide_rules,
                 plan_storage_path,
                 self.tool_box.clone(),
                 self.symbol_manager.clone(),
@@ -288,6 +292,7 @@ impl SessionService {
         repo_ref: RepoRef,
         _root_directory: String,
         _codebase_search: bool,
+        aide_rules: Option<String>,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::plan::agentic::start");
@@ -334,6 +339,7 @@ impl SessionService {
                 plan_id,
                 exchange_id.to_owned(),
                 exchange_in_focus,
+                aide_rules,
                 plan_storage_path,
                 self.tool_box.clone(),
                 self.symbol_manager.clone(),
@@ -701,6 +707,7 @@ impl SessionService {
         repo_ref: RepoRef,
         root_directory: String,
         codebase_search: bool,
+        aide_rules: Option<String>,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::code_edit::agentic::start");
@@ -738,7 +745,12 @@ impl SessionService {
             .set_cancellation_token(cancellation_token);
 
         session = session
-            .perform_agentic_editing(scratch_pad_agent, root_directory, message_properties)
+            .perform_agentic_editing(
+                scratch_pad_agent,
+                root_directory,
+                aide_rules,
+                message_properties,
+            )
             .await?;
 
         // save the session to the disk
@@ -756,6 +768,7 @@ impl SessionService {
         exchange_id: String,
         edit_request: String,
         user_context: UserContext,
+        aide_rules: Option<String>,
         project_labels: Vec<String>,
         repo_ref: RepoRef,
         mut message_properties: SymbolEventMessageProperties,
@@ -831,7 +844,7 @@ impl SessionService {
             .perform_anchored_edit(
                 exchange_id,
                 scratch_pad_agent,
-                self.tool_box.clone(),
+                aide_rules,
                 message_properties,
             )
             .await?;

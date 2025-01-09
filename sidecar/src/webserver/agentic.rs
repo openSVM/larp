@@ -1009,7 +1009,7 @@ pub async fn agent_session_chat(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1054,6 +1054,7 @@ pub async fn agent_session_chat(
                 project_labels,
                 repo_ref,
                 agent_mode,
+                aide_rules,
                 message_properties,
             )
             .await;
@@ -1121,7 +1122,7 @@ pub async fn agent_session_edit_anchored(
         open_files: _open_files,
         all_files: _all_files,
         shell: _shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1172,6 +1173,7 @@ pub async fn agent_session_edit_anchored(
                 exchange_id,
                 query,
                 user_context,
+                aide_rules,
                 project_labels,
                 repo_ref,
                 message_properties,
@@ -1243,7 +1245,7 @@ pub async fn agent_session_edit_agentic(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1298,6 +1300,7 @@ pub async fn agent_session_edit_agentic(
                 repo_ref,
                 root_directory,
                 codebase_search,
+                aide_rules,
                 message_properties,
             )
             .await;
@@ -1561,7 +1564,7 @@ pub async fn agent_session_plan_iterate(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1617,6 +1620,7 @@ pub async fn agent_session_plan_iterate(
                 exchange_id,
                 query,
                 user_context,
+                aide_rules,
                 project_labels,
                 repo_ref,
                 root_directory,
@@ -1684,7 +1688,7 @@ pub async fn agent_session_plan(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1744,6 +1748,7 @@ pub async fn agent_session_plan(
                 repo_ref,
                 root_directory,
                 codebase_search,
+                aide_rules,
                 message_properties,
             )
             .await;
