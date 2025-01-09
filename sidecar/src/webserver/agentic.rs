@@ -983,6 +983,8 @@ pub struct AgentSessionChatRequest {
     open_files: Vec<String>,
     shell: String,
     #[serde(default)]
+    aide_rules: Option<String>,
+    #[serde(default)]
     reasoning: bool,
 }
 
@@ -1007,6 +1009,7 @@ pub async fn agent_session_chat(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        aide_rules: _aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1118,6 +1121,7 @@ pub async fn agent_session_edit_anchored(
         open_files: _open_files,
         all_files: _all_files,
         shell: _shell,
+        aide_rules: _aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1239,6 +1243,7 @@ pub async fn agent_session_edit_agentic(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        aide_rules: _aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1440,6 +1445,7 @@ pub async fn agent_tool_use(
         all_files,
         open_files,
         shell,
+        aide_rules: _aide_rules,
         // TODO(skcd): use the reasoning here to force the agentic llm to behave better
         reasoning,
     }): Json<AgentSessionChatRequest>,
@@ -1555,6 +1561,7 @@ pub async fn agent_session_plan_iterate(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        aide_rules: _aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
@@ -1677,6 +1684,7 @@ pub async fn agent_session_plan(
         all_files: _all_files,
         open_files: _open_files,
         shell: _shell,
+        aide_rules: _aide_rules,
         reasoning: _reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
