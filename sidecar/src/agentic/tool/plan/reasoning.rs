@@ -47,6 +47,7 @@ pub struct ReasoningRequest {
     // as a proxy to output the plan to a file path
     plan_output_path: String,
     plan_output_content: String,
+    aide_rules: Option<String>,
     editor_url: String,
     session_id: String,
     exchange_id: String,
@@ -62,6 +63,7 @@ impl ReasoningRequest {
         root_request_id: String,
         plan_output_path: String,
         plan_output_content: String,
+        aide_rules: Option<String>,
         editor_url: String,
         session_id: String,
         exchange_id: String,
@@ -75,6 +77,7 @@ impl ReasoningRequest {
             root_request_id,
             plan_output_path,
             plan_output_content,
+            aide_rules,
             editor_url,
             session_id,
             exchange_id,
@@ -97,6 +100,7 @@ impl ReasoningClient {
         let code_in_selection = context.code_in_selection;
         let lsp_diagnostics = context.lsp_diagnostics;
         let diff_recent_edits = context.diff_recent_edits;
+        let aide_rules = context.aide_rules.clone().unwrap_or_default();
         format!(
             r#"<files_in_selection>
 {files_in_selection}
@@ -120,6 +124,9 @@ The recent edits which have been made to the files
 The diagnostic errors which are generated from the Language Server running inside the editor
 - <code_in_selection>
 These are the code sections which are in our selection
+
+Additional rules and guidelines which the user has provided to you:
+{aide_rules}
 
 The query I want help with:
 {user_query}"#

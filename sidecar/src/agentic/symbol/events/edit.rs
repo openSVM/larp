@@ -37,6 +37,8 @@ pub struct SymbolToEdit {
     previous_user_queries: Vec<String>,
     // the plan-step-id if present for this edit
     plan_step_id: Option<String>,
+    // aide rules
+    aide_rules: Option<String>,
     should_stream: bool,
 }
 
@@ -76,6 +78,7 @@ impl SymbolToEdit {
             diff_recent_changes,
             previous_user_queries,
             plan_step_id,
+            aide_rules: None,
             should_stream: true,
         }
     }
@@ -161,6 +164,15 @@ impl SymbolToEdit {
         let mut clone = self.clone();
         clone.instructions = new_instructions.to_vec();
         clone
+    }
+
+    pub fn aide_rules(&self) -> Option<String> {
+        self.aide_rules.clone()
+    }
+
+    pub fn set_aide_rules(mut self, aide_rules: Option<String>) -> Self {
+        self.aide_rules = aide_rules;
+        self
     }
 
     pub fn set_previous_messages(mut self, previous_messages: Vec<SessionChatMessage>) -> Self {

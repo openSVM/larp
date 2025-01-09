@@ -59,6 +59,7 @@ pub struct HumanAgenticRequest {
     root_directory: String,
     codebase_search: bool,
     user_context: UserContext,
+    aide_rules: Option<String>,
     deep_reasoning: bool,
 }
 
@@ -68,6 +69,7 @@ impl HumanAgenticRequest {
         root_directory: String,
         codebase_search: bool,
         user_context: UserContext,
+        aide_rules: Option<String>,
         deep_reasoning: bool,
     ) -> Self {
         Self {
@@ -75,11 +77,16 @@ impl HumanAgenticRequest {
             user_query,
             root_directory,
             codebase_search,
+            aide_rules,
             deep_reasoning,
         }
     }
     pub fn user_context(&self) -> UserContext {
         self.user_context.clone()
+    }
+
+    pub fn aide_rules(&self) -> Option<String> {
+        self.aide_rules.clone()
     }
 
     pub fn user_query(&self) -> &str {

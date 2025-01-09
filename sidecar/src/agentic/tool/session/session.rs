@@ -1189,6 +1189,7 @@ impl Session {
         exchange_reply: AideAgentMode,
         tool_box: Arc<ToolBox>,
         parent_exchange_id: String,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Self, SymbolError> {
         let last_exchange = self.last_exchange();
@@ -1199,7 +1200,7 @@ impl Session {
         // plan and edit todos are intentional. Should never be hit, but double check @skcd
         match exchange_reply {
             AideAgentMode::Chat => {
-                self.chat_reply(tool_box, parent_exchange_id, message_properties)
+                self.chat_reply(tool_box, parent_exchange_id, aide_rules, message_properties)
                     .await
             }
             AideAgentMode::Plan => {
@@ -1216,6 +1217,7 @@ impl Session {
         self,
         tool_box: Arc<ToolBox>,
         parent_exchange_id: String,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Self, SymbolError> {
         println!("session::chat_reply");
@@ -1232,8 +1234,13 @@ impl Session {
         let last_exchange_type = last_exchange.exchange_type;
         match last_exchange_type {
             ExchangeType::HumanChat(_) => {
-                self.human_chat_message_reply(tool_box, parent_exchange_id, message_properties)
-                    .await
+                self.human_chat_message_reply(
+                    tool_box,
+                    parent_exchange_id,
+                    aide_rules,
+                    message_properties,
+                )
+                .await
             }
             ExchangeType::AgentChat(_agent_message) => {
                 todo!("figure out what to do over here")
@@ -1255,6 +1262,7 @@ impl Session {
         mut self,
         tool_box: Arc<ToolBox>,
         parent_exchange_id: String,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Session, SymbolError> {
         println!("session::human_chat_message_reply");
@@ -1274,6 +1282,7 @@ impl Session {
                 .await?,
             self.global_running_user_context.clone(),
             converted_messages,
+            aide_rules,
             self.repo_ref.clone(),
             self.project_labels.to_vec(),
             self.session_id.to_owned(),
@@ -1472,6 +1481,7 @@ impl Session {
         plan_id: String,
         parent_exchange_id: String,
         exchange_in_focus: Option<Exchange>,
+        aide_rules: Option<String>,
         plan_storage_path: String,
         tool_box: Arc<ToolBox>,
         symbol_manager: Arc<SymbolManager>,
@@ -1543,6 +1553,7 @@ impl Session {
             let cloned_message_properties = message_properties.clone();
             let cloned_plan_service = plan_service.clone();
             let global_running_context = self.global_running_user_context.clone();
+            let cloned_aide_rules = aide_rules.clone();
             let _plan = tokio::spawn(async move {
                 cloned_plan_service
                     .create_plan(
@@ -1551,6 +1562,7 @@ impl Session {
                         previous_queries.to_vec(),
                         // always send the global running context over here
                         global_running_context,
+                        cloned_aide_rules,
                         converted_messages,
                         false,
                         plan_storage_path,
@@ -1578,8 +1590,10 @@ impl Session {
             // );
 
             // Spawn the edit task
+            let cloned_aide_rules = aide_rules.clone();
             let edit_task = tokio::spawn(async move {
                 let mut steps_up_until_now = 0;
+                let aide_rules = cloned_aide_rules;
                 while let Some(step) = edits_receiver.recv().await {
                     let previous_steps_up_until_now = steps_up_until_now;
                     steps_up_until_now += 1;
@@ -1620,7 +1634,8 @@ impl Session {
                                     None,
                                     vec![],
                                     Some(previous_steps_up_until_now.to_string()),
-                                ),
+                                )
+                                .set_aide_rules(aide_rules.clone()),
                                 ToolProperties::new(),
                             ),
                             message_properties_clone.request_id().clone(),
@@ -1742,6 +1757,7 @@ impl Session {
         self,
         scratch_pad_agent: ScratchPadAgent,
         root_directory: String,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Self, SymbolError> {
         let last_exchange = self.last_exchange();
@@ -1767,6 +1783,7 @@ impl Session {
                         root_directory,
                         *codebase_search,
                         self.global_running_user_context.clone(),
+                        aide_rules,
                         false,
                     ),
                     message_properties.clone(),
@@ -1787,7 +1804,7 @@ impl Session {
         mut self,
         parent_exchange_id: String,
         scratch_pad_agent: ScratchPadAgent,
-        _tool_box: Arc<ToolBox>,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Self, SymbolError> {
         let last_exchange = self.last_exchange().cloned();
@@ -1849,6 +1866,7 @@ impl Session {
                         .to_xml(Default::default())
                         .await
                         .map_err(|e| SymbolError::UserContextError(e))?,
+                    aide_rules,
                     message_properties.clone(),
                 )
                 .await;

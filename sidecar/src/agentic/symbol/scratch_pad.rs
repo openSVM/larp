@@ -498,6 +498,7 @@ impl ScratchPadAgent {
         let root_directory = human_agentic_request.root_directory().to_owned();
         let codebase_search = human_agentic_request.codebase_search();
         let edit_request_id = message_properties.request_id_str().to_owned();
+        let aide_rules = human_agentic_request.aide_rules().clone();
         let ui_sender = message_properties.ui_sender();
         let start_instant = std::time::Instant::now();
         let mut input_event = SymbolInputEvent::new(
@@ -549,6 +550,7 @@ impl ScratchPadAgent {
                 .reasoning(
                     user_query,
                     human_agentic_request.user_context().file_paths(),
+                    aide_rules.clone(),
                     &self._storage_fs_path,
                     message_properties.clone(),
                 )
@@ -828,6 +830,7 @@ impl ScratchPadAgent {
         query: String,
         converted_messages: Vec<SessionChatMessage>,
         user_context_str: String,
+        aide_rules: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<String, SymbolError> {
         println!("scratch_pad_agent::anchor_editing_on_range::start");
@@ -860,7 +863,8 @@ impl ScratchPadAgent {
                 vec![],
                 None,
             )
-            .set_previous_messages(converted_messages)],
+            .set_previous_messages(converted_messages)
+            .set_aide_rules(aide_rules)],
             SymbolIdentifier::with_file_path(&fs_file_path, &fs_file_path),
             vec![],
         );

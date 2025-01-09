@@ -5524,6 +5524,7 @@ FILEPATH: {fs_file_path}
             sub_symbol.plan_step_id(),
             sub_symbol.previous_message(),
             message_properties.cancellation_token(),
+            sub_symbol.aide_rules(),
             sub_symbol.should_stream(),
         ));
         println!(
@@ -8654,6 +8655,8 @@ FILEPATH: {fs_file_path}
             None,
             vec![],
             message_properties.cancellation_token(),
+            // no aide rules during the warmup phase
+            None,
             // do not care about the warmup anyways
             false,
         );
@@ -9057,6 +9060,7 @@ FILEPATH: {fs_file_path}
         &self,
         user_query: String,
         file_paths: Vec<String>,
+        aide_rules: Option<String>,
         scratch_pad_path: &str,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<String, SymbolError> {
@@ -9177,6 +9181,7 @@ FILEPATH: {fs_file_path}
             message_properties.root_request_id().to_owned(),
             scratch_pad_path.to_owned(),
             scratch_pad_content.contents(),
+            aide_rules.clone(),
             message_properties.editor_url().to_owned(),
             session_id,
             exchange_id,
@@ -9345,11 +9350,13 @@ FILEPATH: {fs_file_path}
         user_query: &str,
         previous_queries: Vec<String>,
         user_context: &UserContext,
+        aide_rules: Option<String>,
         previous_messages: Vec<SessionChatMessage>,
         is_deep_reasoning: bool,
         step_sender: Option<UnboundedSender<StepSenderEvent>>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Vec<PlanStep>, SymbolError> {
+        // pick up from here about passing aiderules everywhere and then look at the tool use agent
         let step_generator_request = StepGeneratorRequest::new(
             user_query.to_owned(),
             previous_queries,
@@ -9359,6 +9366,7 @@ FILEPATH: {fs_file_path}
             message_properties.editor_url(),
             message_properties.request_id_str().to_owned(),
             message_properties.ui_sender(),
+            aide_rules,
             step_sender,
             message_properties.cancellation_token(),
             message_properties.llm_properties().clone(),

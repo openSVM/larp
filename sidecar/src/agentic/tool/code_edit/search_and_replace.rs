@@ -99,6 +99,8 @@ pub struct SearchAndReplaceEditingRequest {
     previous_messages: Vec<SessionChatMessage>,
     // cancellation token
     cancellation_token: tokio_util::sync::CancellationToken,
+    // aide rules which are passed everywhere to the LLM
+    aide_rules: Option<String>,
     should_stream: bool,
 }
 
@@ -129,6 +131,7 @@ impl SearchAndReplaceEditingRequest {
         plan_step_id: Option<String>,
         previous_messages: Vec<SessionChatMessage>,
         cancellation_token: tokio_util::sync::CancellationToken,
+        aide_rules: Option<String>,
         should_stream: bool,
     ) -> Self {
         Self {
@@ -155,6 +158,7 @@ impl SearchAndReplaceEditingRequest {
             plan_step_id,
             previous_messages,
             cancellation_token,
+            aide_rules,
             should_stream,
         }
     }
@@ -210,7 +214,15 @@ impl SearchAndReplaceEditing {
         }
     }
 
-    fn system_message(&self) -> String {
+    fn system_message(&self, context: &SearchAndReplaceEditingRequest) -> String {
+        let aide_rules = context.aide_rules.clone();
+        let aide_rules = match aide_rules {
+            Some(aide_rules) => {
+                format!("- The user has provided these additional rules and guildelines which you should follow at all times:
+{aide_rules}")
+            }
+            None => "".to_owned(),
+        };
         format!(r#"Act as an expert software developer.
 Always use best practices when coding.
 Respect and use existing conventions, libraries, etc that are already present in the code base.
@@ -227,6 +239,8 @@ You are not to make changes in the <user_provided_context> ONLY EDIT the code in
 You are also show the language server errors in <lsp_diagnostic_errors> section, these are errors in the code which we are about to edit, ONLY fix them is they are part of the user query.
 Take requests for changes to the supplied code.
 If the request is ambiguous, ask questions.
+
+{aide_rules}
 
 Always reply to the user in the same language they are using.
 
@@ -636,7 +650,7 @@ impl Tool for SearchAndReplaceEditing {
 
         let root_request_id = context.root_request_id.to_owned();
         let plan_step_id = context.plan_step_id.clone();
-        let system_message = LLMClientMessage::system(self.system_message());
+        let system_message = LLMClientMessage::system(self.system_message(&context));
         let previous_messages = previous_messages
             .into_iter()
             .map(|previous_message| match previous_message.role() {
