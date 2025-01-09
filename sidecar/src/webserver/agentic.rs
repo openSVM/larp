@@ -1441,7 +1441,7 @@ pub async fn agent_tool_use(
         open_files,
         shell,
         // TODO(skcd): use the reasoning here to force the agentic llm to behave better
-        reasoning: _reasoning,
+        reasoning,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1492,6 +1492,7 @@ pub async fn agent_tool_use(
                 tool_box,
                 llm_broker,
                 user_context,
+                reasoning,
                 message_properties,
             )
             .await;

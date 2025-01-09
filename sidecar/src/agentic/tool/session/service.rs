@@ -524,6 +524,7 @@ impl SessionService {
         tool_box: Arc<ToolBox>,
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
+        _reasoning: bool,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
