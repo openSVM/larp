@@ -512,8 +512,11 @@ impl Exchange {
     ///
     /// We can have consecutive human messages now on every API so this is no
     /// longer a big worry
-    async fn to_conversation_message(&self, is_json_mode: bool) -> SessionChatMessage {
-        match &self.exchange_type {
+    async fn to_conversation_message(&self, is_json_mode: bool) -> Option<SessionChatMessage> {
+        if self.is_compressed {
+            return None;
+        }
+        let session_chat_message = match &self.exchange_type {
             ExchangeType::HumanChat(ref chat_message) => {
                 // TODO(skcd): Figure out caching etc later on
                 let prompt = chat_message.query.to_owned();
@@ -707,7 +710,8 @@ impl Exchange {
                 };
                 SessionChatMessage::user(user_query, vec![])
             }
-        }
+        };
+        Some(session_chat_message)
     }
 
     /// Hot streak worthy message gets access to the diagnostics and allows the
@@ -1135,7 +1139,10 @@ impl Session {
         // figure out what to do over here given the state of the session
         let mut converted_messages = vec![];
         for previous_message in self.exchanges.iter() {
-            converted_messages.push(previous_message.to_conversation_message(false).await);
+            let converted_message = previous_message.to_conversation_message(false).await;
+            if let Some(converted_message) = converted_message {
+                converted_messages.push(converted_message);
+            }
         }
 
         // decay the content of the messages depending on the decay condition
@@ -1286,9 +1293,11 @@ impl Session {
         // reply to
         let mut converted_messages = vec![];
         for previous_message in self.exchanges.iter() {
-            converted_messages.push(previous_message.to_conversation_message(false).await);
+            let converted_message = previous_message.to_conversation_message(false).await;
+            if let Some(converted_message) = converted_message {
+                converted_messages.push(converted_message);
+            }
         }
-
         let exchange_id = message_properties.request_id_str().to_owned();
         let llm_properties = message_properties.llm_properties().clone();
 
@@ -1524,7 +1533,10 @@ impl Session {
             // reply to
             let mut converted_messages = vec![];
             for previous_message in self.exchanges.iter() {
-                converted_messages.push(previous_message.to_conversation_message(false).await);
+                let converted_message = previous_message.to_conversation_message(false).await;
+                if let Some(converted_message) = converted_message {
+                    converted_messages.push(converted_message);
+                }
             }
             let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
             let mut stream_receiver =
@@ -1845,9 +1857,11 @@ impl Session {
         {
             let mut converted_messages = vec![];
             for previous_message in self.exchanges.iter() {
-                converted_messages.push(previous_message.to_conversation_message(false).await);
-            }
-            // send a message over that the inference will start in a bit
+                let converted_message = previous_message.to_conversation_message(false).await;
+                if let Some(converted_message) = converted_message {
+                    converted_messages.push(converted_message);
+                }
+            } // send a message over that the inference will start in a bit
             let _ = message_properties
                 .ui_sender()
                 .send(UIEventWithID::inference_started(
@@ -1994,7 +2008,10 @@ impl Session {
 
         let mut converted_messages = vec![];
         for previous_message in self.exchanges.iter() {
-            converted_messages.push(previous_message.to_conversation_message(false).await);
+            let converted_message = previous_message.to_conversation_message(false).await;
+            if let Some(converted_message) = converted_message {
+                converted_messages.push(converted_message);
+            }
         }
         let (diagnostics, mut extra_variables) = tool_box
             .grab_workspace_diagnostics(message_properties.clone())
