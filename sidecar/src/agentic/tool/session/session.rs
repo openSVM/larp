@@ -61,6 +61,7 @@ use super::{
 pub enum AgentToolUseOutput {
     Success((ToolInputPartial, Session)),
     Failed(String),
+    Reasoning(String),
     Cancelled,
 }
 
@@ -777,6 +778,14 @@ impl Session {
         self.exchanges.len()
     }
 
+    pub fn exchanges_not_compressed(&self) -> usize {
+        self.exchanges
+            .iter()
+            .filter(|exchange| !exchange.is_compressed)
+            .collect::<Vec<_>>()
+            .len()
+    }
+
     fn find_exchange_by_id(&self, exchange_id: &str) -> Option<&Exchange> {
         self.exchanges
             .iter()
@@ -1128,6 +1137,78 @@ impl Session {
         Ok(self)
     }
 
+    /// map-reduce context is used to compress the prefix trajectory up until now
+    /// and return a more authroative direction to the agnetic llm so it can stay
+    /// on the task and make progress which is required for the agentic llm
+    pub async fn map_reduce_context(
+        mut self,
+        tool_box: Arc<ToolBox>,
+        exchange_id: String,
+        parent_exchange_id: String,
+        tool_use_agent: ToolUseAgent,
+        message_properties: SymbolEventMessageProperties,
+    ) -> Result<AgentToolUseOutput, SymbolError> {
+        let mut converted_messages = vec![];
+        for previous_message in self.exchanges.iter() {
+            let converted_message = previous_message.to_conversation_message(false).await;
+            if let Some(converted_message) = converted_message {
+                converted_messages.push(converted_message);
+            }
+        }
+        let tool_use_agent_input = ToolUseAgentInput::new(
+            converted_messages,
+            self.tools
+                .to_vec()
+                .into_iter()
+                .filter_map(|tool_type| tool_box.tools().get_tool_description(&tool_type))
+                .collect(),
+            self.tools
+                .to_vec()
+                .into_iter()
+                .filter_map(|tool_type| tool_box.tools().get_tool_reminder(&tool_type))
+                .collect(),
+            None,
+            message_properties.clone(),
+        );
+        match tool_use_agent
+            .map_reduce_trajectory(tool_use_agent_input)
+            .await
+        {
+            Ok(ToolUseAgentOutput::Success((tool_input_partial, thinking))) => {
+                // send over a UI event over here to inform the editor layer that we found a tool to use
+                let _ = message_properties
+                    .ui_sender()
+                    .send(UIEventWithID::tool_use_detected(
+                        message_properties.root_request_id().to_owned(),
+                        message_properties.request_id_str().to_owned(),
+                        tool_input_partial.clone(),
+                        thinking.to_owned(),
+                    ));
+                let tool_type = tool_input_partial.to_tool_type();
+                self.exchanges.push(Exchange::agent_tool_use(
+                    parent_exchange_id,
+                    exchange_id.to_owned(),
+                    tool_input_partial.clone(),
+                    tool_type,
+                    thinking,
+                    exchange_id,
+                ));
+                Ok(AgentToolUseOutput::Success((tool_input_partial, self)))
+            }
+            Ok(ToolUseAgentOutput::Failure(input_string)) => {
+                Ok(AgentToolUseOutput::Failed(input_string))
+            }
+            Ok(ToolUseAgentOutput::Reasoning(reasoning)) => {
+                // we also set our previous messages as discarded
+                self.exchanges.iter_mut().for_each(|exchange| {
+                    exchange.is_compressed = true;
+                });
+                Ok(AgentToolUseOutput::Reasoning(reasoning))
+            }
+            Err(_e) => Ok(AgentToolUseOutput::Cancelled),
+        }
+    }
+
     pub async fn get_tool_to_use(
         mut self,
         tool_box: Arc<ToolBox>,
@@ -1136,7 +1217,6 @@ impl Session {
         tool_use_agent: ToolUseAgent,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<AgentToolUseOutput, SymbolError> {
-        // figure out what to do over here given the state of the session
         let mut converted_messages = vec![];
         for previous_message in self.exchanges.iter() {
             let converted_message = previous_message.to_conversation_message(false).await;
@@ -1198,6 +1278,10 @@ impl Session {
             }
             Ok(ToolUseAgentOutput::Failure(input_string)) => {
                 Ok(AgentToolUseOutput::Failed(input_string))
+            }
+            // tool use agent should not generate reasoning
+            Ok(ToolUseAgentOutput::Reasoning(reasoning)) => {
+                Ok(AgentToolUseOutput::Failed(reasoning))
             }
             Err(_e) => Ok(AgentToolUseOutput::Cancelled),
         }

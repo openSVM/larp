@@ -494,6 +494,7 @@ impl SessionService {
                         break;
                     }
                 }
+                AgentToolUseOutput::Reasoning(_) => {}
                 AgentToolUseOutput::Cancelled => {}
                 AgentToolUseOutput::Failed(failed_to_parse_output) => {
                     let human_message = format!(
@@ -530,7 +531,7 @@ impl SessionService {
         tool_box: Arc<ToolBox>,
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
-        _reasoning: bool,
+        reasoning: bool,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -624,18 +625,36 @@ impl SessionService {
             // reset all dynamic properties here, starting with previous_failure
             previous_failure = false;
 
-            let tool_use_output = session
-                // the clone here is pretty bad but its the easiest and the sanest
-                // way to keep things on the happy path
-                .clone()
-                .get_tool_to_use(
-                    tool_box.clone(),
-                    tool_exchange_id.to_owned(),
-                    exchange_id.to_owned(),
-                    tool_agent,
-                    message_properties.clone(),
-                )
-                .await;
+            // if reasoning is enabled we check how many steps we have taken and trigger
+            // the reasoning in between
+            let tool_use_output = if reasoning && session.exchanges_not_compressed() >= 5 {
+                println!("session::tool_use_agent::reasoning");
+                session
+                    // the clone here is pretty bad but its the easiest and the sanest
+                    // way to keep things on the happy path
+                    .clone()
+                    .map_reduce_context(
+                        tool_box.clone(),
+                        tool_exchange_id.to_owned(),
+                        exchange_id.to_owned(),
+                        tool_agent,
+                        message_properties.clone(),
+                    )
+                    .await
+            } else {
+                session
+                    // the clone here is pretty bad but its the easiest and the sanest
+                    // way to keep things on the happy path
+                    .clone()
+                    .get_tool_to_use(
+                        tool_box.clone(),
+                        tool_exchange_id.to_owned(),
+                        exchange_id.to_owned(),
+                        tool_agent,
+                        message_properties.clone(),
+                    )
+                    .await
+            };
 
             match tool_use_output {
                 Ok(AgentToolUseOutput::Success((tool_input_partial, new_session))) => {
@@ -663,6 +682,10 @@ impl SessionService {
                         println!("session_service::tool_use_agentic::reached_terminating_tool");
                         break;
                     }
+                }
+                Ok(AgentToolUseOutput::Reasoning(_)) => {
+                    println!("session_service::tool_use_agentic::reasoning");
+                    continue;
                 }
                 Ok(AgentToolUseOutput::Cancelled) => {
                     println!("session_service::tool_use_agentic::cancelled");

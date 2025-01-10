@@ -8,8 +8,9 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage},
+        types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
     },
+    provider::LLMProvider,
 };
 
 use crate::agentic::{
@@ -102,12 +103,15 @@ pub enum ToolUseAgentOutputWithTools {
     Success((Vec<(String, ToolInputPartial)>, String)),
     /// Option<String> -> If we were able to get the thinking string for the tool use
     Failure(Option<String>),
+    // If we have a reasoning output here to guide the agent
+    Reasoning(String),
 }
 
 #[derive(Debug)]
 pub enum ToolUseAgentOutput {
     Success((ToolInputPartial, String)),
     Failure(String),
+    Reasoning(String),
 }
 
 #[derive(Clone)]
@@ -396,6 +400,71 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 11. NEVER forget to include the <thinking></thinking> section before using a tool. We will not be able to invoke the tool properly if you forget it.
 "#
         )
+    }
+
+    fn system_message_for_map_reduce(&self, context: &ToolUseAgentInput) -> String {
+        let tool_descriptions = context.tool_descriptions.join("\n\n");
+        let working_directory = self.working_directory.to_owned();
+        let operating_system = self.operating_system.to_owned();
+        let default_shell = self.shell.to_owned();
+        format!(
+            r#"Your task is to provide strategic feedback to guide the next set of actions by another AI assistant. The AI assistant is working as a software engineer and is tasked with solving a user issue.
+
+**Context you will receive:**
+
+    * Agent trajectory: The steps the agent has taken up until now, along with the user request molded as a conversation.
+    * Available Actions: The list of actions available to the agent.
+    * History: The conversation leading up to the current state.
+
+**Your role is to:**
+
+    * Analyze What to Do Next: Combine your understanding of the task with insights from the attempt up until now to generate the next step the agent should take.
+    * Provide Feedback: Offer strategic guidance that focuses on keeping the agent on task and also remove noise for the agent from all the intermediary steps it has taken.
+    * Avoid Duplicates: Strongly discourage repeating the same high level goal the agent has been doing.
+    * Push for completion: Understand the trajectory of the agent, and come up with the next high level goal the agent should work towards. Prevent the agent from going on and on and doing a lot of work beyond the user issue.
+
+**Instructions:**
+
+    * Analysis: Begin with a thorough analysis that combines understanding the task and insights from the trajectory up until now, focusing on what should be done next.
+    * Direct Feedback: Provide one concrete and high level task for the agent, and how it addresses the task. Focus on details over here and try to avoid taking the same actions which the agent has already taken. Your feedback should either help the AI assistant not make the same mistakes and doom loops (where it gets stuck on the same task again and again) and prevent the agent from doing work which the user has not asked for.
+
+**Guiding philosophy**
+    * Focus on the task's objectives and encourage the agent to keep making forward progress.
+    * Make sure to check the History to understand the trajectory the agent is one.
+    * Compress the trajectory for the agent, you are acting like a checkpoint service for the agent by compressing and distilling all it has learnt. Your direct feedback will be used by the agent to keep making forward progress on the task.
+    * If you notice that the AI assistant is going down a rabbit hole of changes, your feedback should help the assistant recognise that and try for a simpler solution. SIMPLER SOLUTIONS are always preferred by the system.
+
+Remember: Focus on the task's objectives and encourage forward progress by compressing the trajectory learnings for the agent and giving it the next goal to work towards.
+
+
+**Tools the agent has access to and when they are used**:
+{tool_descriptions}
+
+**System information**:
+    *Operating System: {operating_system}
+    *Default Shell: {default_shell}
+    *Current Working Directory: {working_directory}"#
+        )
+    }
+
+    fn user_message_for_map_reduce(&self, context: &ToolUseAgentInput) -> String {
+        let messages = context
+            .session_messages
+            .iter()
+            .map(|session_message| match session_message.role() {
+                SessionChatRole::User => session_message.message().to_owned(),
+                SessionChatRole::Assistant => {
+                    format!(
+                        "**Agent tool use**:
+{}",
+                        session_message.message().to_owned()
+                    )
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n\n");
+        format!("**The trajectory of the AI agent along with the user messages and the tool output are shown below:**
+{messages}")
     }
 
     fn system_message(&self, context: &ToolUseAgentInput) -> String {
@@ -724,6 +793,106 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             )))
         } else {
             Ok(ToolUseAgentOutputWithTools::Failure(None))
+        }
+    }
+
+    pub async fn map_reduce_trajectory(
+        &self,
+        input: ToolUseAgentInput,
+    ) -> Result<ToolUseAgentOutput, ToolError> {
+        let system_message = LLMClientMessage::system(self.system_message_for_map_reduce(&input));
+
+        // we are going to start with using o1-mini for now
+        let mut llm_properties = input
+            .symbol_event_message_properties
+            .llm_properties()
+            .clone();
+
+        if matches!(llm_properties.provider(), LLMProvider::CodeStory(_)) {
+            llm_properties = llm_properties.set_llm(LLMType::O1Mini);
+        }
+
+        let agent_trajectory = LLMClientMessage::user(self.user_message_for_map_reduce(&input));
+
+        let request = LLMClientCompletionRequest::new(
+            llm_properties.llm().clone(),
+            vec![system_message, agent_trajectory],
+            0.2,
+            None,
+        );
+
+        let root_request_id = input
+            .symbol_event_message_properties
+            .root_request_id()
+            .to_owned();
+
+        let cancellation_token = input
+            .symbol_event_message_properties
+            .cancellation_token()
+            .clone();
+
+        let ui_sender = input.symbol_event_message_properties.ui_sender();
+        let exchange_id = input
+            .symbol_event_message_properties
+            .request_id_str()
+            .to_owned();
+
+        // now we have to poll both the stream which will send deltas and also the one
+        // which will poll the future from the stream
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let cloned_llm_client = self.llm_client.clone();
+        let cloned_root_id = root_request_id.to_owned();
+        let llm_response = run_with_cancellation(
+            cancellation_token,
+            tokio::spawn(async move {
+                cloned_llm_client
+                    .stream_completion(
+                        llm_properties.api_key().clone(),
+                        request,
+                        llm_properties.provider().clone(),
+                        vec![
+                            ("event_type".to_owned(), "session_chat".to_owned()),
+                            ("root_id".to_owned(), cloned_root_id),
+                        ]
+                        .into_iter()
+                        .collect(),
+                        sender,
+                    )
+                    .await
+            }),
+        );
+
+        // now poll from the receiver where we are getting deltas
+        let polling_llm_response = tokio::spawn(async move {
+            let ui_sender = ui_sender;
+            let request_id = root_request_id;
+            let exchange_id = exchange_id;
+            let mut answer_up_until_now = "".to_owned();
+            let mut delta = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
+            while let Some(stream_msg) = delta.next().await {
+                answer_up_until_now = stream_msg.answer_up_until_now().to_owned();
+                let _ = ui_sender.send(UIEventWithID::chat_event(
+                    request_id.to_owned(),
+                    exchange_id.to_owned(),
+                    stream_msg.answer_up_until_now().to_owned(),
+                    stream_msg.delta().map(|delta| delta.to_owned()),
+                ));
+            }
+            answer_up_until_now
+        });
+
+        // now wait for the llm response to finsih, which will resolve even if the
+        // cancellation token is cancelled in between
+        let response = llm_response.await;
+        println!(
+            "session_chat_client::tool_use_agent::map_reduce::response::({:?})",
+            &response
+        );
+        // wait for the delta streaming to finish
+        let answer_up_until_now = polling_llm_response.await;
+        match answer_up_until_now {
+            Ok(response) => Ok(ToolUseAgentOutput::Reasoning(response)),
+            _ => Err(ToolError::RetriesExhausted),
         }
     }
 
