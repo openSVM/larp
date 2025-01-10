@@ -298,6 +298,12 @@ pub struct Exchange {
     exchange_type: ExchangeType,
     #[serde(default)]
     exchange_state: ExchangeState,
+    /// is_compressed implies that the exchange has been compressed by another
+    /// in the future, this is esentially used to not keep polluting the context
+    /// window for the agentic llm and make sure that the context window
+    /// stays smallish and nimble
+    #[serde(default)]
+    is_compressed: bool,
 }
 
 impl Exchange {
@@ -321,6 +327,7 @@ impl Exchange {
                 repo_ref,
             )),
             exchange_state: ExchangeState::UserMessage,
+            is_compressed: false,
         }
     }
 
@@ -333,6 +340,7 @@ impl Exchange {
                 user_context,
             }),
             exchange_state: ExchangeState::UserMessage,
+            is_compressed: false,
         }
     }
 
@@ -353,6 +361,7 @@ impl Exchange {
                 exchange_type: AideEditMode::Agentic,
             }),
             exchange_state: ExchangeState::UserMessage,
+            is_compressed: false,
         }
     }
 
@@ -377,6 +386,7 @@ impl Exchange {
                 exchange_type: AideEditMode::Anchored,
             }),
             exchange_state: ExchangeState::UserMessage,
+            is_compressed: false,
         }
     }
 
@@ -388,6 +398,7 @@ impl Exchange {
                 parent_exchange_id,
             )),
             exchange_state: ExchangeState::Running,
+            is_compressed: false,
         }
     }
 
@@ -399,6 +410,7 @@ impl Exchange {
                 parent_exchange_id,
             )),
             exchange_state: ExchangeState::Running,
+            is_compressed: false,
         }
     }
 
@@ -414,6 +426,7 @@ impl Exchange {
                 parent_exchange_id,
             )),
             exchange_state: ExchangeState::Running,
+            is_compressed: false,
         }
     }
 
@@ -435,6 +448,7 @@ impl Exchange {
                 tool_use_id,
             )),
             exchange_state: ExchangeState::Running,
+            is_compressed: false,
         }
     }
 
@@ -455,6 +469,7 @@ impl Exchange {
                 tool_use_id,
             )),
             exchange_state: ExchangeState::Running,
+            is_compressed: false,
         }
     }
 
@@ -1035,6 +1050,7 @@ impl Session {
                                     parent_exchange_id,
                                 }),
                                 exchange_state: exchange.exchange_state,
+                                is_compressed: exchange.is_compressed,
                             }
                         }
                         _ => exchange,
@@ -1501,6 +1517,7 @@ impl Session {
                     user_context: _,
                 }),
             exchange_state: _,
+            is_compressed: _,
         }) = exchange_in_focus
         {
             // take everything until the exchange id of the message we are supposed to
@@ -1774,6 +1791,7 @@ impl Session {
                     ..
                 }),
             exchange_state: _,
+            is_compressed: _,
         }) = last_exchange
         {
             let edits_performed = scratch_pad_agent
@@ -1822,6 +1840,7 @@ impl Session {
                     ..
                 }),
             exchange_state: _,
+            is_compressed: _,
         }) = last_exchange
         {
             let mut converted_messages = vec![];
@@ -1927,6 +1946,7 @@ impl Session {
                         parent_exchange_id: _,
                     }),
                 exchange_state: _,
+                is_compressed: _,
             }) => {
                 // do something over here
                 let files_to_edit = plan_steps
@@ -1961,6 +1981,7 @@ impl Session {
                         ..
                     }),
                 exchange_state: _,
+                is_compressed: _,
             } => {
                 vec![fs_file_path.to_owned()]
             }
