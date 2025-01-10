@@ -64,6 +64,11 @@ impl LLMProperties {
         &self.llm
     }
 
+    pub fn set_llm(mut self, llm: LLMType) -> Self {
+        self.llm = llm;
+        self
+    }
+
     pub fn provider(&self) -> &LLMProvider {
         &self.provider
     }

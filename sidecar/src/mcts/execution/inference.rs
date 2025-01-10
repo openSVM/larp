@@ -336,6 +336,9 @@ impl InferenceEngine {
             Ok(tool_use_parameters) => match tool_use_parameters {
                 // we are going to execute this branch of the code so we can get the output
                 // over here
+                ToolUseAgentOutputWithTools::Reasoning(_) => {
+                    todo!("unimplemented")
+                }
                 ToolUseAgentOutputWithTools::Success((tool_input_partial, thinking)) => {
                     if tool_input_partial.is_empty() {
                         return Ok(InferenceEngineResult::new(
@@ -470,6 +473,7 @@ Always include the <thinking></thinking> section before using the tool."#
         // Now we get the tool use output
         match tool_use_output {
             Ok(tool_use_parameters) => match tool_use_parameters {
+                ToolUseAgentOutput::Reasoning(_) => todo!("not implemented"),
                 // we are going to execute this branch of the code so we can get the output
                 // over here
                 ToolUseAgentOutput::Success((tool_input_partial, thinking)) => {
