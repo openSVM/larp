@@ -799,7 +799,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
     pub async fn map_reduce_trajectory(
         &self,
         input: ToolUseAgentInput,
-    ) -> Result<ToolUseAgentOutput, ToolError> {
+    ) -> Result<ToolUseAgentOutput, SymbolError> {
         let system_message = LLMClientMessage::system(self.system_message_for_map_reduce(&input));
 
         // we are going to start with using o1-mini for now
@@ -843,7 +843,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cloned_llm_client = self.llm_client.clone();
         let cloned_root_id = root_request_id.to_owned();
         let llm_response = run_with_cancellation(
-            cancellation_token,
+            cancellation_token.clone(),
             tokio::spawn(async move {
                 cloned_llm_client
                     .stream_completion(
@@ -863,23 +863,26 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         );
 
         // now poll from the receiver where we are getting deltas
-        let polling_llm_response = tokio::spawn(async move {
-            let ui_sender = ui_sender;
-            let request_id = root_request_id;
-            let exchange_id = exchange_id;
-            let mut answer_up_until_now = "".to_owned();
-            let mut delta = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
-            while let Some(stream_msg) = delta.next().await {
-                answer_up_until_now = stream_msg.answer_up_until_now().to_owned();
-                let _ = ui_sender.send(UIEventWithID::chat_event(
-                    request_id.to_owned(),
-                    exchange_id.to_owned(),
-                    stream_msg.answer_up_until_now().to_owned(),
-                    stream_msg.delta().map(|delta| delta.to_owned()),
-                ));
-            }
-            answer_up_until_now
-        });
+        let polling_llm_response = run_with_cancellation(
+            cancellation_token,
+            tokio::spawn(async move {
+                let ui_sender = ui_sender;
+                let request_id = root_request_id;
+                let exchange_id = exchange_id;
+                let mut answer_up_until_now = "".to_owned();
+                let mut delta = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
+                while let Some(stream_msg) = delta.next().await {
+                    answer_up_until_now = stream_msg.answer_up_until_now().to_owned();
+                    let _ = ui_sender.send(UIEventWithID::chat_event(
+                        request_id.to_owned(),
+                        exchange_id.to_owned(),
+                        stream_msg.answer_up_until_now().to_owned(),
+                        stream_msg.delta().map(|delta| delta.to_owned()),
+                    ));
+                }
+                answer_up_until_now
+            }),
+        );
 
         // now wait for the llm response to finsih, which will resolve even if the
         // cancellation token is cancelled in between
@@ -891,8 +894,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         // wait for the delta streaming to finish
         let answer_up_until_now = polling_llm_response.await;
         match answer_up_until_now {
-            Ok(response) => Ok(ToolUseAgentOutput::Reasoning(response)),
-            _ => Err(ToolError::RetriesExhausted),
+            Some(Ok(response)) => Ok(ToolUseAgentOutput::Reasoning(response)),
+            _ => Err(SymbolError::CancelledResponseStream),
         }
     }
 
