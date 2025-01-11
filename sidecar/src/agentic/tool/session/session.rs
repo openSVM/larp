@@ -2349,7 +2349,7 @@ impl Session {
 
                 // if the file is very very large then we chunk it up and use search and replace
                 // on individual chunks instead
-                let _ = {
+                let updated_code = {
                     let default_range =
                     // very large end position
                     Range::new(Position::new(0, 0, 0), Position::new(10_000, 0, 0));
@@ -2387,8 +2387,8 @@ impl Session {
                             None,
                             message_properties.clone(),
                         )
-                        .await? // big expectations but can also fail, we should handle it properly
-                };
+                        .await // big expectations but can also fail, we should handle it properly
+                }?;
 
                 // now that we have modified the file we can ask the editor for the git-diff of this file over here
                 // and we also have the previous state over here
@@ -2400,8 +2400,8 @@ impl Session {
                                 vec![DiffFileContent::new(
                                     fs_file_path.to_owned(),
                                     old_file_content.contents(),
-                                )
-                                .set_read_fresh_from_editor(true)]
+                                    Some(updated_code),
+                                )]
                             }
                             Err(_) => vec![],
                         },
