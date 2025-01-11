@@ -663,6 +663,8 @@ impl SessionService {
                     // store to disk
                     let _ = self.save_to_storage(&session).await;
                     let tool_type = tool_input_partial.to_tool_type();
+
+                    // invoke the tool and update the session over here
                     session = session
                         .invoke_tool(
                             tool_type.clone(),

@@ -8916,6 +8916,9 @@ FILEPATH: {fs_file_path}
                 DiffFileContent::new(
                     recently_edited_file.fs_file_path().to_owned(),
                     recently_edited_file.current_content().to_owned(),
+                    // here we throw a hail mary towards the editor, that it will be
+                    // able to give us the git-diff when present
+                    None,
                 )
             })
             .collect::<Vec<_>>();
@@ -8974,6 +8977,7 @@ FILEPATH: {fs_file_path}
                 DiffFileContent::new(
                     recently_edited_file.fs_file_path().to_owned(),
                     recently_edited_file.current_content().to_owned(),
+                    None,
                 )
             })
             .collect::<Vec<_>>();

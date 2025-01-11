@@ -73,7 +73,7 @@ impl ScratchPadFilesActive {
     }
 
     fn _to_diff_active_file(self) -> DiffFileContent {
-        DiffFileContent::new(self._file_path, self._file_content)
+        DiffFileContent::new(self._file_path, self._file_content, None)
     }
 }
 
