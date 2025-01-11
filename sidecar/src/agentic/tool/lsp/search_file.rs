@@ -276,8 +276,10 @@ impl Tool for SearchFileContentClient {
             file_pattern,
             "--context",
             "1",
-            // add multiline support for regex
-            "--multiline",
+            // do not enable multiline over here, from the docs:
+            // https://gist.github.com/theskcd/a6369001b3ea3c0212bbc88d8a74211f from
+            // rg --help | grep multiline
+            // "--multiline",
             &context.directory_path,
         ];
 
@@ -286,6 +288,8 @@ impl Tool for SearchFileContentClient {
         let mut child = Command::new(binary_path)
             .args(&args)
             .stdout(Stdio::piped())
+            // close stdin so rg does not wait for input from the stdin fd
+            .stdin(Stdio::null())
             .spawn()
             .map_err(|e| ToolError::IOError(e))?;
 
