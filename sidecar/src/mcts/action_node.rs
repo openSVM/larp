@@ -169,7 +169,7 @@ impl ActionToolParameters {
 
 /// how do we get the action nodes to be part of the llm inference where we can generate
 /// more steps if required etc, thats the important bit here
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ActionNode {
     index: usize,
     action: Option<ActionToolParameters>,
@@ -321,7 +321,7 @@ pub struct SearchTreeMinimal {
     repo_name: String,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Clone)]
 pub struct SearchTree {
     #[serde(serialize_with = "serialize_usize_map")]
     pub index_to_node: HashMap<usize, ActionNode>,

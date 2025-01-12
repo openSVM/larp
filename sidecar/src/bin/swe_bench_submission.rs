@@ -228,6 +228,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", format!("we_have_a_problem").red());
         }
 
+        let tree_with_reward_cloned = tree_with_reward.to_vec();
         tree_with_reward.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap());
 
         // Copying over the files to the right directory over here
@@ -250,7 +251,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let mut traj_content = vec![];
 
         if resolved {
-            let tree_with_reward_len = tree_with_reward.len();
+            // pick the first instance here after sorting
             let tree_instance = tree_with_reward.get(0).expect("to exist");
             let instance_run_id = &tree_instance.0 .0;
             let patch = &tree_instance.0 .3;
@@ -275,9 +276,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let mut trajectory_maximum_counter = 0;
             tree_with_reward.iter().for_each(
                 |((instance_id, resolved, search_tree, patch_diff), score)| {
-                    if trajectory_maximum_counter >= 5 {
-                        return;
-                    }
 
                     // otherwise we can keep going
                     traj_content.push(format!("=================================== START OF TRAJECTORY ==================================="));
@@ -288,10 +286,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 },
             );
 
-            let selected_entry = tree_with_reward
+            // get the index from the original order
+            // this is important to highlight the variance in the agent and also
+            // to show that the first agent is not the correct one at times
+            let selected_entry = tree_with_reward_cloned
                 .into_iter()
                 .enumerate()
-                .find(|(idx, tree_instance)| tree_instance.0 .1)
+                .find(|(idx, current_tree_instance)| {
+                    current_tree_instance.0 .0 == tree_instance.0 .0
+                })
                 .expect("to work");
 
             traj_content.push("=================================== PICKING BEST TRAJECTORY ===================================".to_owned());

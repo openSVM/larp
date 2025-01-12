@@ -86,7 +86,7 @@ async fn main() {
     let search_tree =
         SearchTree::from_minimal_tree(search_tree_minimal, selector, llm_broker, tool_box);
 
-    let tree_output = vec![];
+    let mut tree_output = vec![];
     search_tree.print_tree(&mut tree_output);
 
     println!("===========================================");
