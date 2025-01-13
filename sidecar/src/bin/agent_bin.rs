@@ -68,7 +68,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
     let args = AgentParameters::parse();
 
-    let configuration = Configuration::parse();
+    let configuration = Configuration::default();
 
     // setup the application
     Application::install_logging(&configuration);
@@ -107,26 +107,25 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
-    let _ = 
-        session_service
-            .tool_use_agentic(
-                cloned_session_id,
-                session_storage_path,
-                user_message,
-                exchange_id,
-                vec![],
-                vec![],
-                "bash".to_owned(),
-                vec![],
-                RepoRef::local(&cloned_working_directory).expect("repo_ref to work"),
-                cloned_working_directory,
-                tool_box,
-                llm_broker,
-                UserContext::default(),
-                false,
-                message_properties,
-            )
-            .await;
+    let _ = session_service
+        .tool_use_agentic(
+            cloned_session_id,
+            session_storage_path,
+            user_message,
+            exchange_id,
+            vec![],
+            vec![],
+            "bash".to_owned(),
+            vec![],
+            RepoRef::local(&cloned_working_directory).expect("repo_ref to work"),
+            cloned_working_directory,
+            tool_box,
+            llm_broker,
+            UserContext::default(),
+            false,
+            message_properties,
+        )
+        .await;
     println!("agent::tool_use::end");
     Ok(())
 }
