@@ -320,13 +320,8 @@ pub struct SearchTreeMinimal {
     node_to_parent: HashMap<usize, usize>,
     repo_name: String,
     root_directory: String,
-    max_expansions: usize,
-    root_node_index: usize,
-    max_depth: u32,
-    max_iterations: usize,
     max_finished_nodes: Option<usize>,
     reward_threshold: Option<f32>,
-    min_finished_nodes: Option<usize>,
     max_search_try: Option<usize>,
     log_directory: String,
 }
@@ -638,7 +633,7 @@ impl SearchTree {
     }
 
     pub fn calculate_tree_reward(&self) -> f32 {
-        let mut current_index = self.root_node_index;
+        let current_index = self.root_node_index;
         let mut rewards: Vec<f32> = vec![];
         let mut node = self.index_to_node.get(&current_index);
         while node.is_some() {
@@ -1578,7 +1573,6 @@ impl SearchTree {
         // we use this to pivot back to the root node and start again
         // this allows us to run multiple trajectories at the same time
         // and literally expand on the search space
-        let mut traj_counter = 0;
         for traj_counter in 0..max_search_loops {
             loop {
                 iteration += 1;
