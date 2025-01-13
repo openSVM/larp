@@ -96,7 +96,7 @@ impl Application {
             symbol_tracker.clone(),
             language_parsing.clone(),
             // do not apply the edits directly
-            ToolBrokerConfiguration::new(None, false),
+            ToolBrokerConfiguration::new(None, config.apply_directly),
             LLMProperties::new(
                 LLMType::Gpt4O,
                 LLMProvider::OpenAI,

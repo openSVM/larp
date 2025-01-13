@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 use futures::{lock::Mutex, StreamExt};
 use std::{collections::HashMap, sync::Arc};
+use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc::UnboundedSender, Semaphore};
 
 use llm_client::{
@@ -196,6 +197,7 @@ pub struct SearchAndReplaceEditing {
     lsp_open_file: Arc<Box<dyn Tool + Send + Sync>>,
     // contains a unique-id to go along with the semaphore over here when making
     // the edits
+    apply_directly: bool,
     file_locker: Arc<Mutex<HashMap<String, (String, Arc<Semaphore>)>>>,
     _fail_over_llm: LLMProperties,
 }
@@ -204,11 +206,13 @@ impl SearchAndReplaceEditing {
     pub fn new(
         llm_client: Arc<LLMBroker>,
         fail_over_llm: LLMProperties,
+        apply_directly: bool,
         lsp_open_file: Arc<Box<dyn Tool + Send + Sync>>,
     ) -> Self {
         Self {
             llm_client,
             lsp_open_file,
+            apply_directly,
             file_locker: Arc::new(Mutex::new(Default::default())),
             _fail_over_llm: fail_over_llm,
         }
@@ -913,12 +917,32 @@ impl Tool for SearchAndReplaceEditing {
         let _ = run_with_cancellation(cancellation_token.clone(), join_handle).await;
         println!("tool::search_and_replace_editing::finished");
         match run_with_cancellation(cancellation_token.clone(), llm_response).await {
-            Some(Ok(Ok(response))) => Ok(ToolOutput::search_and_replace_editing(
-                SearchAndReplaceEditingResponse::new(
-                    search_and_replace_accumulator.code_lines.join("\n"),
-                    response,
-                ),
-            )),
+            Some(Ok(Ok(response))) => {
+                // if the self apply tag is enabled this implies that the sidecar
+                // is responsible for updating the contents of the file and not the
+                // external system
+                if self.apply_directly {
+                    // update the file directly over here
+                    let mut file = tokio::fs::File::create(fs_file_path)
+                        .await
+                        .map_err(|e| ToolError::IOError(e))?;
+                    file.write_all(
+                        search_and_replace_accumulator
+                            .code_lines
+                            .to_vec()
+                            .join("\n")
+                            .as_bytes(),
+                    )
+                    .await
+                    .map_err(|e| ToolError::IOError(e))?;
+                }
+                Ok(ToolOutput::search_and_replace_editing(
+                    SearchAndReplaceEditingResponse::new(
+                        search_and_replace_accumulator.code_lines.join("\n"),
+                        response,
+                    ),
+                ))
+            }
             // wrong error over here but its fine for now
             _ => Err(ToolError::RetriesExhausted),
         }

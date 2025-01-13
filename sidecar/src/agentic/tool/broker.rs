@@ -386,6 +386,7 @@ impl ToolBroker {
             Box::new(SearchAndReplaceEditing::new(
                 llm_client.clone(),
                 fail_over_llm.clone(),
+                tool_broker_config.apply_edits_directly,
                 Arc::new(Box::new(LSPOpenFile::new())),
             )),
         );

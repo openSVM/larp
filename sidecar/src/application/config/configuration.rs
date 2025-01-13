@@ -51,10 +51,15 @@ pub struct Configuration {
     /// by default, until we figure out the delta sync method where we only
     /// reindex the files which have changed
     #[clap(long)]
+    #[serde(default)]
     pub enable_background_polling: bool,
 
     #[clap(long)]
     pub llm_endpoint: Option<String>,
+
+    #[clap(long)]
+    #[serde(default)]
+    pub apply_directly: bool,
 }
 
 impl Configuration {

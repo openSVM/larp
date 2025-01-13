@@ -68,7 +68,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
     let args = AgentParameters::parse();
 
-    let configuration = Configuration::default();
+    let mut configuration = Configuration::default();
+    // we apply the edits directly over here
+    configuration.apply_directly = true;
 
     // setup the application
     Application::install_logging(&configuration);
