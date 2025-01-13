@@ -1599,7 +1599,7 @@ impl Session {
         // one of the bugs here is that the last exchange is now of the agent
         // replying to the user, so the exchange type is different completely
         // so can we pass it top down instead of getting the exchange here implicitly
-        if let Some(Exchange {
+        let Some(Exchange {
             exchange_id: _,
             exchange_type:
                 ExchangeType::Plan(ExchangeTypePlan {
@@ -1612,255 +1612,253 @@ impl Session {
             exchange_state: _,
             is_compressed: _,
         }) = exchange_in_focus
-        {
-            // take everything until the exchange id of the message we are supposed to
-            // reply to
-            let mut converted_messages = vec![];
-            for previous_message in self.exchanges.iter() {
-                let converted_message = previous_message.to_conversation_message(false).await;
-                if let Some(converted_message) = converted_message {
-                    converted_messages.push(converted_message);
+        else {
+            return Ok(self);
+        };
+        // take everything until the exchange id of the message we are supposed to
+        // reply to
+        let mut converted_messages = vec![];
+        for previous_message in self.exchanges.iter() {
+            let converted_message = previous_message.to_conversation_message(false).await;
+            if let Some(converted_message) = converted_message {
+                converted_messages.push(converted_message);
+            }
+        }
+        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        let mut stream_receiver = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
+
+        // we should set our exchange over here
+        self.exchanges.push(Exchange::agent_plan_reply(
+            parent_exchange_id.to_owned(),
+            message_properties.request_id_str().to_owned(),
+            vec![],
+        ));
+        self.save_to_storage().await?;
+        let mut agent_reply_exchange = self
+            .exchanges
+            .iter_mut()
+            .find(|exchange| &exchange.exchange_id == message_properties.request_id_str());
+
+        let exchange_id = message_properties.request_id_str().to_owned();
+        let session_id = self.session_id.to_owned();
+
+        // send a message over here that inference has started on the plan
+        let _ = message_properties
+            .ui_sender()
+            .send(UIEventWithID::inference_started(
+                message_properties.root_request_id().to_owned(),
+                message_properties.request_id_str().to_owned(),
+            ));
+
+        // send a message over here that the plan is regenerating
+        let _ = message_properties
+            .ui_sender()
+            .send(UIEventWithID::plan_regeneration(
+                message_properties.root_request_id().to_owned(),
+                message_properties.request_id_str().to_owned(),
+            ));
+
+        let ui_sender = message_properties.ui_sender();
+        let _ = ui_sender.send(UIEventWithID::start_plan_generation(
+            session_id.to_owned(),
+            exchange_id.to_owned(),
+        ));
+
+        let cloned_message_properties = message_properties.clone();
+        let cloned_plan_service = plan_service.clone();
+        let global_running_context = self.global_running_user_context.clone();
+        let cloned_aide_rules = aide_rules.clone();
+        let _plan = tokio::spawn(async move {
+            cloned_plan_service
+                .create_plan(
+                    plan_id,
+                    query.to_owned(),
+                    previous_queries.to_vec(),
+                    // always send the global running context over here
+                    global_running_context,
+                    cloned_aide_rules,
+                    converted_messages,
+                    false,
+                    plan_storage_path,
+                    Some(sender),
+                    cloned_message_properties.clone(),
+                )
+                .await
+        });
+
+        // Create a channel for edits
+        let (edits_sender, mut edits_receiver) = tokio::sync::mpsc::channel::<Option<Step>>(1);
+
+        // Clone necessary variables for the edit task
+        let symbol_manager_clone = symbol_manager.clone();
+        let tool_box_clone = tool_box.clone();
+        let message_properties_clone = message_properties.clone();
+
+        // uncomment to test terminal command
+        // let res = tool_box_clone
+        //     .use_terminal_command("ls", message_properties_clone.clone())
+        //     .await;
+        // println!(
+        //     "session::perform_plan_generation::terminal_command::res({:?})",
+        //     res
+        // );
+
+        // Spawn the edit task
+        let cloned_aide_rules = aide_rules.clone();
+        let edit_task = tokio::spawn(async move {
+            let mut steps_up_until_now = 0;
+            let aide_rules = cloned_aide_rules;
+            while let Some(step) = edits_receiver.recv().await {
+                let previous_steps_up_until_now = steps_up_until_now;
+                steps_up_until_now += 1;
+                if step.is_none() {
+                    break;
+                }
+                let step = step.expect("is_none to hold");
+                println!("session::perform_plan_generation::new_step_found");
+                let step_title = step.title.to_owned();
+                let step_description = step.description();
+                let instruction = format!(
+                    r#"{step_title}
+{step_description}"#
+                );
+                if let Some(file_to_edit) = step.file_to_edit() {
+                    let file_open_response = tool_box_clone
+                        .file_open(file_to_edit.to_owned(), message_properties_clone.clone())
+                        .await?;
+                    let hub_sender = symbol_manager_clone.hub_sender();
+                    let (edit_done_sender, edit_done_receiver) = tokio::sync::oneshot::channel();
+                    let _ = hub_sender.send(SymbolEventMessage::new(
+                        SymbolEventRequest::simple_edit_request(
+                            SymbolIdentifier::with_file_path(&file_to_edit, &file_to_edit),
+                            SymbolToEdit::new(
+                                file_to_edit.to_owned(),
+                                file_open_response.full_range(),
+                                file_to_edit.to_owned(),
+                                vec![instruction.to_owned()],
+                                false,
+                                false,
+                                true,
+                                instruction.to_owned(),
+                                None,
+                                false,
+                                None,
+                                true,
+                                None,
+                                vec![],
+                                Some(previous_steps_up_until_now.to_string()),
+                            )
+                            .set_aide_rules(aide_rules.clone()),
+                            ToolProperties::new(),
+                        ),
+                        message_properties_clone.request_id().clone(),
+                        message_properties_clone.ui_sender().clone(),
+                        edit_done_sender,
+                        message_properties_clone.cancellation_token(),
+                        message_properties_clone.editor_url(),
+                        message_properties_clone.llm_properties().clone(),
+                    ));
+                    println!("session::perform_plan_generation::edit_event::hub_sender::send");
+                    let _ = edit_done_receiver.await;
+                    println!("session::perform_plan_generation::edits_done::hub_sender::happy");
                 }
             }
-            let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
-            let mut stream_receiver =
-                tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
+            Ok::<(), SymbolError>(())
+        });
 
-            // we should set our exchange over here
-            self.exchanges.push(Exchange::agent_plan_reply(
-                parent_exchange_id.to_owned(),
-                message_properties.request_id_str().to_owned(),
-                vec![],
-            ));
-            self.save_to_storage().await?;
-            let mut agent_reply_exchange = self
-                .exchanges
-                .iter_mut()
-                .find(|exchange| &exchange.exchange_id == message_properties.request_id_str());
+        let mut generated_steps = vec![];
 
-            let exchange_id = message_properties.request_id_str().to_owned();
-            let session_id = self.session_id.to_owned();
-
-            // send a message over here that inference has started on the plan
-            let _ = message_properties
-                .ui_sender()
-                .send(UIEventWithID::inference_started(
-                    message_properties.root_request_id().to_owned(),
-                    message_properties.request_id_str().to_owned(),
-                ));
-
-            // send a message over here that the plan is regenerating
-            let _ = message_properties
-                .ui_sender()
-                .send(UIEventWithID::plan_regeneration(
-                    message_properties.root_request_id().to_owned(),
-                    message_properties.request_id_str().to_owned(),
-                ));
-
-            let ui_sender = message_properties.ui_sender();
-            let _ = ui_sender.send(UIEventWithID::start_plan_generation(
-                session_id.to_owned(),
-                exchange_id.to_owned(),
-            ));
-
-            let cloned_message_properties = message_properties.clone();
-            let cloned_plan_service = plan_service.clone();
-            let global_running_context = self.global_running_user_context.clone();
-            let cloned_aide_rules = aide_rules.clone();
-            let _plan = tokio::spawn(async move {
-                cloned_plan_service
-                    .create_plan(
-                        plan_id,
-                        query.to_owned(),
-                        previous_queries.to_vec(),
-                        // always send the global running context over here
-                        global_running_context,
-                        cloned_aide_rules,
-                        converted_messages,
-                        false,
-                        plan_storage_path,
-                        Some(sender),
-                        cloned_message_properties.clone(),
-                    )
-                    .await
-            });
-
-            // Create a channel for edits
-            let (edits_sender, mut edits_receiver) = tokio::sync::mpsc::channel::<Option<Step>>(1);
-
-            // Clone necessary variables for the edit task
-            let symbol_manager_clone = symbol_manager.clone();
-            let tool_box_clone = tool_box.clone();
-            let message_properties_clone = message_properties.clone();
-
-            // uncomment to test terminal command
-            // let res = tool_box_clone
-            //     .use_terminal_command("ls", message_properties_clone.clone())
-            //     .await;
-            // println!(
-            //     "session::perform_plan_generation::terminal_command::res({:?})",
-            //     res
-            // );
-
-            // Spawn the edit task
-            let cloned_aide_rules = aide_rules.clone();
-            let edit_task = tokio::spawn(async move {
-                let mut steps_up_until_now = 0;
-                let aide_rules = cloned_aide_rules;
-                while let Some(step) = edits_receiver.recv().await {
-                    let previous_steps_up_until_now = steps_up_until_now;
-                    steps_up_until_now += 1;
-                    if step.is_none() {
-                        break;
-                    }
-                    let step = step.expect("is_none to hold");
-                    println!("session::perform_plan_generation::new_step_found");
-                    let step_title = step.title.to_owned();
-                    let step_description = step.description();
-                    let instruction = format!(
-                        r#"{step_title}
-{step_description}"#
-                    );
-                    if let Some(file_to_edit) = step.file_to_edit() {
-                        let file_open_response = tool_box_clone
-                            .file_open(file_to_edit.to_owned(), message_properties_clone.clone())
-                            .await?;
-                        let hub_sender = symbol_manager_clone.hub_sender();
-                        let (edit_done_sender, edit_done_receiver) =
-                            tokio::sync::oneshot::channel();
-                        let _ = hub_sender.send(SymbolEventMessage::new(
-                            SymbolEventRequest::simple_edit_request(
-                                SymbolIdentifier::with_file_path(&file_to_edit, &file_to_edit),
-                                SymbolToEdit::new(
-                                    file_to_edit.to_owned(),
-                                    file_open_response.full_range(),
-                                    file_to_edit.to_owned(),
-                                    vec![instruction.to_owned()],
-                                    false,
-                                    false,
-                                    true,
-                                    instruction.to_owned(),
-                                    None,
-                                    false,
-                                    None,
-                                    true,
-                                    None,
-                                    vec![],
-                                    Some(previous_steps_up_until_now.to_string()),
-                                )
-                                .set_aide_rules(aide_rules.clone()),
-                                ToolProperties::new(),
-                            ),
-                            message_properties_clone.request_id().clone(),
-                            message_properties_clone.ui_sender().clone(),
-                            edit_done_sender,
-                            message_properties_clone.cancellation_token(),
-                            message_properties_clone.editor_url(),
-                            message_properties_clone.llm_properties().clone(),
-                        ));
-                        println!("session::perform_plan_generation::edit_event::hub_sender::send");
-                        let _ = edit_done_receiver.await;
-                        println!("session::perform_plan_generation::edits_done::hub_sender::happy");
-                    }
-                }
-                Ok::<(), SymbolError>(())
-            });
-
-            let mut generated_steps = vec![];
-
-            while let Some(step_message) = stream_receiver.next().await {
-                match step_message {
-                    StepSenderEvent::NewStep(step) => {
-                        {
-                            if let Some(ref mut agent_reply_exchange) = agent_reply_exchange {
-                                match &mut agent_reply_exchange.exchange_type {
-                                    ExchangeType::AgentChat(ref mut agent_chat) => {
-                                        match &mut agent_chat.reply {
-                                            ExchangeReplyAgent::Plan(ref mut plan_reply) => {
-                                                plan_reply.plan_steps.push(step.clone());
-                                            }
-                                            _ => {}
+        while let Some(step_message) = stream_receiver.next().await {
+            match step_message {
+                StepSenderEvent::NewStep(step) => {
+                    {
+                        if let Some(ref mut agent_reply_exchange) = agent_reply_exchange {
+                            match &mut agent_reply_exchange.exchange_type {
+                                ExchangeType::AgentChat(ref mut agent_chat) => {
+                                    match &mut agent_chat.reply {
+                                        ExchangeReplyAgent::Plan(ref mut plan_reply) => {
+                                            plan_reply.plan_steps.push(step.clone());
                                         }
+                                        _ => {}
                                     }
-                                    _ => {}
                                 }
+                                _ => {}
                             }
                         }
-                        generated_steps.push(step.clone());
-                        let _ = edits_sender.send(Some(step)).await;
                     }
-                    StepSenderEvent::NewStepTitle(title_found) => {
-                        let _ =
-                            message_properties
-                                .ui_sender()
-                                .send(UIEventWithID::plan_title_added(
-                                    self.session_id.to_owned(),
-                                    exchange_id.clone(),
-                                    title_found.step_index(),
-                                    title_found.files_to_edit().to_vec(),
-                                    title_found.title().to_owned(),
-                                ));
-                    }
-                    StepSenderEvent::NewStepDescription(description_update) => {
-                        let _ = message_properties.ui_sender().send(
-                            UIEventWithID::plan_description_updated(
-                                self.session_id.to_owned(),
-                                exchange_id.clone(),
-                                description_update.index(),
-                                description_update.delta(),
-                                description_update.description_up_until_now().to_owned(),
-                                description_update.files_to_edit().to_vec(),
-                            ),
-                        );
-                    }
-                    StepSenderEvent::DeveloperMessage(developer_message_delta) => {
-                        let _ = message_properties
-                            .ui_sender()
-                            .send(UIEventWithID::chat_event(
-                                self.session_id.to_owned(),
-                                exchange_id.to_owned(),
-                                "".to_owned(),
-                                Some(developer_message_delta),
-                            ));
-                    }
-                    StepSenderEvent::Done => {
-                        let _ = edits_sender.send(None).await;
-                        break;
-                    }
+                    generated_steps.push(step.clone());
+                    let _ = edits_sender.send(Some(step)).await;
+                }
+                StepSenderEvent::NewStepTitle(title_found) => {
+                    let _ = message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::plan_title_added(
+                            self.session_id.to_owned(),
+                            exchange_id.clone(),
+                            title_found.step_index(),
+                            title_found.files_to_edit().to_vec(),
+                            title_found.title().to_owned(),
+                        ));
+                }
+                StepSenderEvent::NewStepDescription(description_update) => {
+                    let _ = message_properties.ui_sender().send(
+                        UIEventWithID::plan_description_updated(
+                            self.session_id.to_owned(),
+                            exchange_id.clone(),
+                            description_update.index(),
+                            description_update.delta(),
+                            description_update.description_up_until_now().to_owned(),
+                            description_update.files_to_edit().to_vec(),
+                        ),
+                    );
+                }
+                StepSenderEvent::DeveloperMessage(developer_message_delta) => {
+                    let _ = message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::chat_event(
+                            self.session_id.to_owned(),
+                            exchange_id.to_owned(),
+                            "".to_owned(),
+                            Some(developer_message_delta),
+                        ));
+                }
+                StepSenderEvent::Done => {
+                    let _ = edits_sender.send(None).await;
+                    break;
                 }
             }
+        }
 
-            // Close the edits sender and await the edit task
-            // println!("session::perform_plan_generation::edits_sender::closed");
-            // edits_sender.closed().await;
+        // Close the edits sender and await the edit task
+        // println!("session::perform_plan_generation::edits_sender::closed");
+        // edits_sender.closed().await;
 
-            println!("session::perform_plan_generation::edit_task::closed");
-            let _ = edit_task.await;
+        println!("session::perform_plan_generation::edit_task::closed");
+        let _ = edit_task.await;
 
-            println!("session::perform_plan_generation::stream_receiver::closed");
-            stream_receiver.close();
+        println!("session::perform_plan_generation::stream_receiver::closed");
+        stream_receiver.close();
 
-            // there is a race condition with cancel_running_exchange's invocation of
-            // set_exchange_as_cancelled, which also saves to storage.
-            self.save_to_storage().await?;
+        // there is a race condition with cancel_running_exchange's invocation of
+        // set_exchange_as_cancelled, which also saves to storage.
+        self.save_to_storage().await?;
 
-            // send a message over here that the request is in review now
-            // since we generated something for the plan
-            if !message_properties.cancellation_token().is_cancelled() {
-                println!("session::perform_plan_generation::cancellation_token::not_cancelled");
-                let _ = message_properties
-                    .ui_sender()
-                    .send(UIEventWithID::request_review(
-                        message_properties.root_request_id().to_owned(),
-                        message_properties.request_id_str().to_owned(),
-                    ));
-                let _ = message_properties
-                    .ui_sender()
-                    .send(UIEventWithID::plan_as_finished(
-                        message_properties.root_request_id().to_owned(),
-                        message_properties.request_id_str().to_owned(),
-                    ));
-            }
+        // send a message over here that the request is in review now
+        // since we generated something for the plan
+        if !message_properties.cancellation_token().is_cancelled() {
+            println!("session::perform_plan_generation::cancellation_token::not_cancelled");
+            let _ = message_properties
+                .ui_sender()
+                .send(UIEventWithID::request_review(
+                    message_properties.root_request_id().to_owned(),
+                    message_properties.request_id_str().to_owned(),
+                ));
+            let _ = message_properties
+                .ui_sender()
+                .send(UIEventWithID::plan_as_finished(
+                    message_properties.root_request_id().to_owned(),
+                    message_properties.request_id_str().to_owned(),
+                ));
         }
         Ok(self)
     }
