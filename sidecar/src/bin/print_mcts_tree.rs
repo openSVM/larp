@@ -1,8 +1,5 @@
-use colored::Colorize;
-use std::{collections::HashSet, path::PathBuf, sync::Arc};
+use std::{path::PathBuf, sync::Arc};
 
-use clap::Parser;
-use futures::StreamExt;
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
@@ -84,7 +81,7 @@ async fn main() {
         .expect("search_tree_minimal_to_not_fail");
 
     let search_tree =
-        SearchTree::from_minimal_tree(search_tree_minimal, selector, llm_broker, tool_box);
+        SearchTree::from_minimal_tree(search_tree_minimal, selector, llm_broker, tool_box, vec![]);
 
     let mut tree_output = vec![];
     search_tree.print_tree(&mut tree_output);

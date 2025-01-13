@@ -111,8 +111,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut total_resolved_count = 0;
     let mut incorrect_tree_count = 0;
     let mut fucked_counter = 0;
-    let mut rerun_counter = 0;
-    let mut to_run: HashSet<String> = Default::default();
+    let rerun_counter = 0;
+    let to_run: HashSet<String> = Default::default();
 
     let mut all_preds_content: Vec<serde_json::Value> = vec![];
 
@@ -170,6 +170,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 selector.clone(),
                 llm_broker.clone(),
                 tool_box.clone(),
+                vec![],
             );
 
             let tree_score = search_tree.calculate_tree_reward();
@@ -275,7 +276,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut trajectory_maximum_counter = 0;
             tree_with_reward.iter().for_each(
-                |((instance_id, resolved, search_tree, patch_diff), score)| {
+                |((_instance_id, _resolved, search_tree, _patch_diff), _score)| {
 
                     // otherwise we can keep going
                     traj_content.push(format!("=================================== START OF TRAJECTORY ==================================="));
@@ -292,7 +293,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             let selected_entry = tree_with_reward_cloned
                 .into_iter()
                 .enumerate()
-                .find(|(idx, current_tree_instance)| {
+                .find(|(_idx, current_tree_instance)| {
                     current_tree_instance.0 .0 == tree_instance.0 .0
                 })
                 .expect("to work");
@@ -308,7 +309,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             // we already know the files we want to copy so we can just go through the list and copy it to the right location
         } else {
             // pick the first one over here
-            let tree_with_reward_len = tree_with_reward.len();
+            let _tree_with_reward_len = tree_with_reward.len();
             let tree_instance = tree_with_reward.get(0).expect("to exist");
             let patch = &tree_instance.0 .3;
             let instance_run_id = &tree_instance.0 .0;
@@ -332,7 +333,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
             let mut trajectory_maximum_counter = 0;
             tree_with_reward.iter().for_each(
-                |((instance_id, resolved, search_tree, patch_diff), score)| {
+                |((_instance_id, _resolved, search_tree, _patch_diff), _score)| {
                     if trajectory_maximum_counter >= 5 {
                         return;
                     }
