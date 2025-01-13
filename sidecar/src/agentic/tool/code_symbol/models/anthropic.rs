@@ -2249,7 +2249,7 @@ Language
 crates/language/src/buffer.rs
 </file_path>
 <thinking>
-Does the language type expose any prettier settings, because we want to get it so we can use that as the fallback 
+Does the language type expose any prettier settings, because we want to get it so we can use that as the fallback
 </thinking>
 </symbol>
 <symbol>
@@ -2354,7 +2354,7 @@ struct Movie {
 
 Your reply:
 <reply>
-After following `movies` function in `Theater` we can see that `Movie` defined in src/movies.rs does not contain actors as a field and it is missing it from the definition. 
+After following `movies` function in `Theater` we can see that `Movie` defined in src/movies.rs does not contain actors as a field and it is missing it from the definition.
 </reply>
 
 Your reply should always be contained in <reply> tags, and the summarized result in between the tags.
@@ -2533,7 +2533,7 @@ impl Movie {
 </next_symbols>
 
 <jump_to_next_symbol>
-We followed `Movie` as it was the return type for `movies` function in `Theater`. We can now learn if movie has the information about the actors. 
+We followed `Movie` as it was the return type for `movies` function in `Theater`. We can now learn if movie has the information about the actors.
 </jump_to_next_symbol>
 
 Your reply:
@@ -2657,7 +2657,7 @@ You can understand from the response here how we did not have to follow the next
 - The context you have accumulated up until now is shown to you in <history> and <extra_data> section.
 - You are responsible for telling us if you have enough context from <history> section and the <extra_data> section along with the code you can see right now to answer the user query.
 - You have to decide if you can answer the user query or you need to see more code sections before you are able to answer the user query.
-- From the code in <code_in_selection> you can go deeper into 
+- From the code in <code_in_selection> you can go deeper into
 - Your reply should be in the following format:
 <reply>
 <thinking>
@@ -3025,7 +3025,7 @@ false
 Example 4:
 <reply>
 <thinking>
-The `ConversationMessage` contains the user id and we are storing `user_id` it uniquely with every message 
+The `ConversationMessage` contains the user id and we are storing `user_id` it uniquely with every message
 </thinking>
 <context_enough>
 true
@@ -3071,13 +3071,13 @@ You can ask to follow a given symbol more deeply. This allows you to focus on a 
 For example you might want to follow the function call more deeply if say the function returns back the symbol
 ```rust
 fn some_function(parameter1: Parameter1, parameter2: Parameter2) -> ReturnType {{
-    // rest of the code 
+    // rest of the code
 }}
 ```
 Here you might want to follow the `ReturnType` to understand more about how the symbol is constructed or what kind of functionality is available on it.
 </approach>
 <approach>
-You suspect that the some code symbol in the code selection can more deeply answer the user query, so its worthwhile following that symbol and asking it a deeper question.  
+You suspect that the some code symbol in the code selection can more deeply answer the user query, so its worthwhile following that symbol and asking it a deeper question.
 </approach>
 </approach_list>
 These are just examples of approaches you can take, keep them in mind and be more imaginative when answering the user query.
@@ -3829,7 +3829,7 @@ Language
 crates/language/src/buffer.rs
 </file_path>
 <thinking>
-Does the language type expose any prettier settings, because we want to get it so we can use that as the fallback 
+Does the language type expose any prettier settings, because we want to get it so we can use that as the fallback
 </thinking>
 </symbol>
 <symbol>
@@ -4121,7 +4121,7 @@ def subtract(a, b, c, d):
     fn system_message_for_correctness_check(&self) -> String {
         format!(
             r#"You are an expert software engineer who is tasked with taking actions for fixing errors in the code which is being written in the editor.
-- You will be given a list of quick fixes suggested by your code editor. 
+- You will be given a list of quick fixes suggested by your code editor.
 - These are simple, deterministic actions that the editor can make on your behalf to fix simple errors.
 - The code has been edited so that the user instruction present in <user_instruction> section is satisfied.
 - This code is provided in <code_in_selection>

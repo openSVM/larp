@@ -2284,16 +2284,16 @@ mod tests {
         # @axflow/models/azure-openai/chat
 
         Interface with [Azure-OpenAI's Chat Completions API](https://learn.microsoft.com/en-us/azure/ai-services/openai/reference) using this module.
-        
+
         Note that this is very close to the vanilla openAI interface, with some subtle minor differences (the return types contain content filter results, see the `AzureOpenAIChatTypes.ContentFilterResults` type ).
-        
+
         In addition, the streaming methods sometimes return objects with empty `choices` arrays. This is automatically handled if you use the `streamTokens()` method.
-        
+
         ```ts
         import { AzureOpenAIChat } from '@axflow/models/azure-openai/chat';
         import type { AzureOpenAIChatTypes } from '@axflow/models/azure-openai/chat';
         ```
-        
+
         ```ts
         declare class AzureOpenAIChat {
           static run: typeof run;
@@ -2302,9 +2302,9 @@ mod tests {
           static streamTokens: typeof streamTokens;
         }
         ```
-        
+
         ## `run`
-        
+
         ```ts
         /**
          * Run a chat completion against the Azure-openAI API.
@@ -2328,9 +2328,9 @@ mod tests {
           options: AzureOpenAIChatTypes.RequestOptions
         ): Promise<AzureOpenAIChatTypes.Response>;
         ```
-        
+
         ## `streamBytes`
-        
+
         ```ts
         /**
          * Run a streaming chat completion against the Azure-openAI API. The resulting stream is the raw unmodified bytes from the API.
@@ -2354,9 +2354,9 @@ mod tests {
           options: AzureOpenAIChatTypes.RequestOptions
         ): Promise<ReadableStream<Uint8Array>>;
         ```
-        
+
         ## `stream`
-        
+
         ```ts
         /**
          * Run a streaming chat completion against the Azure-openAI API. The resulting stream is the parsed stream data as JavaScript objects.
@@ -2383,9 +2383,9 @@ mod tests {
           options: AzureOpenAIChatTypes.RequestOptions
         ): Promise<ReadableStream<AzureOpenAIChatTypes.Chunk>>;
         ```
-        
+
         ## `streamTokens`
-        
+
         ```ts
         /**
          * Run a streaming chat completion against the Azure-openAI API. The resulting stream emits only the string tokens.
@@ -2408,7 +2408,7 @@ mod tests {
           request: AzureOpenAIChatTypes.Request,
           options: AzureOpenAIChatTypes.RequestOptions
         ): Promise<ReadableStream<string>>;
-        ```        
+        ```
         "#
     }
 
@@ -2873,7 +2873,7 @@ public something() {
 impl SomethingClassImplementation {
     pub fn something(&self, blah: string) {
     }
-    
+
     pub fn something(&self, blah: string) {
         struct Something {
         }
@@ -2929,9 +2929,9 @@ trait SomethingTrait {
 
         use regex::Regex;
         use tracing::debug;
-        
+
         use crate::repo::types::RepoRef;
-        
+
         use super::{
             javascript::javascript_language_config,
             languages::TSLanguageConfig,
@@ -2941,15 +2941,15 @@ trait SomethingTrait {
             types::FunctionInformation,
             typescript::typescript_language_config,
         };
-        
+
         /// Here we will parse the document we get from the editor using symbol level
         /// information, as its very fast
-        
+
         #[derive(Debug, Clone)]
         pub struct EditorParsing {
             configs: Vec<TSLanguageConfig>,
         }
-        
+
         impl Default for EditorParsing {
             fn default() -> Self {
                 Self {
@@ -2962,14 +2962,14 @@ trait SomethingTrait {
                 }
             }
         }
-        
+
         impl EditorParsing {
             pub fn ts_language_config(&self, language: &str) -> Option<&TSLanguageConfig> {
                 self.configs
                     .iter()
                     .find(|config| config.language_ids.contains(&language))
             }
-        
+
             pub fn for_file_path(&self, file_path: &str) -> Option<&TSLanguageConfig> {
                 let file_path = PathBuf::from(file_path);
                 let file_extension = file_path
@@ -2985,7 +2985,7 @@ trait SomethingTrait {
                     None => None,
                 }
             }
-        
+
             fn is_node_identifier(
                 &self,
                 node: &tree_sitter::Node,
@@ -3018,7 +3018,7 @@ trait SomethingTrait {
                         .is_match(node.kind()),
                 }
             }
-        
+
             /**
              * This function aims to process nodes from a tree sitter parsed structure
              * based on their intersection with a given range and identify nodes that
@@ -3033,16 +3033,16 @@ trait SomethingTrait {
             // function KX(t, e, r) {
             // // Initial setup with the root node and an empty list for potential matches
             // let n = [t.rootNode], i = [];
-        
+
             // while (true) {
             //     // For each node in 'n', calculate its intersection size with 'e'
             //     let o = n.map(s => [s, rs.intersectionSize(s, e)])
             //              .filter(([s, a]) => a > 0)
             //              .sort(([s, a], [l, c]) => c - a);  // sort in decreasing order of intersection size
-        
+
             //     // If there are no intersections, either return undefined or the most relevant node from 'i'
             //     if (o.length === 0) return i.length === 0 ? void 0 : tX(i, ([s, a], [l, c]) => a - c)[0];
-        
+
             //     // For the nodes in 'o', calculate a relevance score and filter the ones that are declarations or definitions for language 'r'
             //     let s = o.map(([a, l]) => {
             //         let c = rs.len(a),  // Length of the node
@@ -3050,10 +3050,10 @@ trait SomethingTrait {
             //             p = (l - u) / c;  // Relevance score
             //         return [a, p];
             //     });
-        
+
             //     // Filter nodes based on the ZL function and push to 'i'
             //     i.push(...s.filter(([a, l]) => ZL(a, r)));
-        
+
             //     // Prepare for the next iteration by setting 'n' to the children of the nodes in 'o'
             //     n = [];
             //     n.push(...s.flatMap(([a, l]) => a.children));
@@ -3084,7 +3084,7 @@ trait SomethingTrait {
                     // we sort the nodes by their intersection size
                     // we want to keep the biggest size here on the top
                     intersecting_nodes.sort_by(|a, b| b.1.partial_cmp(&a.1).expect("partial_cmp to work"));
-        
+
                     // if there are no nodes, then we return none or the most relevant nodes
                     // from i, which is the biggest node here
                     if intersecting_nodes.is_empty() {
@@ -3102,7 +3102,7 @@ trait SomethingTrait {
                             })
                         };
                     }
-        
+
                     // For the nodes in intersecting_nodes, calculate a relevance score and filter the ones that are declarations or definitions for language 'language_config'
                     let identifier_nodes_sorted = intersecting_nodes
                         .iter()
@@ -3113,7 +3113,7 @@ trait SomethingTrait {
                             (tree_sitter_node.clone(), relevance_score)
                         })
                         .collect::<Vec<_>>();
-        
+
                     // now we filter out the nodes which are here based on the identifier function and set it to identifier nodes
                     // which we want to find for documentation
                     identifier_nodes.extend(
@@ -3125,7 +3125,7 @@ trait SomethingTrait {
                             .map(|(tree_sitter_node, score)| (tree_sitter_node, score))
                             .collect::<Vec<_>>(),
                     );
-        
+
                     // Now we prepare for the next iteration by setting nodes to the children of the nodes
                     // in intersecting_nodes
                     nodes = intersecting_nodes
@@ -3138,7 +3138,7 @@ trait SomethingTrait {
                         .collect::<Vec<_>>();
                 }
             }
-        
+
             fn get_identifier_node_by_expanding<'a>(
                 &'a self,
                 tree_sitter_node: tree_sitter::Node<'a>,
@@ -3178,7 +3178,7 @@ trait SomethingTrait {
                     }
                 }
             }
-        
+
             pub fn get_documentation_node(
                 &self,
                 text_document: &TextDocument,
@@ -3224,7 +3224,7 @@ trait SomethingTrait {
                 // or else we return nothing here
                 vec![]
             }
-        
+
             pub fn get_documentation_node_for_range(
                 &self,
                 source_str: &str,
@@ -3253,7 +3253,7 @@ trait SomethingTrait {
                     Range::new(start_position.clone(), end_position.clone()),
                 )
             }
-        
+
             pub fn function_information_nodes(
                 &self,
                 source_code: &[u8],
@@ -3268,7 +3268,7 @@ trait SomethingTrait {
                     .function_information_nodes(source_code)
             }
         }
-        
+
         #[cfg(test)]
         mod tests {
             use crate::{
@@ -3278,9 +3278,9 @@ trait SomethingTrait {
                 },
                 repo::types::RepoRef,
             };
-        
+
             use super::EditorParsing;
-        
+
             #[test]
             fn rust_selection_parsing() {
                 let editor_parsing = EditorParsing::default();
@@ -3323,7 +3323,7 @@ trait SomethingTrait {
             Name string
             Age  int
         }
-        
+
         func createPerson(name string, age int) Person {
             return Person{Name: name, Age: age}
         }
@@ -3358,7 +3358,7 @@ trait SomethingTrait {
 class Something:
     def __init__():
         pass
-    
+
     def something_else(self, blah, blah2):
         print(blah)
         print(blah2)
@@ -3395,7 +3395,7 @@ class Something:
         a = b
         c = d
         pass
-    
+
     @classmethod
     def something_else(cls, blah, blah2):
         print(blah)
@@ -3860,7 +3860,7 @@ enum Something {
     a: string;
     b: string;
 }
-    
+
 export type IAideProbeProgress =
     | IAideChatMarkdownContent
     | IAideProbeBreakdownContent
