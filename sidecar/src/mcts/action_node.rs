@@ -319,6 +319,16 @@ pub struct SearchTreeMinimal {
     node_to_children: HashMap<usize, Vec<usize>>,
     node_to_parent: HashMap<usize, usize>,
     repo_name: String,
+    root_directory: String,
+    max_expansions: usize,
+    root_node_index: usize,
+    max_depth: u32,
+    max_iterations: usize,
+    max_finished_nodes: Option<usize>,
+    reward_threshold: Option<f32>,
+    min_finished_nodes: Option<usize>,
+    max_search_try: Option<usize>,
+    log_directory: String,
 }
 
 #[derive(Serialize, Clone)]
@@ -416,6 +426,7 @@ impl SearchTree {
         selector: Selector,
         llm_client: Arc<LLMBroker>,
         tool_box: Arc<ToolBox>,
+        tools: Vec<ToolType>,
     ) -> Self {
         Self {
             agent_settings: AgentSettings::new(true, true),
@@ -426,16 +437,16 @@ impl SearchTree {
             root_node_index: 0,
             max_depth: 40,
             max_iterations: 500,
-            max_finished_nodes: None,
-            reward_threshold: None,
-            min_finished_nodes: None,
-            max_search_try: None,
+            max_finished_nodes: search_tree_minimal.max_finished_nodes,
+            reward_threshold: search_tree_minimal.reward_threshold,
+            min_finished_nodes: search_tree_minimal.max_finished_nodes,
+            max_search_try: search_tree_minimal.max_search_try,
             selector,
-            tools: vec![],
-            root_directory: "".to_owned(),
+            tools,
+            root_directory: search_tree_minimal.root_directory,
             repo_name: search_tree_minimal.repo_name,
             repo_base_commit_hash: "".to_owned(),
-            log_directory: "".to_owned(),
+            log_directory: search_tree_minimal.log_directory,
             llm_client,
             tool_box,
         }
@@ -1511,7 +1522,7 @@ impl SearchTree {
             .expect("to work");
         // also run git reset --hard to the base commit
         let _output = tokio::process::Command::new("git")
-            .arg("rest")
+            .arg("reset")
             .arg("--hard")
             .arg(self.repo_base_commit_hash.to_owned())
             .current_dir(self.root_directory.to_owned())
@@ -1568,100 +1579,95 @@ impl SearchTree {
         // this allows us to run multiple trajectories at the same time
         // and literally expand on the search space
         let mut traj_counter = 0;
-        loop {
-            if traj_counter < max_search_loops {
-                traj_counter = traj_counter + 1;
-                loop {
-                    iteration += 1;
-                    println!("\n--- Traj: {}, Iteration {} ---", traj_counter, iteration);
+        for traj_counter in 0..max_search_loops {
+            loop {
+                iteration += 1;
+                println!("\n--- Traj: {}, Iteration {} ---", traj_counter, iteration);
 
-                    // Add tree visualization after each iteration
-                    // self.print_tree();
+                // Add tree visualization after each iteration
+                self.print_tree(&mut vec![]);
 
-                    // change as necessary
-                    self.save_serialised_graph(
-                        &self.log_directory,
-                        &message_properties.root_request_id(),
-                    )
-                    .await;
+                // change as necessary
+                self.save_serialised_graph(
+                    &self.log_directory,
+                    &message_properties.root_request_id(),
+                )
+                .await;
 
-                    // only finish when the current iteration is finished
-                    // and the iteration is not equal to 1 which means we are inside
-                    // and deep into the tree
-                    if self.is_finished() && iteration != 1 {
-                        println!("Search finished - termination condition met");
-                        break;
-                    }
-
-                    // Selection phase
-                    let selected_node = if iteration == 1 {
-                        // If this is the first iteration we have to alwys select
-                        // the root node
-                        Some(self.root_node_index)
-                    } else {
-                        self.select()
-                    };
-                    if let Some(selected_index) = selected_node {
-                        self.log_tree_state(selected_index, "Selected:");
-                    } else {
-                        println!("No node selected - terminating search");
-                        break;
-                    }
-
-                    // Expansion phase
-                    let is_maximum_exceed_allowed = iteration == 1; //  only allowed when we are at the root
-                    let new_node =
-                        selected_node.and_then(|n| self.expand(n, is_maximum_exceed_allowed));
-                    if let Some(new_index) = new_node {
-                        self.log_tree_state(new_index, "Expanded:");
-                    } else {
-                        println!("No expansion possible - terminating search");
-                        break;
-                    }
-
-                    let new_index = new_node.expect("Already checked above");
-
-                    // Reset and prepare node
-                    self.reset_file_system(new_index).await;
-
-                    self.generate_feedback_for_node(new_index, message_properties.clone())
-                        .await;
-
-                    // Simulation
-                    let is_duplicate_allowed = iteration == 1; // only allowed duplicates for the start of the traj
-                    self.run_node(new_index, is_duplicate_allowed, message_properties.clone())
-                        .await;
-                    self.log_tree_state(new_index, "After simulation:");
-
-                    // Backpropagation
-                    self.backpropogate(new_index);
-
-                    // change as necessary is saved over here
-                    self.save_serialised_graph(
-                        &self.log_directory,
-                        &message_properties.root_request_id(),
-                    )
-                    .await;
-
-                    // Log tree statistics
-                    println!(
-                        "Tree state: {} total nodes, {} expandable",
-                        self.index_to_node.len(),
-                        self.expandable_node(self.root_node_index).len()
-                    );
+                // only finish when the current iteration is finished
+                // and the iteration is not equal to 1 which means we are inside
+                // and deep into the tree
+                if self.is_finished() && iteration != 1 {
+                    println!("Search finished - termination condition met");
+                    break;
                 }
-                println!("==== SEARCH TREE IS COMPLETE {} ===", traj_counter);
-                // resetting iteration count here and starting again for the new traj
-                println!("=== RESETTING ITERATION UNIT ===");
-                iteration = 0;
-            } else {
-                break;
+
+                // Selection phase
+                let selected_node = if iteration == 1 {
+                    // If this is the first iteration we have to alwys select
+                    // the root node
+                    Some(self.root_node_index)
+                } else {
+                    self.select()
+                };
+                if let Some(selected_index) = selected_node {
+                    self.log_tree_state(selected_index, "Selected:");
+                } else {
+                    println!("No node selected - terminating search");
+                    break;
+                }
+
+                // Expansion phase
+                let is_maximum_exceed_allowed = iteration == 1; //  only allowed when we are at the root
+                let new_node =
+                    selected_node.and_then(|n| self.expand(n, is_maximum_exceed_allowed));
+                if let Some(new_index) = new_node {
+                    self.log_tree_state(new_index, "Expanded:");
+                } else {
+                    println!("No expansion possible - terminating search");
+                    break;
+                }
+
+                let new_index = new_node.expect("Already checked above");
+
+                // Reset and prepare node
+                self.reset_file_system(new_index).await;
+
+                self.generate_feedback_for_node(new_index, message_properties.clone())
+                    .await;
+
+                // Simulation
+                let is_duplicate_allowed = iteration == 1; // only allowed duplicates for the start of the traj
+                self.run_node(new_index, is_duplicate_allowed, message_properties.clone())
+                    .await;
+                self.log_tree_state(new_index, "After simulation:");
+
+                // Backpropagation
+                self.backpropogate(new_index);
+
+                // change as necessary is saved over here
+                self.save_serialised_graph(
+                    &self.log_directory,
+                    &message_properties.root_request_id(),
+                )
+                .await;
+
+                // Log tree statistics
+                println!(
+                    "Tree state: {} total nodes, {} expandable",
+                    self.index_to_node.len(),
+                    self.expandable_node(self.root_node_index).len()
+                );
             }
+            println!("==== SEARCH TREE IS COMPLETE {} ===", traj_counter);
+            // resetting iteration count here and starting again for the new traj
+            println!("=== RESETTING ITERATION UNIT ===");
+            iteration = 0;
         }
         println!("=== Search Complete ===\n");
 
         // Print final tree state
-        // self.print_tree();
+        self.print_tree(&mut vec![]);
 
         // save the tree again at the very end when everything has been updated
         self.save_serialised_graph(&self.log_directory, &message_properties.root_request_id())

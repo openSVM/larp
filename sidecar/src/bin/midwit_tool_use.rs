@@ -56,6 +56,9 @@ struct CliArgs {
     /// The run id for the current run
     #[arg(long)]
     problem_statement: String,
+    /// Restore an existing search graph.
+    #[arg(long)]
+    restore: Option<PathBuf>,
 }
 
 fn default_index_dir() -> PathBuf {
@@ -180,28 +183,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let expansions = 1;
-
-    // Instantiate the mcts tree over here and start the search
-    let mut search_tree = SearchTree::new(
-        expansions,                                       // max_expansions
-        30,                                               // max_depth of the tree
-        400,                                              // max_iterations
-        Some(5),                                          // max_finished_nodes
-        None,                                             // reward_threshold
-        Some(2),                                          // min_finished_nodes
-        Some(1),                                          // max_search_try
-        args.repo_location.to_string_lossy().to_string(), // root_directory
-        args.repo_name.to_owned(),                        // repo_name
-        "".to_owned(),                                    // base_commit
-        args.problem_statement,                           // problem_statment
-        selector,                                         // selector
-        tools,                                            // tools
-        tool_box,                                         // tool_box
-        llm_broker,                                       // llm_client
-        log_directory.to_string_lossy().to_string(),      // log directory
-        agent_settings,                                   // agent_settings
-    );
-
+    let mut search_tree = if let Some(restore) = args.restore {
+        SearchTree::from_minimal_tree(
+            serde_json::from_slice(&tokio::fs::read(restore).await?)?,
+            selector,
+            llm_broker,
+            tool_box,
+            tools,
+        )
+    } else {
+        // Instantiate the mcts tree over here and start the search
+        SearchTree::new(
+            expansions,                                       // max_expansions
+            30,                                               // max_depth of the tree
+            400,                                              // max_iterations
+            Some(5),                                          // max_finished_nodes
+            None,                                             // reward_threshold
+            Some(2),                                          // min_finished_nodes
+            Some(1),                                          // max_search_try
+            args.repo_location.to_string_lossy().to_string(), // root_directory
+            args.repo_name.to_owned(),                        // repo_name
+            "".to_owned(),                                    // base_commit
+            args.problem_statement,                           // problem_statment
+            selector,                                         // selector
+            tools,                                            // tools
+            tool_box,                                         // tool_box
+            llm_broker,                                       // llm_client
+            log_directory.to_string_lossy().to_string(),      // log directory
+            agent_settings,                                   // agent_settings
+        )
+    };
     // Run the search
     search_tree.run_search(message_properties).await;
 
