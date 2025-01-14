@@ -42,6 +42,7 @@ impl OpenAIClient {
             LLMType::DeepSeekCoder33BInstruct => Some("deepseek-coder-33b".to_owned()),
             LLMType::Llama3_1_8bInstruct => Some("llama-3.1-8b-instant".to_owned()),
             LLMType::O1Preview => Some("o1-preview".to_owned()),
+            LLMType::O1 => Some("o1".to_owned()),
             _ => None,
         }
     }

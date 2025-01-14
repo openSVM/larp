@@ -290,6 +290,8 @@ impl Tool for SearchFileContentClient {
             .stdout(Stdio::piped())
             // close stdin so rg does not wait for input from the stdin fd
             .stdin(Stdio::null())
+            // set the current directory for the command properly
+            .current_dir(context.directory_path.to_owned())
             .spawn()
             .map_err(|e| ToolError::IOError(e))?;
 
