@@ -128,6 +128,8 @@ pub enum ToolType {
     UndoChangesMadeDuringSession,
     // context driven hot streak reply which looks at LSP errors
     ContextDriveHotStreakReply,
+    // Semantic search (file level)
+    SemanticSearch,
     // Terminal command
     TerminalCommand,
     // Run tests
@@ -250,6 +252,7 @@ impl std::fmt::Display for ToolType {
             ToolType::RewardGeneration => write!(f, "reward_generation"),
             ToolType::FeedbackGeneration => write!(f, "feedback_generation"),
             ToolType::CodeEditorTool => write!(f, "str_replace_editor"),
+            ToolType::SemanticSearch => write!(f, "semantic_search"),
         }
     }
 }

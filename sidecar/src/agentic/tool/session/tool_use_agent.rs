@@ -21,6 +21,7 @@ use crate::agentic::{
     tool::{
         code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
         errors::ToolError,
+        file::semantic_search::SemanticSearchParametersPartial,
         helpers::cancellation_future::run_with_cancellation,
         input::ToolInputPartial,
         lsp::{
@@ -1271,7 +1272,13 @@ impl ToolUseGenerator {
                     }
                 }
                 ToolBlockStatus::ToolUseFind => {
-                    if answer_line_at_index == "<search_files>" {
+                    if answer_line_at_index == "<semantic_search>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                        self.tool_type_possible = Some(ToolType::SemanticSearch);
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::SemanticSearch));
+                    } else if answer_line_at_index == "<search_files>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SearchFileContentWithRegex);
                         let _ = self.sender.send(ToolBlockEvent::ToolFound(
@@ -1536,6 +1543,18 @@ impl ToolUseGenerator {
                             (Some(fs_file_path), Some(instruction)) => {
                                 self.tool_input_partial = Some(ToolInputPartial::CodeEditing(
                                     CodeEditingPartialRequest::new(fs_file_path, instruction),
+                                ));
+                                let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
+                            }
+                            _ => {}
+                        }
+                        self.tool_type_possible = None;
+                    } else if answer_line_at_index == "</semantic_search>" {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        match self.question.clone() {
+                            Some(question) => {
+                                self.tool_input_partial = Some(ToolInputPartial::SemanticSearch(
+                                    SemanticSearchParametersPartial::new(question),
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }
