@@ -126,6 +126,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             UserContext::default(),
             false,
             false,
+            false,
             message_properties,
         )
         .await;
