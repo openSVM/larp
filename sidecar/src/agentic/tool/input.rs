@@ -34,7 +34,10 @@ use super::{
     editor::apply::EditorApplyRequest,
     errors::ToolError,
     feedback::feedback::FeedbackGenerationRequest,
-    file::file_finder::ImportantFilesFinderQuery,
+    file::{
+        file_finder::ImportantFilesFinderQuery,
+        semantic_search::{SemanticSearchParametersPartial, SemanticSearchRequest},
+    },
     filtering::broker::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
     },
@@ -92,6 +95,7 @@ pub enum ToolInputPartial {
     RepoMapGeneration(RepoMapGeneratorRequestPartial),
     TestRunner(TestRunnerRequestPartial),
     CodeEditorParameters(CodeEditorParameters),
+    SemanticSearch(SemanticSearchParametersPartial),
 }
 
 impl ToolInputPartial {
@@ -108,6 +112,7 @@ impl ToolInputPartial {
             Self::RepoMapGeneration(_) => ToolType::RepoMapGeneration,
             Self::TestRunner(_) => ToolType::TestRunner,
             Self::CodeEditorParameters(_) => ToolType::CodeEditorTool,
+            Self::SemanticSearch(_) => ToolType::SemanticSearch,
         }
     }
 
@@ -127,6 +132,9 @@ impl ToolInputPartial {
             Self::TestRunner(test_runner_partial_output) => test_runner_partial_output.to_string(),
             Self::CodeEditorParameters(code_editor_parameters) => {
                 code_editor_parameters.to_string()
+            }
+            Self::SemanticSearch(semantic_search_parameters) => {
+                semantic_search_parameters.to_string()
             }
         }
     }
@@ -155,6 +163,9 @@ impl ToolInputPartial {
             }
             Self::CodeEditorParameters(code_editor_parameters) => {
                 serde_json::to_value(&code_editor_parameters).ok()
+            }
+            Self::SemanticSearch(semantic_search_parameters) => {
+                serde_json::to_value(semantic_search_parameters).ok()
             }
         }
     }
@@ -299,11 +310,14 @@ pub enum ToolInput {
     RewardGeneration(RewardGenerationRequest),
     // Feedback generation
     FeedbackGeneration(FeedbackGenerationRequest),
+    // Semantic search input
+    SemanticSearch(SemanticSearchRequest),
 }
 
 impl ToolInput {
     pub fn tool_type(&self) -> ToolType {
         match self {
+            ToolInput::SemanticSearch(_) => ToolType::SemanticSearch,
             ToolInput::CodeEditing(_) => ToolType::CodeEditing,
             ToolInput::LSPDiagnostics(_) => ToolType::LSPDiagnostics,
             ToolInput::FindCodeSnippets(_) => ToolType::FindCodeSnippets,
@@ -387,6 +401,14 @@ impl ToolInput {
             ToolInput::RunTests(_) => ToolType::TestRunner,
             ToolInput::RewardGeneration(_) => ToolType::RewardGeneration,
             ToolInput::FeedbackGeneration(_) => ToolType::FeedbackGeneration,
+        }
+    }
+
+    pub fn is_semantic_search(self) -> Result<SemanticSearchRequest, ToolError> {
+        if let ToolInput::SemanticSearch(request) = self {
+            Ok(request)
+        } else {
+            Err(ToolError::WrongToolInput(ToolType::SemanticSearch))
         }
     }
 

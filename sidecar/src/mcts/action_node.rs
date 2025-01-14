@@ -1810,6 +1810,9 @@ impl SearchTree {
                         ToolInputPartial::OpenFile(_) => {
                             tool_type.to_string().bright_magenta().to_string()
                         }
+                        ToolInputPartial::SemanticSearch(_) => {
+                            tool_type.to_string().bright_purple().to_string()
+                        }
                         ToolInputPartial::LSPDiagnostics(_) => {
                             tool_type.to_string().bright_cyan().to_string()
                         }

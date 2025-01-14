@@ -27,7 +27,7 @@ use super::{
     },
     editor::apply::EditorApplyResponse,
     feedback::feedback::FeedbackGenerationResponse,
-    file::important::FileImportantResponse,
+    file::{important::FileImportantResponse, semantic_search::SemanticSearchResponse},
     filtering::broker::{
         CodeToEditFilterResponse, CodeToEditSymbolResponse, CodeToProbeFilterResponse,
         CodeToProbeSubSymbolList,
@@ -226,6 +226,8 @@ pub enum ToolOutput {
     RewardGeneration(RewardGenerationResponse),
     // Feedback generation
     FeedbackGeneration(FeedbackGenerationResponse),
+    // Semantic search file level response
+    SemanticSearch(SemanticSearchResponse),
 }
 
 impl ToolOutput {
@@ -884,6 +886,13 @@ impl ToolOutput {
     pub fn get_feedback_generation_response(self) -> Option<FeedbackGenerationResponse> {
         match self {
             ToolOutput::FeedbackGeneration(response) => Some(response),
+            _ => None,
+        }
+    }
+
+    pub fn get_semantic_search_response(self) -> Option<SemanticSearchResponse> {
+        match self {
+            ToolOutput::SemanticSearch(response) => Some(response),
             _ => None,
         }
     }

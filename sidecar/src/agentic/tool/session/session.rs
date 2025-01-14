@@ -7,6 +7,7 @@ use std::{
 };
 
 use futures::StreamExt;
+use llm_client::clients::types::LLMType;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -27,6 +28,7 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
+            file::semantic_search::SemanticSearchRequest,
             helpers::diff_recent_changes::DiffFileContent,
             input::{ToolInput, ToolInputPartial},
             lsp::{
@@ -2522,6 +2524,75 @@ impl Session {
                     &exchange_id,
                     tool_type.clone(),
                     response,
+                    UserContext::default(),
+                    exchange_id.to_owned(),
+                );
+            }
+            ToolInputPartial::SemanticSearch(semantic_search) => {
+                // now we start executing the semantic search based on the query we are getting
+                // over here
+                let input = ToolInput::SemanticSearch(SemanticSearchRequest::new(
+                    root_directory,
+                    message_properties
+                        .llm_properties()
+                        .clone()
+                        .set_llm(LLMType::DeepSeekCoderV3),
+                    semantic_search.search_query().to_owned(),
+                    message_properties.clone(),
+                ));
+
+                let mut semantic_search_response = tool_box
+                    .tools()
+                    .invoke(input)
+                    .await
+                    .map_err(|e| SymbolError::ToolError(e))?
+                    .get_semantic_search_response()
+                    .ok_or(SymbolError::WrongToolOutput)?
+                    .file_decisions();
+
+                // now we first filter out the responses here which are negative and then sort them
+                // by score and then finally
+                semantic_search_response = semantic_search_response
+                    .into_iter()
+                    .filter(|(_, filter_result)| filter_result.is_relevant())
+                    .collect::<Vec<_>>();
+
+                // sort by their scores in ascending order
+                semantic_search_response.sort_by(|a, b| {
+                    a.1.score()
+                        .partial_cmp(&b.1.score())
+                        .unwrap_or(std::cmp::Ordering::Greater)
+                });
+                // reverse it so its in decreasing order
+                semantic_search_response.reverse();
+                // keep only the top 20 files
+                semantic_search_response.truncate(20);
+                // now create the response for to show to the user
+                let semantic_search_response = semantic_search_response
+                    .into_iter()
+                    .map(|(fs_file_path, semantic_search_result)| {
+                        format!(
+                            r#"## file_path: {}
+reason: {}"#,
+                            fs_file_path,
+                            semantic_search_result.reason()
+                        )
+                    })
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                let _ =
+                    message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::tool_output_delta_response(
+                            message_properties.root_request_id().to_owned(),
+                            message_properties.request_id_str().to_owned(),
+                            "".to_owned(),
+                            semantic_search_response.to_owned(),
+                        ));
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    semantic_search_response.to_owned(),
                     UserContext::default(),
                     exchange_id.to_owned(),
                 );

@@ -30,7 +30,7 @@ use super::{
     editor::apply::EditorApply,
     errors::ToolError,
     feedback::feedback::FeedbackClientGenerator,
-    file::file_finder::ImportantFilesFinderBroker,
+    file::{file_finder::ImportantFilesFinderBroker, semantic_search::SemanticSearch},
     filtering::broker::CodeToEditFormatterBroker,
     git::{diff_client::GitDiffClient, edited_files::EditedFiles},
     grep::file::FindInFile,
@@ -478,7 +478,11 @@ impl ToolBroker {
         );
         tools.insert(
             ToolType::FeedbackGeneration,
-            Box::new(FeedbackClientGenerator::new(llm_client)),
+            Box::new(FeedbackClientGenerator::new(llm_client.clone())),
+        );
+        tools.insert(
+            ToolType::SemanticSearch,
+            Box::new(SemanticSearch::new(llm_client)),
         );
         // we also want to add the re-ranking tool here, so we invoke it freely
         Self { tools }
