@@ -533,6 +533,7 @@ impl SessionService {
         user_context: UserContext,
         reasoning: bool,
         running_in_editor: bool,
+        semantic_search: bool,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -577,6 +578,11 @@ impl SessionService {
                         // disable for testing
                         ToolType::AskFollowupQuestions,
                     ]
+                } else {
+                    vec![]
+                })
+                .chain(if semantic_search {
+                    vec![ToolType::SemanticSearch]
                 } else {
                     vec![]
                 })
