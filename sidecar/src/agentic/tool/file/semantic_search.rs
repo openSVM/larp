@@ -23,6 +23,24 @@ use llm_client::{
 use quick_xml::de::from_str;
 use std::{path::Path, sync::Arc};
 
+/// Blacklisted extensions
+pub const EXT_BLACKLIST: &[&str] = &[
+    // graphics
+    "png", "jpg", "jpeg", "ico", "bmp", "bpg", "eps", "pcx", "ppm", "tga", "tiff", "wmf", "xpm",
+    "svg", "riv", "gif", // fonts
+    "ttf", "woff2", "fnt", "fon", "otf", // documents
+    "pdf", "ps", "doc", "dot", "docx", "dotx", "xls", "xlsx", "xlt", "odt", "ott", "ods", "ots",
+    "dvi", "pcl", // media
+    "mp3", "ogg", "ac3", "aac", "mod", "mp4", "mkv", "avi", "m4v", "mov", "flv",
+    // compiled
+    "jar", "pyc", "war", "ear", // compression
+    "tar", "gz", "bz2", "xz", "7z", "bin", "apk", "deb", "rpm", "rar", "zip", // binary
+    "pkg", "pyd", "pyz", "lib", "pack", "idx", "dylib", "so", // executable
+    "com", "exe", "out", "coff", "obj", "dll", "app", "class", // misc.
+    "log", "wad", "bsp", "bak", "sav", "dat", "lock", // lock files related
+    "json",
+];
+
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SemanticSearchParametersPartial {
     search_query: String,
@@ -223,15 +241,36 @@ impl Tool for SemanticSearch {
         let (list_files, _) = list_files(&Path::new(&context.working_directory), true, 1000);
         let llm_client = self.llm_client.clone();
 
-        let llm_reasoning_call = stream::iter(list_files.into_iter().map(|file_path| {
-            (
-                file_path,
-                llm_properties.clone(),
-                user_query.to_owned(),
-                root_request_id.to_owned(),
-                llm_client.clone(),
-            )
-        }))
+        let llm_reasoning_call = stream::iter(
+            list_files
+                .into_iter()
+                .filter(|file_path| file_path.is_file())
+                .filter(|file_path| {
+                    if let Some(extension) = file_path.extension() {
+                        let is_package_json = match file_path.file_name() {
+                            Some(os_str) => os_str == "package.json",
+                            None => false,
+                        };
+                        // if its package.json then allow it
+                        if is_package_json {
+                            return true;
+                        }
+                        // make sure that the extension is not block listed
+                        !EXT_BLACKLIST.into_iter().any(|ext| *ext == extension)
+                    } else {
+                        false
+                    }
+                })
+                .map(|file_path| {
+                    (
+                        file_path,
+                        llm_properties.clone(),
+                        user_query.to_owned(),
+                        root_request_id.to_owned(),
+                        llm_client.clone(),
+                    )
+                }),
+        )
         .map(
             |(fs_file_path, llm_properties, user_query, root_request_id, llm_client)| async move {
                 let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
