@@ -566,7 +566,7 @@ impl SessionService {
                     ToolType::RepoMapGeneration,
                     ToolType::TerminalCommand,
                     // remove this later
-                    ToolType::SemanticSearch,
+                    // ToolType::SemanticSearch,
                 ]
                 .into_iter()
                 .chain(if running_in_editor {
