@@ -532,6 +532,7 @@ impl SessionService {
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
         reasoning: bool,
+        running_in_editor: bool,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -555,18 +556,30 @@ impl SessionService {
             // always update the tools over here, no matter what the session had before
             // this is essential because the same session might be crossing over from
             // a chat or edit
-            .set_tools(vec![
-                ToolType::ListFiles,
-                ToolType::SearchFileContentWithRegex,
-                ToolType::OpenFile,
-                ToolType::CodeEditing,
-                ToolType::LSPDiagnostics,
-                // disable for testing
-                ToolType::AskFollowupQuestions,
-                ToolType::AttemptCompletion,
-                ToolType::RepoMapGeneration,
-                ToolType::TerminalCommand,
-            ]);
+            .set_tools(
+                vec![
+                    ToolType::ListFiles,
+                    ToolType::SearchFileContentWithRegex,
+                    ToolType::OpenFile,
+                    ToolType::CodeEditing,
+                    ToolType::AttemptCompletion,
+                    ToolType::RepoMapGeneration,
+                    ToolType::TerminalCommand,
+                ]
+                .into_iter()
+                .chain(if running_in_editor {
+                    // these tools are only availabe inside the editor
+                    // they are not available on the agent-farm yet
+                    vec![
+                        ToolType::LSPDiagnostics,
+                        // disable for testing
+                        ToolType::AskFollowupQuestions,
+                    ]
+                } else {
+                    vec![]
+                })
+                .collect(),
+            );
 
         // os can be passed over here safely since we can assume the sidecar is running
         // close to the vscode server

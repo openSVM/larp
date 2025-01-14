@@ -1502,6 +1502,7 @@ pub async fn agent_tool_use(
                 llm_broker,
                 user_context,
                 reasoning,
+                true, // we are running inside the editor over here
                 message_properties,
             )
             .await;

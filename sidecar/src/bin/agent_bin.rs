@@ -125,6 +125,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             llm_broker,
             UserContext::default(),
             false,
+            false,
             message_properties,
         )
         .await;
