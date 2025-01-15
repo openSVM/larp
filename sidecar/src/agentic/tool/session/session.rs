@@ -766,6 +766,10 @@ impl Session {
         }
     }
 
+    pub fn repo_ref(&self) -> &RepoRef {
+        &self.repo_ref
+    }
+
     pub fn action_nodes(&self) -> &[ActionNode] {
         self.action_nodes.as_slice()
     }
