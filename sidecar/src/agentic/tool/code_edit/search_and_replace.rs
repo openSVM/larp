@@ -659,7 +659,13 @@ impl Tool for SearchAndReplaceEditing {
             .into_iter()
             .map(|previous_message| match previous_message.role() {
                 SessionChatRole::User => {
-                    LLMClientMessage::user(previous_message.message().to_owned())
+                    LLMClientMessage::user(previous_message.message().to_owned()).with_images(
+                        previous_message
+                            .images()
+                            .into_iter()
+                            .map(|session_image| session_image.to_llm_image())
+                            .collect(),
+                    )
                 }
                 SessionChatRole::Assistant => {
                     LLMClientMessage::assistant(previous_message.message().to_owned())
