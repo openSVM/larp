@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use async_openai::types::CreateChatCompletionStreamResponse;
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
@@ -16,7 +15,7 @@ use super::{
     togetherai::TogetherAIClient,
     types::{
         LLMClient, LLMClientCompletionRequest, LLMClientCompletionResponse,
-        LLMClientCompletionStringRequest, LLMClientError, LLMClientRole, LLMType,
+        LLMClientCompletionStringRequest, LLMClientError, LLMType,
     },
 };
 
@@ -96,53 +95,6 @@ impl CodeStoryRequestPrompt {
     }
 }
 
-impl CodeStoryRequest {
-    fn from_chat_request(request: LLMClientCompletionRequest, model: String) -> Self {
-        let llm_type = request.model().clone();
-        Self {
-            messages: request
-                .messages()
-                .into_iter()
-                .filter_map(|message| match message.role() {
-                    LLMClientRole::System => None,
-                    LLMClientRole::User => Some(CodeStoryMessage {
-                        role: "user".to_owned(),
-                        content: message.content().to_owned(),
-                        cache_point: message.is_cache_point(),
-                    }),
-                    LLMClientRole::Function => {
-                        if llm_type.is_anthropic() {
-                            None
-                        } else {
-                            Some(CodeStoryMessage {
-                                role: "function".to_owned(),
-                                content: message.content().to_owned(),
-                                cache_point: message.is_cache_point(),
-                            })
-                        }
-                    }
-                    LLMClientRole::Assistant => Some(CodeStoryMessage {
-                        role: "assistant".to_owned(),
-                        content: message.content().to_owned(),
-                        cache_point: message.is_cache_point(),
-                    }),
-                })
-                .collect(),
-            options: CodeStoryRequestOptions {
-                temperature: request.temperature(),
-            },
-            system: request
-                .messages()
-                .iter()
-                .filter(|message| message.role().is_system())
-                .next()
-                .map(|message| message.content().to_owned()),
-            model,
-            max_tokens: request.get_max_tokens(),
-        }
-    }
-}
-
 impl CodeStoryClient {
     pub fn new(api_base: &str) -> Self {
         Self {
@@ -183,8 +135,8 @@ impl CodeStoryClient {
         format!("{api_base}/together-api")
     }
 
-    pub fn anthropic_endpoint(&self, api_base: &str) -> String {
-        format!("{api_base}/claude-api")
+    pub fn openrouter_api_endpoint(&self, api_base: &str) -> String {
+        format!("{api_base}/openrouter-api")
     }
 
     pub fn gemini_endpoint(&self, api_base: &str) -> String {
@@ -228,7 +180,7 @@ impl CodeStoryClient {
         match model {
             LLMType::GPT3_5_16k => Ok(self.gpt3_endpoint(&self.api_base)),
             LLMType::Gpt4 => Ok(self.gpt4_endpoint(&self.api_base)),
-            LLMType::Gpt4O => Ok(self.anthropic_endpoint(&self.api_base)),
+            LLMType::Gpt4O => Ok(self.openrouter_api_endpoint(&self.api_base)),
             LLMType::Gpt4Turbo => Ok(self.gpt4_preview_endpoint(&self.api_base)),
             LLMType::Gpt4OMini => Ok(self.gpt4_preview_endpoint(&self.api_base)),
             LLMType::O1Preview => Ok(self.o1_preview_endpoint(&self.api_base)), // this is legacy endpoint
@@ -238,15 +190,15 @@ impl CodeStoryClient {
             | LLMType::CodeLlama7BInstruct
             | LLMType::DeepSeekCoder33BInstruct => Ok(self.together_api_endpoint(&self.api_base)),
             LLMType::ClaudeSonnet | LLMType::ClaudeHaiku => {
-                Ok(self.anthropic_endpoint(&self.api_base))
+                Ok(self.openrouter_api_endpoint(&self.api_base))
             }
             LLMType::GeminiPro | LLMType::GeminiProFlash => {
-                Ok(self.anthropic_endpoint(&self.api_base))
+                Ok(self.openrouter_api_endpoint(&self.api_base))
             }
-            LLMType::DeepSeekCoderV3 => Ok(self.anthropic_endpoint(&self.api_base)),
+            LLMType::DeepSeekCoderV3 => Ok(self.openrouter_api_endpoint(&self.api_base)),
             // we do not allow this to be overriden yet
             LLMType::CohereRerankV3 => Ok(self.rerank_endpoint()),
-            LLMType::Custom(_) => Ok(self.anthropic_endpoint(&self.api_base)),
+            LLMType::Custom(_) => Ok(self.openrouter_api_endpoint(&self.api_base)),
             _ => Err(LLMClientError::UnSupportedModel),
         }
     }
@@ -397,7 +349,7 @@ impl LLMClient for CodeStoryClient {
         let endpoint = self.model_endpoint(request.model())?;
         // get access token from api_key
         let access_token = self.access_token(api_key)?;
-        let request = CodeStoryRequest::from_chat_request(request, model.to_owned());
+        let request = OpenRouterRequest::from_chat_request(request, model.to_owned());
         let mut response_stream = self
             .client
             .post(endpoint)
@@ -416,27 +368,15 @@ impl LLMClient for CodeStoryClient {
                     if &event.data == "[DONE]" {
                         continue;
                     }
-                    // we just proxy back the openai response back here
-                    let response =
-                        serde_json::from_str::<CreateChatCompletionStreamResponse>(&event.data);
-                    match response {
-                        Ok(response) => {
-                            let delta = response
-                                .choices
-                                .get(0)
-                                .map(|choice| choice.delta.content.to_owned())
-                                .flatten()
-                                .unwrap_or("".to_owned());
-                            buffered_stream.push_str(&delta);
-                            sender.send(LLMClientCompletionResponse::new(
-                                buffered_stream.to_owned(),
-                                Some(delta),
-                                model.to_owned(),
-                            ))?;
-                        }
-                        Err(e) => {
-                            dbg!(e);
-                        }
+                    let value = serde_json::from_str::<OpenRouterResponse>(&event.data)?;
+                    let first_choice = &value.choices[0];
+                    if let Some(content) = first_choice.delta.content.as_ref() {
+                        buffered_stream = buffered_stream + &content;
+                        sender.send(LLMClientCompletionResponse::new(
+                            buffered_stream.to_owned(),
+                            Some(content.to_owned()),
+                            model.to_owned(),
+                        ))?;
                     }
                 }
                 Err(e) => {
@@ -444,7 +384,6 @@ impl LLMClient for CodeStoryClient {
                 }
             }
         }
-
         Ok(buffered_stream)
     }
 
