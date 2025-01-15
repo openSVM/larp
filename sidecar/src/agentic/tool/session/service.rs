@@ -1025,6 +1025,7 @@ impl SessionService {
     }
 
     async fn save_to_storage(&self, session: &Session) -> Result<(), SymbolError> {
+        // let serialized_tree = serde_json::to_string(&SearchTreeMinimal::from_session(session));
         let serialized = serde_json::to_string(session).unwrap();
         let mut file = tokio::fs::File::create(session.storage_path())
             .await

@@ -207,6 +207,58 @@ impl ActionNode {
         }
     }
 
+    pub fn default_with_index(index: usize) -> Self {
+        Self::new(index, 1)
+    }
+
+    pub fn set_action_tools(mut self, tool_input_partial: ToolInputPartial) -> Self {
+        self.action = Some(ActionToolParameters::Tool(ActionToolInputPartial {
+            tool_use_id: "".to_owned(),
+            tool_input_partial,
+        }));
+        self
+    }
+
+    pub fn set_action_error(mut self, tool_input_error: String) -> Self {
+        self.action = Some(ActionToolParameters::Errored(tool_input_error));
+        self
+    }
+
+    pub fn mark_as_terminal(&mut self) {
+        if let Some(ref mut observation) = &mut self.observation {
+            observation.terminal = true;
+        }
+    }
+
+    pub fn add_observation_mut(&mut self, message: String) {
+        self.observation = Some(ActionObservation::new(
+            message.to_owned(),
+            message.to_owned(),
+            None,
+            false,
+        ));
+    }
+
+    pub fn add_observation(mut self, message: String) -> Self {
+        self.observation = Some(ActionObservation::new(
+            message.to_owned(),
+            message.to_owned(),
+            None,
+            false,
+        ));
+        self
+    }
+
+    pub fn error_observation(mut self, message: String) -> Self {
+        self.observation = Some(ActionObservation::errored(
+            message.to_owned(),
+            None,
+            true,
+            false,
+        ));
+        self
+    }
+
     pub fn index(&self) -> usize {
         self.index
     }
@@ -313,7 +365,7 @@ impl ActionNode {
     }
 }
 
-#[derive(Debug, serde::Deserialize)]
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
 pub struct SearchTreeMinimal {
     index_to_node: HashMap<usize, ActionNode>,
     node_to_children: HashMap<usize, Vec<usize>>,
