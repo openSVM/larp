@@ -46,6 +46,7 @@ use crate::{
         },
     },
     chunking::text_document::{Position, Range},
+    mcts::action_node::ActionNode,
     repo::types::RepoRef,
     user_context::types::UserContext,
 };
@@ -740,6 +741,8 @@ pub struct Session {
     storage_path: String,
     global_running_user_context: UserContext,
     tools: Vec<ToolType>,
+    #[serde(default)]
+    action_nodes: Vec<ActionNode>,
 }
 
 impl Session {
@@ -759,7 +762,12 @@ impl Session {
             storage_path,
             global_running_user_context,
             tools,
+            action_nodes: vec![],
         }
+    }
+
+    pub fn action_nodes(&self) -> &[ActionNode] {
+        self.action_nodes.as_slice()
     }
 
     /// Updates the tools which are present in the session
@@ -958,8 +966,17 @@ impl Session {
                 .to_xml(HashSet::default())
                 .await
                 .unwrap_or_default(),
-            human_message
+            human_message.to_owned()
         );
+
+        // add the action node
+        let mut action_node = ActionNode::default_with_index(self.exchanges());
+        action_node = action_node
+            .set_message(human_message)
+            .update_user_context(user_context.clone());
+        self.action_nodes.push(action_node);
+
+        // push the exchange
         let exchange = Exchange::human_chat(
             exchange_id,
             user_message,
@@ -1268,6 +1285,13 @@ impl Session {
                         thinking.to_owned(),
                     ));
                 let tool_type = tool_input_partial.to_tool_type();
+
+                // add the action node for it
+                let mut action_node = ActionNode::default_with_index(self.exchanges());
+                action_node = action_node.set_action_tools(tool_input_partial.clone());
+                self.action_nodes.push(action_node);
+
+                // add to our exchange over here
                 self.exchanges.push(Exchange::agent_tool_use(
                     parent_exchange_id,
                     exchange_id.to_owned(),
@@ -1279,13 +1303,30 @@ impl Session {
                 Ok(AgentToolUseOutput::Success((tool_input_partial, self)))
             }
             Ok(ToolUseAgentOutput::Failure(input_string)) => {
+                // add action node to it
+                let mut action_node = ActionNode::default_with_index(self.exchanges());
+                action_node = action_node
+                    .set_action_error(input_string.to_owned())
+                    .error_observation(input_string.to_owned());
+                self.action_nodes.push(action_node);
+
+                // return the value
                 Ok(AgentToolUseOutput::Failed(input_string))
             }
             // tool use agent should not generate reasoning
             Ok(ToolUseAgentOutput::Reasoning(reasoning)) => {
                 Ok(AgentToolUseOutput::Failed(reasoning))
             }
-            Err(_e) => Ok(AgentToolUseOutput::Cancelled),
+            Err(e) => {
+                // add action node over here
+                let mut action_node = ActionNode::default_with_index(self.exchanges());
+                action_node = action_node
+                    .set_action_error(e.to_string())
+                    .error_observation(e.to_string());
+                self.action_nodes.push(action_node);
+
+                Ok(AgentToolUseOutput::Cancelled)
+            }
         }
     }
 
@@ -2305,6 +2346,11 @@ impl Session {
                     formatted_output
                 );
 
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(formatted_output.to_owned());
+                }
+
                 self = self.tool_output(
                     &exchange_id,
                     tool_type.clone(),
@@ -2313,9 +2359,15 @@ impl Session {
                     exchange_id.to_owned(),
                 );
             }
-            ToolInputPartial::AskFollowupQuestions(_followup_question) => {
+            ToolInputPartial::AskFollowupQuestions(followup_question) => {
                 // this waits for the user-feedback so we do not need to react or
                 // do anything after this
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(followup_question.question().to_owned());
+                    action_node.mark_as_terminal();
+                }
             }
             ToolInputPartial::AttemptCompletion(attempt_completion) => {
                 println!("LLM reached a stop condition");
@@ -2323,6 +2375,12 @@ impl Session {
                 // no need to send anything when we are attempting completion since we are done
                 // over here with the tool use itself
                 // figure out what to do over here
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(attempt_completion.to_string());
+                    action_node.mark_as_terminal();
+                }
             }
             ToolInputPartial::CodeEditing(code_editing) => {
                 let mut fs_file_path = code_editing.fs_file_path().to_owned();
@@ -2409,6 +2467,15 @@ impl Session {
                     )
                     .await?;
 
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(format!(
+                        r#"I performed the edits which you asked for, here is the git diff for it:
+{}"#,
+                        diff_changes.l1_changes()
+                    ));
+                }
+
                 // we need to take the L1 level changes here since those are the ones we are interested in and then add
                 // that as a human message over here
                 self = self.tool_output(
@@ -2446,6 +2513,10 @@ impl Session {
                 let formatted_diagnostics =
                     PlanService::format_diagnostics(&diagnostics_grouped_by_file);
 
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(formatted_diagnostics.to_owned());
+                }
                 // send an update over here
                 let _ =
                     message_properties
@@ -2490,6 +2561,12 @@ impl Session {
                             "".to_owned(),
                             response.to_owned(),
                         ));
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(response.to_owned());
+                }
+
                 self = self.tool_output(
                     &exchange_id,
                     tool_type.clone(),
@@ -2520,6 +2597,12 @@ impl Session {
                             "".to_owned(),
                             response.to_owned(),
                         ));
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(response.to_owned());
+                }
+
                 self = self.tool_output(
                     &exchange_id,
                     tool_type.clone(),
@@ -2580,6 +2663,12 @@ reason: {}"#,
                     })
                     .collect::<Vec<_>>()
                     .join("\n");
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(semantic_search_response.to_owned());
+                }
+
                 let _ =
                     message_properties
                         .ui_sender()
@@ -2614,12 +2703,18 @@ reason: {}"#,
                     .get_search_file_content_with_regex()
                     .ok_or(SymbolError::WrongToolOutput)?;
 
+                let response = response.response();
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(response.to_owned());
+                }
+
                 // if the cancellation token is set, then we should not update
                 // our state over here with the broken terminal output
                 if message_properties.cancellation_token().is_cancelled() {
                     return Ok(self);
                 }
-                let response = response.response();
                 let _ =
                     message_properties
                         .ui_sender()
@@ -2649,12 +2744,19 @@ reason: {}"#,
                     .map_err(|e| SymbolError::ToolError(e))?
                     .terminal_command()
                     .ok_or(SymbolError::WrongToolOutput)?;
+
+                let output = tool_output.output().to_owned();
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(output.to_owned());
+                }
+
                 // if the cancellation token is set, then we should not update
                 // our state over here with the broken terminal output
                 if message_properties.cancellation_token().is_cancelled() {
                     return Ok(self);
                 }
-                let output = tool_output.output().to_owned();
                 let _ =
                     message_properties
                         .ui_sender()
@@ -2689,6 +2791,12 @@ reason: {}"#,
                     .repo_map_generator_response()
                     .ok_or(SymbolError::WrongToolOutput)?;
                 let repo_map_str = tool_output.repo_map().to_owned();
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(repo_map_str.to_owned());
+                }
+
                 let _ =
                     message_properties
                         .ui_sender()

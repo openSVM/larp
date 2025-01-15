@@ -265,12 +265,6 @@ impl OpenRouterRequest {
                 .into_iter()
                 .map(|message| {
                     let role = message.role().to_string();
-                    println!("message::role::{role}");
-                    // if !message.tool_return_value().is_empty() {
-                    //     role = "tool".to_owned();
-                    // }
-                    println!("message::role::tool-return-role({role})");
-
                     // get the tool call id
                     let tool_call_id = message
                         .tool_return_value()
