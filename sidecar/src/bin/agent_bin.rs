@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 
 /// This contains the binary responsible for running the agents as a farm
 /// Dead simple where the inputs are the input to the git repository containing the input
@@ -34,39 +34,91 @@ pub async fn check_session_storage_path(config: Arc<Configuration>, session_id: 
         .to_owned()
 }
 
+/// Define the command-line arguments
 #[derive(Parser, Debug)]
 #[command(
     author = "skcd",
-    version = "0.1",
-    about = "Agent bin to point to a repo and run it (assumes an editor is running somewhere)"
+    version = "1.0",
+    about = "Agent binary sidecar runner"
 )]
-struct AgentParameters {
+struct CliArgs {
+    /// Git directory name
     #[arg(long)]
     timeout: usize,
 
+    /// Endpoint URL
     #[arg(long)]
     editor_url: String,
 
+    /// Timeout in seconds
     #[arg(long)]
+    input: PathBuf,
+
+    /// Anthropic api key
+    #[arg(long, default_value = None)]
     anthropic_api_key: String,
 
+    /// OPen Router api key
+    #[arg(long, default_value = None)]
+    openrouter_api_key: Option<String>,
+
+    /// The run id for the current run
     #[arg(long)]
     run_id: String,
 
     #[arg(long)]
+    repo_name: String,
+
+    /// Directory to dump all the logs into
+    #[arg(long)]
     log_directory: String,
 
-    #[arg(long)]
-    problem_statement: String,
+    /// Use json mode strictly
+    #[arg(long, default_value = "true")]
+    json_mode: bool,
 
-    #[arg(long)]
-    working_directory: String,
+    /// Use midwit mode (aka sonnet3.5 with tool)
+    #[arg(long, default_value = "true")]
+    midwit_mode: bool,
+
+    /// Run in single trajectory but a lot of them
+    #[arg(long, default_value = None)]
+    single_traj_search: Option<usize>,
+
+    /// Maximum depth for the search tree
+    #[arg(long, default_value = "30")]
+    max_depth: u32,
+}
+
+/// Define the SWEbenchInstance struct for serialization
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct SWEbenchInstance {
+    repo: String,
+    instance_id: String,
+    base_commit: String,
+    patch: String,
+    test_patch: String,
+    problem_statement: String,
+    hints_text: String,
+    created_at: String,
+    version: String,
+    #[serde(rename = "FAIL_TO_PASS")]
+    fail_to_pass: String,
+    #[serde(rename = "PASS_TO_PASS")]
+    pass_to_pass: String,
+    environment_setup_commit: String,
+}
+
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
+struct InputParts {
+    git_drname: String,
+    instance: SWEbenchInstance,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
-    let args = AgentParameters::parse();
+    let args = CliArgs::parse();
 
     let mut configuration = Configuration::default();
     // we apply the edits directly over here
@@ -101,9 +153,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let session_service = application.session_service.clone();
 
+    let input_path = args.input;
+    let input_content = tokio::fs::read(input_path).await.expect("path content");
+    let input_parts: InputParts =
+        serde_json::from_slice(&input_content).expect("Parse the serde json");
+
     let cloned_session_id = args.run_id.to_string();
-    let user_message = args.problem_statement.clone();
-    let cloned_working_directory = args.working_directory.clone();
+    let user_message = input_parts.instance.problem_statement.clone();
+    let cloned_working_directory = input_parts.git_drname.to_owned();
     let tool_box = application.tool_box.clone();
     let llm_broker = application.llm_broker.clone();
 
