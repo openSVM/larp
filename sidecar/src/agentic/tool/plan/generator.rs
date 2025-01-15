@@ -8,7 +8,9 @@ use uuid::Uuid;
 
 use llm_client::{
     broker::LLMBroker,
-    clients::types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
+    clients::types::{
+        LLMClientCompletionRequest, LLMClientMessage, LLMClientMessageImage, LLMType,
+    },
 };
 
 use crate::{
@@ -526,21 +528,46 @@ impl Tool for StepGeneratorClient {
         messages.extend(previous_messages.into_iter().map(|previous_message| {
             match previous_message.role() {
                 SessionChatRole::User => {
-                    LLMClientMessage::user(previous_message.message().to_owned())
+                    LLMClientMessage::user(previous_message.message().to_owned()).with_images(
+                        previous_message
+                            .images()
+                            .into_iter()
+                            .map(|session_image| session_image.to_llm_image())
+                            .collect(),
+                    )
                 }
                 SessionChatRole::Assistant => {
                     LLMClientMessage::assistant(previous_message.message().to_owned())
                 }
             }
         }));
-        messages.push(LLMClientMessage::user(
+
+        let mut user_message = LLMClientMessage::user(
             Self::user_message(
                 context.user_query(),
                 previous_queries,
                 context.user_context(),
             )
             .await,
-        ));
+        );
+        if let Some(images) = context
+            .user_context()
+            .map(|user_context| user_context.images())
+        {
+            user_message = user_message.with_images(
+                dbg!(images)
+                    .into_iter()
+                    .map(|image| {
+                        LLMClientMessageImage::new(
+                            image.r#type().to_owned(),
+                            image.media_type().to_owned(),
+                            image.data().to_owned(),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+        messages.push(user_message);
 
         let request = if is_deep_reasoning {
             LLMClientCompletionRequest::new(LLMType::O1Preview, messages, 0.2, None)
