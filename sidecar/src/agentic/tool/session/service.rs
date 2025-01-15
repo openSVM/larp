@@ -23,7 +23,7 @@ use crate::{
         },
     },
     chunking::text_document::Range,
-    mcts::action_node::{ActionNode, ActionToolParameters},
+    mcts::action_node::{ActionNode, ActionToolParameters, SearchTreeMinimal},
     repo::types::RepoRef,
     user_context::types::UserContext,
 };
@@ -172,7 +172,7 @@ impl SessionService {
             .await?;
 
         // save the session to the disk
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         Ok(())
     }
 
@@ -249,7 +249,7 @@ impl SessionService {
 
         let user_plan_request_exchange =
             session.get_exchange_by_id(user_plan_request_exchange.exchange_id());
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         // we get the exchange using the parent id over here, since what we get
         // here is the reply_exchange and we want to get the parent one to which we
         // are replying since thats the source of truth
@@ -274,7 +274,7 @@ impl SessionService {
             )
             .await?;
         // save the session to the disk
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
 
         println!("session_service::plan_iteration::stop");
         Ok(())
@@ -319,7 +319,7 @@ impl SessionService {
 
         // add an exchange that we are going to genrate a plan over here
         session = session.plan(exchange_id.to_owned(), query, user_context);
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
 
         let exchange_in_focus = session.get_exchange_by_id(&exchange_id);
 
@@ -351,7 +351,7 @@ impl SessionService {
             )
             .await?;
         // save the session to the disk
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
 
         println!("session_service::plan_generation::stop");
         Ok(())
@@ -426,14 +426,14 @@ impl SessionService {
             )
             .await;
         println!("session_service::session_human_message_tool_use");
-        let _ = self.save_to_storage(&session).await;
+        let _ = self.save_to_storage(&session, None).await;
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
         let mut human_message_ticker = 0;
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
         loop {
-            let _ = self.save_to_storage(&session).await;
+            let _ = self.save_to_storage(&session, None).await;
             let tool_exchange_id = self
                 .tool_box
                 .create_new_exchange(session_id.to_owned(), message_properties.clone())
@@ -468,7 +468,7 @@ impl SessionService {
                     // update our session
                     session = new_session;
                     // store to disk
-                    let _ = self.save_to_storage(&session).await;
+                    let _ = self.save_to_storage(&session, None).await;
                     let tool_type = tool_input_partial.to_tool_type();
                     let session_output = session
                         .invoke_tool(
@@ -488,7 +488,7 @@ impl SessionService {
 
                     session = session_output?;
 
-                    let _ = self.save_to_storage(&session).await;
+                    let _ = self.save_to_storage(&session, None).await;
                     if matches!(tool_type, ToolType::AskFollowupQuestions)
                         || matches!(tool_type, ToolType::AttemptCompletion)
                     {
@@ -538,6 +538,7 @@ impl SessionService {
         reasoning: bool,
         running_in_editor: bool,
         semantic_search: bool,
+        mcts_log_directory: Option<String>,
         mut message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -614,7 +615,9 @@ impl SessionService {
                 user_context,
             )
             .await;
-        let _ = self.save_to_storage(&session).await;
+        let _ = self
+            .save_to_storage(&session, mcts_log_directory.clone())
+            .await;
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
         let mut previous_failure = false;
@@ -622,7 +625,9 @@ impl SessionService {
         // token which will imply that we should end the current loop
         loop {
             println!("tool_use_agentic::looping_again");
-            let _ = self.save_to_storage(&session).await;
+            let _ = self
+                .save_to_storage(&session, mcts_log_directory.clone())
+                .await;
             let tool_exchange_id = self
                 .tool_box
                 .create_new_exchange(session_id.to_owned(), message_properties.clone())
@@ -686,7 +691,9 @@ impl SessionService {
                     // update our session
                     session = new_session;
                     // store to disk
-                    let _ = self.save_to_storage(&session).await;
+                    let _ = self
+                        .save_to_storage(&session, mcts_log_directory.clone())
+                        .await;
                     let tool_type = tool_input_partial.to_tool_type();
 
                     // invoke the tool and update the session over here
@@ -700,7 +707,9 @@ impl SessionService {
                         )
                         .await?;
 
-                    let _ = self.save_to_storage(&session).await;
+                    let _ = self
+                        .save_to_storage(&session, mcts_log_directory.clone())
+                        .await;
                     if matches!(tool_type, ToolType::AskFollowupQuestions)
                         || matches!(tool_type, ToolType::AttemptCompletion)
                     {
@@ -804,7 +813,7 @@ impl SessionService {
             .await?;
 
         // save the session to the disk
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         println!("session_service::code_edit::agentic::stop");
         Ok(())
     }
@@ -900,7 +909,7 @@ impl SessionService {
             .await?;
 
         // save the session to the disk
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         println!("session_service::code_edit::anchored_edit::finished");
         Ok(())
     }
@@ -916,7 +925,7 @@ impl SessionService {
         }
         let mut session = session_maybe.expect("is_err to hold");
         session = session.undo_including_exchange_id(&exchange_id).await?;
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         Ok(())
     }
 
@@ -946,7 +955,7 @@ impl SessionService {
                 message_properties.clone(),
             )
             .await?;
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         let session_id = session.session_id().to_owned();
         if accepted {
             println!(
@@ -1013,7 +1022,7 @@ impl SessionService {
         );
 
         session = session.set_exchange_as_cancelled(&exchange_id, message_properties);
-        self.save_to_storage(&session).await?;
+        self.save_to_storage(&session, None).await?;
         Ok(send_cancellation_signal)
     }
 
@@ -1028,9 +1037,24 @@ impl SessionService {
         Ok(session)
     }
 
-    async fn save_to_storage(&self, session: &Session) -> Result<(), SymbolError> {
+    async fn save_to_storage(
+        &self,
+        session: &Session,
+        mcts_log_directory: Option<String>,
+    ) -> Result<(), SymbolError> {
         // print the tree over here for the editor agent
         self.print_tree(session.action_nodes());
+        if let Some(mcts_log_directory) = mcts_log_directory {
+            let search_tree_minimal = SearchTreeMinimal::from_action_nodes(
+                session.action_nodes(),
+                session.repo_ref().name.to_owned(),
+                mcts_log_directory.to_owned(),
+                mcts_log_directory.to_owned(),
+            );
+            search_tree_minimal
+                .save_serialised_graph(&mcts_log_directory, session.session_id())
+                .await;
+        }
 
         let serialized = serde_json::to_string(session).unwrap();
         let mut file = tokio::fs::File::create(session.storage_path())

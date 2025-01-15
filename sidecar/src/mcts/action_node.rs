@@ -378,6 +378,70 @@ pub struct SearchTreeMinimal {
     log_directory: String,
 }
 
+impl SearchTreeMinimal {
+    pub fn from_action_nodes(
+        action_nodes: &[ActionNode],
+        repo_name: String,
+        root_directory: String,
+        log_directory: String,
+    ) -> Self {
+        let mut index_to_node = HashMap::new();
+        let mut node_to_children = HashMap::new();
+        let mut node_to_parent = HashMap::new();
+        for (action_index, action_node) in action_nodes.into_iter().enumerate() {
+            index_to_node.insert(action_index, action_node.clone());
+        }
+        for index in 0..(action_nodes.len() - 1) {
+            node_to_children.insert(index, vec![index + 1]);
+        }
+        for index in 1..(action_nodes.len()) {
+            node_to_parent.insert(index, index - 1);
+        }
+        SearchTreeMinimal {
+            index_to_node,
+            node_to_children,
+            node_to_parent,
+            repo_name,
+            root_directory,
+            max_finished_nodes: None,
+            reward_threshold: None,
+            max_search_try: None,
+            log_directory,
+        }
+    }
+
+    pub async fn save_serialised_graph(&self, log_dir: &str, request_id: &str) {
+        let graph_serialised = match serde_json::to_string(&self) {
+            Ok(serialized) => serialized,
+            Err(err) => {
+                eprintln!("mcts::select::Failed to serialize graph: {}", err);
+                String::from("Failed to serialize graph")
+            }
+        };
+
+        // Create directory if it doesn't exist
+        if let Err(err) = tokio::fs::create_dir_all(log_dir).await {
+            eprintln!("Failed to create log directory: {}", err);
+            return;
+        }
+
+        let log_file_name = format!("{}/mcts-{}.json", log_dir, request_id);
+
+        match tokio::fs::write(&log_file_name, graph_serialised).await {
+            Ok(_) => {
+                println!(
+                    "mcts::action_node::save_serialised_graph::Saved graph to {}",
+                    log_file_name
+                );
+            }
+            Err(err) => eprintln!(
+                "mcts::action_node::save_serialised_graph::Failed to save graph: {}",
+                err
+            ),
+        }
+    }
+}
+
 #[derive(Serialize, Clone)]
 pub struct SearchTree {
     #[serde(serialize_with = "serialize_usize_map")]

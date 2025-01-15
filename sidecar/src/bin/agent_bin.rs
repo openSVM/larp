@@ -127,6 +127,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             false,
             false,
             false,
+            Some(args.log_directory.clone()),
             message_properties,
         )
         .await;
