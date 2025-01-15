@@ -555,7 +555,7 @@ impl Tool for StepGeneratorClient {
             .map(|user_context| user_context.images())
         {
             user_message = user_message.with_images(
-                dbg!(images)
+                images
                     .into_iter()
                     .map(|image| {
                         LLMClientMessageImage::new(

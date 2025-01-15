@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use colored::Colorize;
 use llm_client::broker::LLMBroker;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
 use tokio_util::sync::CancellationToken;
@@ -14,12 +15,15 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
+            code_edit::code_editor::EditorCommand,
+            input::ToolInputPartial,
             plan::service::PlanService,
             r#type::ToolType,
             session::{session::AgentToolUseOutput, tool_use_agent::ToolUseAgent},
         },
     },
     chunking::text_document::Range,
+    mcts::action_node::{ActionNode, ActionToolParameters},
     repo::types::RepoRef,
     user_context::types::UserContext,
 };
@@ -1025,7 +1029,9 @@ impl SessionService {
     }
 
     async fn save_to_storage(&self, session: &Session) -> Result<(), SymbolError> {
-        // let serialized_tree = serde_json::to_string(&SearchTreeMinimal::from_session(session));
+        // print the tree over here for the editor agent
+        self.print_tree(session.action_nodes());
+
         let serialized = serde_json::to_string(session).unwrap();
         let mut file = tokio::fs::File::create(session.storage_path())
             .await
@@ -1034,6 +1040,143 @@ impl SessionService {
             .await
             .map_err(|e| SymbolError::IOError(e))?;
         Ok(())
+    }
+
+    fn print_tree(&self, nodes: &[ActionNode]) {
+        println!("MCTS Tree");
+        self.print_node(0, nodes, "", false);
+    }
+
+    fn print_node(&self, node_index: usize, nodes: &[ActionNode], prefix: &str, is_last: bool) {
+        let node = match nodes.get(node_index) {
+            Some(n) => n,
+            None => return,
+        };
+
+        // Build state parameters
+        let mut state_params = Vec::new();
+        if let Some(action) = &node.action() {
+            match action {
+                ActionToolParameters::Errored(_err) => {
+                    // Show errors in bold red
+                    state_params.push("Error".bold().red().to_string());
+                }
+                ActionToolParameters::Tool(tool) => {
+                    let tool_type = tool.tool_input_partial().to_tool_type();
+                    let tool_str = match tool.tool_input_partial() {
+                        ToolInputPartial::CodeEditorParameters(parameters) => {
+                            // Unique colors for each EditorCommand
+                            match &parameters.command {
+                                EditorCommand::Create => {
+                                    "str_replace_editor::create".blue().to_string()
+                                }
+                                EditorCommand::Insert => {
+                                    "str_replace_editor::insert".yellow().to_string()
+                                }
+                                EditorCommand::StrReplace => {
+                                    "str_replace_editor::str_replace".blue().to_string()
+                                }
+                                EditorCommand::UndoEdit => {
+                                    "str_replace_editor::undo_edit".white().to_string()
+                                }
+                                EditorCommand::View => {
+                                    "str_replace_editor::view".purple().to_string()
+                                }
+                            }
+                        }
+                        ToolInputPartial::CodeEditing(_) => {
+                            tool_type.to_string().bright_purple().to_string()
+                        }
+                        ToolInputPartial::ListFiles(_) => {
+                            tool_type.to_string().bright_yellow().to_string()
+                        }
+                        ToolInputPartial::SearchFileContentWithRegex(_) => {
+                            tool_type.to_string().bright_purple().to_string()
+                        }
+                        ToolInputPartial::OpenFile(_) => {
+                            tool_type.to_string().bright_magenta().to_string()
+                        }
+                        ToolInputPartial::SemanticSearch(_) => {
+                            tool_type.to_string().bright_purple().to_string()
+                        }
+                        ToolInputPartial::LSPDiagnostics(_) => {
+                            tool_type.to_string().bright_cyan().to_string()
+                        }
+                        ToolInputPartial::TerminalCommand(_) => {
+                            tool_type.to_string().bright_red().to_string()
+                        }
+                        ToolInputPartial::AskFollowupQuestions(_) => {
+                            tool_type.to_string().bright_white().to_string()
+                        }
+                        ToolInputPartial::AttemptCompletion(_) => {
+                            tool_type.to_string().bright_green().to_string()
+                        }
+                        ToolInputPartial::RepoMapGeneration(_) => {
+                            tool_type.to_string().magenta().to_string()
+                        }
+                        ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
+                    };
+                    state_params.push(tool_str);
+                }
+            }
+
+            if let Some(observation) = &node.observation() {
+                if observation.expect_correction() {
+                    state_params.push("expect_correction".to_string().red().to_string());
+                }
+            }
+        }
+
+        // Construct state_info
+        let state_info = if !state_params.is_empty() {
+            format!("Node ({})", state_params.join(", "))
+            // format!("Node {} ({})", node_index, state_params.join(", "))
+        } else {
+            format!("Node ()")
+            // format!("Node {} ()", node_index)
+        };
+
+        // Construct node_str based on reward
+        let node_str = if let Some(reward) = node.reward() {
+            format!("[{}]", reward.value())
+        } else {
+            format!("[-]")
+        };
+
+        // Reward string
+        let reward_str = if let Some(reward) = node.reward() {
+            format!("{}", reward.value())
+        } else {
+            "0".to_string()
+        };
+
+        // Decide which branch to draw
+        let branch = if is_last { "└── " } else { "├── " };
+
+        // Print the current node
+        if node.is_duplicate() {
+            println!(
+                "{}",
+                format!("{}{}{} {} (dup)", prefix, branch, node_str, state_info).bright_red()
+            );
+        } else {
+            println!(
+                "{}{}{} {} (re: {})",
+                prefix, branch, node_str, state_info, reward_str,
+            );
+        }
+
+        // Prepare prefix for child nodes
+        let new_prefix = format!("{}{}", prefix, if is_last { "    " } else { "│   " });
+
+        // Get children of the current node
+        let child_index = node_index + 1;
+        if child_index >= nodes.len() {
+            return;
+        }
+
+        let is_last_child = child_index == nodes.len() - 1;
+        self.print_node(child_index, nodes, &new_prefix, is_last_child);
     }
 }
 

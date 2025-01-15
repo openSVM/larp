@@ -766,6 +766,10 @@ impl Session {
         }
     }
 
+    pub fn action_nodes(&self) -> &[ActionNode] {
+        self.action_nodes.as_slice()
+    }
+
     /// Updates the tools which are present in the session
     pub fn set_tools(mut self, tools: Vec<ToolType>) -> Self {
         self.tools = tools;

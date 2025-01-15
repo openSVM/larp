@@ -207,6 +207,10 @@ impl ActionNode {
         }
     }
 
+    pub fn reward(&self) -> Option<Reward> {
+        self.reward.clone()
+    }
+
     pub fn default_with_index(index: usize) -> Self {
         Self::new(index, 1)
     }
@@ -278,10 +282,6 @@ impl ActionNode {
 
     pub fn message(&self) -> Option<String> {
         self.message.clone()
-    }
-
-    pub fn reward(&self) -> Option<&Reward> {
-        self.reward.as_ref()
     }
 
     pub fn is_duplicate(&self) -> bool {
@@ -1485,7 +1485,7 @@ impl SearchTree {
         println!("Starting backpropagation from node {}", node_index);
         let node_reward = self
             .get_node(node_index)
-            .map(|node| node.reward().cloned())
+            .map(|node| node.reward().clone())
             .flatten();
         if let None = node_reward {
             return;

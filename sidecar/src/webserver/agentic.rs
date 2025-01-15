@@ -1455,10 +1455,12 @@ pub async fn agent_tool_use(
         shell,
         aide_rules: _aide_rules,
         // TODO(skcd): use the reasoning here to force the agentic llm to behave better
-        reasoning,
+        reasoning: _reasoning,
         semantic_search,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
+    // disable reasoning
+    let reasoning = false;
     let llm_provider = model_configuration
         .llm_properties_for_slow_model()
         .unwrap_or(LLMProperties::new(
