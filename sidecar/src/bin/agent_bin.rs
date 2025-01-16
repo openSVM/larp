@@ -119,6 +119,7 @@ struct InputParts {
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
     let args = CliArgs::parse();
+    eprintln!("run_id::{}", &args.run_id);
 
     let mut configuration = Configuration::default();
     // we apply the edits directly over here
