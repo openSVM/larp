@@ -434,6 +434,7 @@ impl LLMClient for CodeStoryClient {
                     }
                 }
                 Err(e) => {
+                    eprintln!("error while streaming: {:?}", &e);
                     dbg!(e);
                 }
             }
