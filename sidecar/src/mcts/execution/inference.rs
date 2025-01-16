@@ -21,7 +21,7 @@ use crate::{
                 chat::SessionChatMessage,
                 tool_use_agent::{
                     ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
-                    ToolUseAgentOutput, ToolUseAgentOutputWithTools,
+                    ToolUseAgentOutput, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
                 },
             },
             terminal::terminal::TerminalInput,
@@ -255,7 +255,7 @@ impl InferenceEngine {
             search_tree.root_directory(),
             "linux".to_owned(),
             "bash".to_owned(),
-            Some(search_tree.repo_name()),
+            ToolUseAgentProperties::new(true, Some(search_tree.repo_name())),
         );
 
         let session_messages = messages
@@ -439,7 +439,7 @@ impl InferenceEngine {
             search_tree.root_directory(),
             "linux".to_owned(),
             "bash".to_owned(),
-            Some(search_tree.repo_name()),
+            ToolUseAgentProperties::new(true, Some(search_tree.repo_name())),
         );
 
         let mut session_messages = messages
