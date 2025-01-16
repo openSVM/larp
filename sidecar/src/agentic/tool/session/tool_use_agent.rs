@@ -958,8 +958,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             .collect::<Vec<_>>();
 
         // Add a reminder about the format of the tools
+        // the divider here is necessary since the agent gets confused
+        // that this is part of the git-diff output
         previous_messages.push(LLMClientMessage::user(format!(
-            r#"## Reminder about the format of the tool:
+            r#"
+---
+
+## Reminder about the tool format:
 {}"#,
             input.tool_format_reminder.join("\n\n")
         )));
