@@ -209,6 +209,7 @@ impl SearchAndReplaceEditing {
         apply_directly: bool,
         lsp_open_file: Arc<Box<dyn Tool + Send + Sync>>,
     ) -> Self {
+        println!("search_and_reaplce_editing::apply_directly({})", apply_directly);
         Self {
             llm_client,
             lsp_open_file,
@@ -927,6 +928,7 @@ impl Tool for SearchAndReplaceEditing {
                 // if the self apply tag is enabled this implies that the sidecar
                 // is responsible for updating the contents of the file and not the
                 // external system
+                println!("search_and_replace_accumulator::apply_directly({})", &self.apply_directly);
                 if self.apply_directly {
                     // update the file directly over here
                     let mut file = tokio::fs::File::create(fs_file_path)
