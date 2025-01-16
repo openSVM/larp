@@ -694,6 +694,16 @@ impl UIEventWithID {
         }
     }
 
+    pub fn tool_errored_out(session_id: String, exchange_id: String, error_string: String) -> Self {
+        Self {
+            request_id: session_id.to_owned(),
+            exchange_id,
+            event: UIEvent::FrameworkEvent(FrameworkEvent::ToolCallError(ToolTypeErrorEvent {
+                error_string,
+            }))
+        }
+    }
+
     pub fn tool_found(session_id: String, exchange_id: String, tool_type: ToolType) -> Self {
         Self {
             request_id: session_id.to_owned(),
@@ -1280,6 +1290,8 @@ pub enum FrameworkEvent {
     ToolUseDetected(ToolUseDetectedEvent),
     ToolThinking(ToolThinkingEvent),
     ToolNotFound(ToolNotFoundEvent),
+    // we just send the error string over here
+    ToolCallError(ToolTypeErrorEvent),
     ToolTypeFound(ToolTypeFoundEvent),
     ToolParameterFound(ToolParameterFoundEvent),
     ToolOutput(ToolOutputEvent),
@@ -1305,6 +1317,11 @@ pub struct ToolOutputResponseEvent {
 #[derive(Debug, serde::Serialize)]
 pub struct ToolParameterFoundEvent {
     tool_parameter_input: ToolParameters,
+}
+
+#[derive(Debug, serde::Serialize)]
+pub struct ToolTypeErrorEvent {
+    error_string: String,
 }
 
 #[derive(Debug, serde::Serialize)]

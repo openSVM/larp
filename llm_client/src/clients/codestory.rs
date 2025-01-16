@@ -380,7 +380,9 @@ impl LLMClient for CodeStoryClient {
                     }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    // return error here early one if we encountered an error, since this happened while
+                    // we were streaming
+                    return Err(LLMClientError::EventStreamError(e));
                 }
             }
         }

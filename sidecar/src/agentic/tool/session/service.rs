@@ -515,6 +515,7 @@ impl SessionService {
                         repo_ref.clone(),
                     );
                 }
+                AgentToolUseOutput::Errored(_) => {}
             }
         }
         Ok(())
@@ -728,21 +729,32 @@ impl SessionService {
                     // if it is cancelled then we should break
                     break;
                 }
-                Ok(AgentToolUseOutput::Failed(_failed_to_parse_output)) => {
+                Ok(AgentToolUseOutput::Failed(failed_to_parse_output)) => {
                     previous_failure = true;
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_not_found(
                             session_id.to_owned(),
                             tool_exchange_id.to_owned(),
-                            "Failed to get tool output".to_owned(),
+                            failed_to_parse_output.to_owned(),
                         ));
+                }
+                Ok(AgentToolUseOutput::Errored(e)) => {
+                    // if we have an error over here coming from the library then bubble it up
+                    // to the user
+                    previous_failure = true;
+                    let _ = message_properties.ui_sender().send(UIEventWithID::tool_errored_out(
+                        session_id.to_owned(),
+                        tool_exchange_id.to_owned(),
+                        e.to_string(),
+                    ));
+                    Err(e)?
                 }
                 Err(e) => {
                     eprintln!("{}", &e);
                     let _ = message_properties
                         .ui_sender()
-                        .send(UIEventWithID::tool_not_found(
+                        .send(UIEventWithID::tool_errored_out(
                             session_id.to_owned(),
                             tool_exchange_id.to_owned(),
                             e.to_string(),
