@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, StreamExt};
+use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 use tokio::io::AsyncWriteExt;
 use tokio::sync::{mpsc::UnboundedSender, Semaphore};
@@ -931,6 +932,9 @@ impl Tool for SearchAndReplaceEditing {
                 println!("search_and_replace_accumulator::apply_directly({})", &self.apply_directly);
                 if self.apply_directly {
                     // update the file directly over here
+                    if let Some(parent) = Path::new(&fs_file_path).parent() {
+                        tokio::fs::create_dir_all(parent).await?;
+                    }                
                     let mut file = tokio::fs::File::create(fs_file_path)
                         .await
                         .map_err(|e| ToolError::IOError(e))?;
