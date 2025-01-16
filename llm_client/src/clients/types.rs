@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use eventsource_stream::EventStreamError;
 use serde::{
     de::{self, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
@@ -856,6 +857,9 @@ impl LLMClientCompletionResponse {
 pub enum LLMClientError {
     #[error("Failed to get response from LLM")]
     FailedToGetResponse,
+
+    #[error("Event stream error: {0}")]
+    EventStreamError(#[from] EventStreamError<reqwest::Error>),
 
     #[error("Reqwest error: {0}")]
     ReqwestError(#[from] reqwest::Error),

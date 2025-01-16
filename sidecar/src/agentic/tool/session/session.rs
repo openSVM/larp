@@ -66,6 +66,7 @@ pub enum AgentToolUseOutput {
     Failed(String),
     Reasoning(String),
     Cancelled,
+    Errored(SymbolError),
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -1329,7 +1330,7 @@ impl Session {
                     .error_observation(e.to_string());
                 self.action_nodes.push(action_node);
 
-                Ok(AgentToolUseOutput::Cancelled)
+                Ok(AgentToolUseOutput::Errored(e))
             }
         }
     }
