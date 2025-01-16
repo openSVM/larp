@@ -19,7 +19,10 @@ use crate::{
             input::ToolInputPartial,
             plan::service::PlanService,
             r#type::ToolType,
-            session::{session::AgentToolUseOutput, tool_use_agent::ToolUseAgent},
+            session::{
+                session::AgentToolUseOutput,
+                tool_use_agent::{ToolUseAgent, ToolUseAgentProperties},
+            },
         },
     },
     chunking::text_document::Range,
@@ -412,7 +415,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            Some(repo_name),
+            ToolUseAgentProperties::new(false, Some(repo_name)),
         );
 
         session = session
@@ -603,7 +606,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            None,
+            ToolUseAgentProperties::new(running_in_editor, None),
         );
 
         session = session
@@ -747,11 +750,13 @@ impl SessionService {
                     // if we have an error over here coming from the library then bubble it up
                     // to the user
                     previous_failure = true;
-                    let _ = message_properties.ui_sender().send(UIEventWithID::tool_errored_out(
-                        session_id.to_owned(),
-                        tool_exchange_id.to_owned(),
-                        e.to_string(),
-                    ));
+                    let _ = message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::tool_errored_out(
+                            session_id.to_owned(),
+                            tool_exchange_id.to_owned(),
+                            e.to_string(),
+                        ));
                     // only bail hard when we are running in the editor
                     if running_in_editor {
                         Err(e)?

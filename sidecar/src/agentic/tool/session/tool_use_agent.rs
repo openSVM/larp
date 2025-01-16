@@ -115,13 +115,31 @@ pub enum ToolUseAgentOutput {
     Reasoning(String),
 }
 
+/// The various properties which the tool use agent can use
+/// We can configure if we are in-editor and additional metadata
+/// which might be present
+#[derive(Clone)]
+pub struct ToolUseAgentProperties {
+    _in_editor: bool,
+    repo_name: Option<String>,
+}
+
+impl ToolUseAgentProperties {
+    pub fn new(in_editor: bool, repo_name: Option<String>) -> Self {
+        Self {
+            _in_editor: in_editor,
+            repo_name,
+        }
+    }
+}
+
 #[derive(Clone)]
 pub struct ToolUseAgent {
     llm_client: Arc<LLMBroker>,
     working_directory: String,
     operating_system: String,
     shell: String,
-    swe_bench_repo_name: Option<String>,
+    properties: ToolUseAgentProperties,
     temperature: f32,
 }
 
@@ -131,14 +149,14 @@ impl ToolUseAgent {
         working_directory: String,
         operating_system: String,
         shell: String,
-        swe_bench_repo_name: Option<String>,
+        properties: ToolUseAgentProperties,
     ) -> Self {
         Self {
             llm_client,
             working_directory,
             operating_system,
             shell,
-            swe_bench_repo_name,
+            properties,
             // we always default to 0.2 temp to start with
             temperature: 0.2,
         }
@@ -604,7 +622,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         &self,
         input: ToolUseAgentInputOnlyTools,
     ) -> Result<ToolUseAgentOutputWithTools, SymbolError> {
-        let repo_name = self.swe_bench_repo_name.clone().expect("to be present");
+        let repo_name = self.properties.repo_name.clone().expect("to be present");
         let problem_statement = &input.problem_statement;
         let system_message = LLMClientMessage::system(if input.is_midwit_mode {
             self.system_message_midwit_json_mode(&repo_name, problem_statement)
@@ -904,13 +922,14 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
     ) -> Result<ToolUseAgentOutput, SymbolError> {
         // Now over here we want to trigger the tool agent recursively and also parse out the output as required
         // this will involve some kind of magic because for each tool type we want to be sure about how we are parsing the output but it should not be too hard to make that happen
-        let system_message =
-            LLMClientMessage::system(if let Some(repo_name) = self.swe_bench_repo_name.as_ref() {
+        let system_message = LLMClientMessage::system(
+            if let Some(repo_name) = self.properties.repo_name.as_ref() {
                 self.system_message_for_swe_bench(&input, repo_name)
             } else {
                 self.system_message(&input)
-            })
-            .cache_point();
+            },
+        )
+        .cache_point();
         // grab the previous messages as well
         let llm_properties = input
             .symbol_event_message_properties
