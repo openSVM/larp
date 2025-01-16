@@ -738,6 +738,10 @@ impl SessionService {
                             tool_exchange_id.to_owned(),
                             failed_to_parse_output.to_owned(),
                         ));
+                    // only bail if we are running in the editor environment
+                    if running_in_editor {
+                        return Err(SymbolError::WrongToolOutput);
+                    }
                 }
                 Ok(AgentToolUseOutput::Errored(e)) => {
                     // if we have an error over here coming from the library then bubble it up
@@ -748,7 +752,10 @@ impl SessionService {
                         tool_exchange_id.to_owned(),
                         e.to_string(),
                     ));
-                    Err(e)?
+                    // only bail hard when we are running in the editor
+                    if running_in_editor {
+                        Err(e)?
+                    }
                 }
                 Err(e) => {
                     eprintln!("{}", &e);
@@ -759,7 +766,10 @@ impl SessionService {
                             tool_exchange_id.to_owned(),
                             e.to_string(),
                         ));
-                    Err(e)?
+                    // only bail if we are running in the editor environment
+                    if running_in_editor {
+                        Err(e)?
+                    }
                 }
             }
         }
