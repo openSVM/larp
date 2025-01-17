@@ -166,12 +166,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let llm_broker = application.llm_broker.clone();
 
     let aide_rules = Some(format!(
-        r#"FOLLOW these steps to resolve the issue:
+        r#"You are solving a github issue present in {}
+FOLLOW these steps to resolve the issue:
 1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
 2. Edit the sourcecode of the repo to resolve the issue
 3. Think about edgecases and make sure your fix handles them as well
 
-Your thinking should be thorough and so it's fine if it's very long."#
+Your thinking should be thorough and so it's fine if it's very long."#,
+        args.repo_name,
     ));
 
     // wait for the agent to finish over here while busy looping
