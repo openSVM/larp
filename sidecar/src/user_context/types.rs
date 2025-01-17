@@ -1,4 +1,7 @@
 use std::collections::HashSet;
+use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
+use caesium::{parameters::CSParameters, compress_in_memory};
+use anyhow::Result;
 
 use crate::chunking::{
     text_document::{Position, Range},
@@ -15,6 +18,10 @@ use super::helpers::{guess_content, ProbableFileKind};
 pub enum UserContextError {
     #[error("Unable to read from path: {0}")]
     UnableToReadFromPath(String),
+    #[error("Image compression error: {0}")]
+    ImageCompressionError(String),
+    #[error("Base64 decode error: {0}")]
+    Base64DecodeError(String),
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -68,6 +75,43 @@ pub struct ImageInformation {
 }
 
 impl ImageInformation {
+    fn compress_base64_image(data: &str) -> Result<String, UserContextError> {
+        println!("Starting image compression...");
+
+        // Decode base64
+        let bytes = BASE64.decode(data)
+            .map_err(|e| UserContextError::Base64DecodeError(e.to_string()))?;
+        let original_size = bytes.len();
+        println!("Original image size: {} bytes", original_size);
+
+        // Compress using caesium
+        let params = CSParameters::default();
+        let compressed = compress_in_memory(bytes, &params)
+            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+        println!("Compressed image size: {} bytes", compressed.len());
+
+        // Calculate compression ratio
+        let compression_ratio = (1.0 - (compressed.len() as f64 / original_size as f64)) * 100.0;
+        println!("Compression ratio: {:.2}%", compression_ratio);
+
+        // Re-encode as base64
+        let result = BASE64.encode(compressed);
+        println!("Image compression completed successfully");
+
+        Ok(result)
+    }
+
+    pub fn new(r#type: String, media_type: String, data: String) -> Result<Self, UserContextError> {
+        // Compress the image data if it's base64 encoded
+        let compressed_data = Self::compress_base64_image(&data)?;
+
+        Ok(Self {
+            r#type,
+            media_type,
+            data: compressed_data,
+        })
+    }
+
     pub fn r#type(&self) -> &str {
         &self.r#type
     }
