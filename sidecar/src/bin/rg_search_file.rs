@@ -35,7 +35,7 @@ async fn main() {
         // do not enable multiline over here, from the docs:
         // https://gist.github.com/theskcd/a6369001b3ea3c0212bbc88d8a74211f from
         // rg --help | grep multiline
-        // "--multiline",
+        "--multiline",
         &args.directory_path,
     ];
 
