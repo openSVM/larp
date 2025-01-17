@@ -138,11 +138,11 @@ impl Tool for ProbeTryHardAnswer {
                 .map_err(|e| ToolError::LLMClientError(e));
             match response {
                 Ok(response) => {
-                    if response.is_empty() {
+                    if response.answer_up_until_now().is_empty() {
                         retries = retries + 1;
                         continue;
                     } else {
-                        return Ok(ToolOutput::ProbeTryHardAnswer(response));
+                        return Ok(ToolOutput::ProbeTryHardAnswer(response.answer_up_until_now().to_owned()));
                     }
                 }
                 Err(e) => {

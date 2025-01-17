@@ -154,7 +154,7 @@ impl KeywordSearch for GoogleStudioKeywordSearch {
 
         println!("keyword_search::response_time({:?})", start.elapsed());
 
-        let parsed_response = KeywordsReply::parse_response(&response);
+        let parsed_response = KeywordsReply::parse_response(response.answer_up_until_now());
 
         match parsed_response {
             Ok(parsed_response) => Ok(parsed_response),

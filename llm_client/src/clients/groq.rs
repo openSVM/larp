@@ -37,7 +37,7 @@ impl LLMClient for GroqClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: tokio::sync::mpsc::UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         match api_key {
             LLMProviderAPIKeys::GroqProvider(groq_api_key) => {
                 self.openai_compatible_client

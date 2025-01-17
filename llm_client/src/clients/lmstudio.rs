@@ -126,7 +126,7 @@ impl LLMClient for LMStudioClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_completion(
@@ -134,7 +134,7 @@ impl LLMClient for LMStudioClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let base_url = self.generate_base_url(api_key)?;
         let endpoint = self.chat_endpoint(&base_url);
 
@@ -168,7 +168,7 @@ impl LLMClient for LMStudioClient {
                 }
             }
         }
-        Ok(buffered_stream)
+        Ok(LLMClientCompletionResponse::new(buffered_stream, None, "not_provided".to_owned()))
     }
 
     async fn stream_prompt_completion(

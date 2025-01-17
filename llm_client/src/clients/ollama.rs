@@ -120,7 +120,7 @@ impl LLMClient for OllamaClient {
         _api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: tokio::sync::mpsc::UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let ollama_request = OllamaClientRequest::from_request(request)?;
         let mut response = self
             .client
@@ -143,7 +143,7 @@ impl LLMClient for OllamaClient {
                 value.model,
             ))?;
         }
-        Ok(buffered_string)
+        Ok(LLMClientCompletionResponse::new(buffered_string, None, ollama_request.model))
     }
 
     async fn completion(
@@ -153,7 +153,7 @@ impl LLMClient for OllamaClient {
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let result = self.stream_completion(api_key, request, sender).await?;
-        Ok(result)
+        Ok(result.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(

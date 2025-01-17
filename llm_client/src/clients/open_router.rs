@@ -499,7 +499,7 @@ impl LLMClient for OpenRouterClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: tokio::sync::mpsc::UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let base_url = "https://openrouter.ai/api/v1/chat/completions".to_owned();
         // pick this up from here, we need return type for the output we are getting form the stream
         let model = self
@@ -541,7 +541,7 @@ impl LLMClient for OpenRouterClient {
                 }
             }
         }
-        Ok(buffered_stream)
+        Ok(LLMClientCompletionResponse::new(buffered_stream, None, model))
     }
 
     async fn completion(

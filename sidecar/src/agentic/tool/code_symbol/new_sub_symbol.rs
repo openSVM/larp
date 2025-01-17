@@ -288,7 +288,7 @@ impl Tool for NewSubSymbolRequired {
             match response {
                 Ok(response) => {
                     if let Ok(parsed_response) =
-                        NewSubSymbolRequiredResponse::parse_response(&response)
+                        NewSubSymbolRequiredResponse::parse_response(response.answer_up_until_now())
                     {
                         return Ok(ToolOutput::new_sub_symbol_creation(parsed_response));
                     } else {

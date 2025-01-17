@@ -139,7 +139,7 @@ impl Tool for FindCodeSectionsToEdit {
         let mut is_id = false;
         let mut is_thinking = false;
         // TODO(skcd): Parsing here can be improved
-        response.lines().for_each(|line| {
+        response.answer_up_until_now().lines().for_each(|line| {
             if is_id {
                 // we have found the id, the next one will be the thinking
                 // parse this line to a i64

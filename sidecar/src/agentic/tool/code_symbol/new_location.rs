@@ -213,7 +213,7 @@ impl Tool for CodeSymbolNewLocation {
                 )
                 .await
                 .map_err(|e| ToolError::LLMClientError(e))
-                .map(|answer| CodeSymbolNewLocationResponse::parse_response(&answer));
+                .map(|answer| CodeSymbolNewLocationResponse::parse_response(answer.answer_up_until_now()));
             match response {
                 Ok(Ok(parsed_answer)) => {
                     return Ok(ToolOutput::code_symbol_new_location(parsed_answer))

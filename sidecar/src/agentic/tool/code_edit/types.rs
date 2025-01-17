@@ -455,7 +455,7 @@ impl Tool for CodeEditingTool {
             match stream_result {
                 Some(Ok(response)) => {
                     let edited_code = Self::edit_code(
-                        &response,
+                        response.answer_up_until_now(),
                         code_edit_context.is_new_sub_symbol().is_some(),
                         code_edit_context.code_to_edit(),
                     )

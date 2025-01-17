@@ -282,7 +282,7 @@ impl Tool for TestCorrection {
             )
             .await
             .map_err(|e| ToolError::LLMClientError(e))?;
-        let output = TestOuptutCorrectionResponse::parse_reponse(&response)?;
+        let output = TestOuptutCorrectionResponse::parse_reponse(response.answer_up_until_now())?;
         Ok(ToolOutput::TestCorrectionOutput(output.corrected_code))
     }
 

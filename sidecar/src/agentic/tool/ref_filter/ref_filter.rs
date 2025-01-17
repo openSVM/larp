@@ -513,7 +513,7 @@ this is a reason
             .await;
 
         let parsed_response = match response {
-            Ok(response) => from_str::<GroupedReasonsResponse>(&response).ok(),
+            Ok(response) => from_str::<GroupedReasonsResponse>(response.answer_up_until_now()).ok(),
             Err(_) => {
                 eprintln!("failed to parse response groupedreasonsrepsonse");
                 None
@@ -612,7 +612,7 @@ impl Tool for ReferenceFilterBroker {
                     );
 
                     let parsed_response = match response {
-                        Ok(response) => from_str::<ReferenceFilterResponse>(&&response).ok(),
+                        Ok(response) => from_str::<ReferenceFilterResponse>(response.answer_up_until_now()).ok(),
                         Err(_) => None,
                     };
 

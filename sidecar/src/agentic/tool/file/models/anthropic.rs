@@ -219,7 +219,7 @@ impl ImportantFilesFinder for AnthropicFileFinder {
 
         println!("file_important_broker::time_take({:?})", start.elapsed());
 
-        let parsed_response = FileImportantReply::parse_response(&response);
+        let parsed_response = FileImportantReply::parse_response(response.answer_up_until_now());
 
         match parsed_response {
             Ok(parsed_response) => Ok(parsed_response

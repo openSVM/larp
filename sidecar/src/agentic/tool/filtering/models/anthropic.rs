@@ -1370,7 +1370,7 @@ impl CodeToEditFilterFormatter for AnthropicCodeToEditFormatter {
                 .map_err(|e| CodeToEditFilteringError::LLMClientError(e));
             match response {
                 Ok(response) => {
-                    if let Ok(parsed_response) = self.parse_code_sections(&response) {
+                    if let Ok(parsed_response) = self.parse_code_sections(response.answer_up_until_now()) {
                         return Ok(parsed_response);
                     } else {
                         retries = retries + 1;
@@ -1440,7 +1440,7 @@ impl CodeToEditFilterFormatter for AnthropicCodeToEditFormatter {
         // as its well formatted xml
         // and then we need to change the return types here from raw snippets
         // to snippets with reason to edit and not to edit
-        self.parse_response(&response, request.get_snippets())
+        self.parse_response(response.answer_up_until_now(), request.get_snippets())
     }
 
     async fn filter_code_snippet_inside_symbol_for_probing(
@@ -1517,11 +1517,11 @@ Remember that your reply should be strictly in the following format:
                 )
                 .await
                 .map_err(|e| CodeToEditFilteringError::LLMClientError(e))?;
-            if response.is_empty() {
+            if response.answer_up_until_now().is_empty() {
                 retries = retries + 1;
                 continue;
             }
-            let result = self.parse_reponse_for_probing(&response, request.get_snippets());
+            let result = self.parse_reponse_for_probing(response.answer_up_until_now(), request.get_snippets());
             match result {
                 Ok(_) => return result,
                 Err(_) => {
@@ -1594,11 +1594,11 @@ Remember that your reply should be strictly in the following format:
                 )
                 .await
                 .map_err(|e| CodeToEditFilteringError::LLMClientError(e))?;
-            if response.is_empty() {
+            if response.answer_up_until_now().is_empty() {
                 retries = retries + 1;
                 continue;
             }
-            let result = CodeToProbeSubSymbolList::from_string(&response);
+            let result = CodeToProbeSubSymbolList::from_string(response.answer_up_until_now());
             match result {
                 Ok(_) => return result,
                 Err(_) => {

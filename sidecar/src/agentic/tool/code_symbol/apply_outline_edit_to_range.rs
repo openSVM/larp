@@ -292,7 +292,7 @@ impl Tool for ApplyOutlineEditsToRange {
                         }
                     }
                     result = &mut stream_future => {
-                        if let Ok(_result) = result.as_deref() {
+                        if let Ok(ref _result) = result {
                             let _ = ui_sender.send(UIEventWithID::end_edit_streaming(
                                 root_request_id.to_owned(),
                                 symbol_identifier.clone(),
@@ -324,7 +324,7 @@ impl Tool for ApplyOutlineEditsToRange {
             match stream_result {
                 Some(Ok(response)) => {
                     if let Ok(parsed_response) =
-                        ApplyOutlineEditsToRangeResponse::parse_response(&response)
+                        ApplyOutlineEditsToRangeResponse::parse_response(response.answer_up_until_now())
                     {
                         return Ok(ToolOutput::apply_outline_edits_to_range(parsed_response));
                     } else {

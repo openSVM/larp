@@ -468,7 +468,7 @@ impl InLineAgent {
         last_exchange.add_agent_action(InLineAgentAction::DecideAction {
             query: query.to_owned(),
         });
-        InLineAgentAction::from_gpt_response(&response)
+        InLineAgentAction::from_gpt_response(response.answer_up_until_now())
     }
 
     async fn generate_documentation(

@@ -670,7 +670,7 @@ impl Tool for ScratchPadAgentBroker {
                     }
                 }
                 response = &mut response => {
-                    if let Ok(_result) = response.as_deref() {
+                    if let Ok(ref _result) = response {
                         let _ = streamed_edit_client.send_edit_event(
                             editor_url.to_owned(),
                             EditedCodeStreamingRequest::delta(
@@ -730,7 +730,7 @@ impl Tool for ScratchPadAgentBroker {
 
         match stream_result {
             Some(Ok(response)) => Ok(ToolOutput::SearchAndReplaceEditing(
-                SearchAndReplaceEditingResponse::new(response.to_owned(), response.to_owned()),
+                SearchAndReplaceEditingResponse::new(response.answer_up_until_now().to_owned(), response.answer_up_until_now().to_owned()),
             )),
             _ => Err(ToolError::MissingTool),
         }

@@ -951,7 +951,7 @@ impl Tool for SearchAndReplaceEditing {
                 Ok(ToolOutput::search_and_replace_editing(
                     SearchAndReplaceEditingResponse::new(
                         search_and_replace_accumulator.code_lines.join("\n"),
-                        response,
+                        response.answer_up_until_now().to_owned(),
                     ),
                 ))
             }

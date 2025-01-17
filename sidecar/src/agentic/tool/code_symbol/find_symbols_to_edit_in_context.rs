@@ -146,7 +146,7 @@ impl Tool for FindSymbolsToEditInContext {
             )
             .await
             .map_err(|e| ToolError::LLMClientError(e))?;
-        let parsed_response = from_str::<FindSymbolsToEditInContextResponse>(&response)
+        let parsed_response = from_str::<FindSymbolsToEditInContextResponse>(response.answer_up_until_now())
             .map_err(|_e| ToolError::SerdeConversionFailed)?;
         Ok(ToolOutput::find_symbols_to_edit_in_context(parsed_response))
     }

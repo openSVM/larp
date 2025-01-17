@@ -310,8 +310,8 @@ impl Tool for PlanAddStepClient {
             )
             .await?;
 
-        let mut parsed_response = StepGeneratorResponse::parse_response(&response)?;
-        let ask_human_for_help = StepGeneratorResponse::grab_human_ask_for_help(&response);
+        let mut parsed_response = StepGeneratorResponse::parse_response(response.answer_up_until_now())?;
+        let ask_human_for_help = StepGeneratorResponse::grab_human_ask_for_help(response.answer_up_until_now());
         if let Some(ask_human_for_help) = ask_human_for_help {
             parsed_response = parsed_response.set_human_help(ask_human_for_help);
         }

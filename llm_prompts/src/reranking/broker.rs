@@ -161,7 +161,7 @@ impl ReRankBroker {
 
                 // We have the updated list
                 let updated_list =
-                    self.order_code_digests_listwise(&llm_type, response, listwise_request)?;
+                    self.order_code_digests_listwise(&llm_type, response.answer_up_until_now().to_owned(), listwise_request)?;
                 // Now we will in place replace the code spans from the digests from our start position
                 // with the elements in this list
                 for (index, code_span_digest) in updated_list.into_iter().enumerate() {
@@ -254,7 +254,7 @@ impl ReRankBroker {
                 .buffer_unordered(25)
                 .filter_map(|response| {
                     if let Ok((response, code_digest)) = response {
-                        if response.trim().to_lowercase() == "yes" {
+                        if response.answer_up_until_now().trim().to_lowercase() == "yes" {
                             futures::future::ready(Some(code_digest))
                         } else {
                             futures::future::ready(None)

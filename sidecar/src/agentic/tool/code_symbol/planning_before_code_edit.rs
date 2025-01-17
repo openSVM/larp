@@ -342,7 +342,7 @@ impl Tool for PlanningBeforeCodeEdit {
                 )
                 .await;
             if let Ok(response) = response {
-                match PlanningBeforeCodeEditResponse::parse_response(&response) {
+                match PlanningBeforeCodeEditResponse::parse_response(response.answer_up_until_now()) {
                     Ok(parsed_response) => {
                         println!("tool::planning_before_code_edit::parsed::success");
                         // Now parse the response over here in the format we want it to be in
