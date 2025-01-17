@@ -8,7 +8,7 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
+        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType},
     },
     provider::LLMProvider,
 };
@@ -109,7 +109,37 @@ pub enum ToolUseAgentOutputWithTools {
 }
 
 #[derive(Debug)]
-pub enum ToolUseAgentOutput {
+pub struct ToolUseAgentOutput {
+    r#type: ToolUseAgentOutputType,
+    usage_statistics: LLMClientUsageStatistics,
+}
+
+impl ToolUseAgentOutput {
+    fn new(r#type: ToolUseAgentOutputType, usage_statistics: LLMClientUsageStatistics) -> Self {
+        Self {
+            r#type,
+            usage_statistics,
+        }
+    }
+
+    pub fn usage_statistics(&self) -> LLMClientUsageStatistics {
+        self.usage_statistics.clone()
+    }
+
+    pub fn output_type(self) -> ToolUseAgentOutputType {
+        self.r#type
+    }
+
+    fn reasoning(reasoning: String, usage_statistics: LLMClientUsageStatistics) -> Self {
+        Self {
+            r#type: ToolUseAgentOutputType::Reasoning(reasoning),
+            usage_statistics,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ToolUseAgentOutputType {
     Success((ToolInputPartial, String)),
     Failure(String),
     Reasoning(String),
@@ -911,7 +941,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         // wait for the delta streaming to finish
         let answer_up_until_now = polling_llm_response.await;
         match answer_up_until_now {
-            Some(Ok(response)) => Ok(ToolUseAgentOutput::Reasoning(response)),
+            Some(Ok(response)) => Ok(ToolUseAgentOutput::reasoning(response, Default::default())),
             _ => Err(SymbolError::CancelledResponseStream),
         }
     }
@@ -1123,15 +1153,18 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             delta_updater_task.await
         {
             let final_output = match tool_input_partial {
-                Some(tool_input_partial) => Ok(ToolUseAgentOutput::Success((
+                Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
                     tool_input_partial,
                     thinking_for_tool,
                 ))),
-                None => Ok(ToolUseAgentOutput::Failure(complete_response)),
+                None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
             };
             match response.await {
-                Some(_) => final_output,
-                None => Err(SymbolError::CancelledResponseStream),
+                Some(Ok(Ok(response))) => Ok(ToolUseAgentOutput::new(
+                    final_output?,
+                    response.usage_statistics(),
+                )),
+                _ => Err(SymbolError::CancelledResponseStream),
             }
         } else {
             Err(SymbolError::CancelledResponseStream)

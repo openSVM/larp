@@ -21,7 +21,7 @@ use crate::{
                 chat::SessionChatMessage,
                 tool_use_agent::{
                     ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
-                    ToolUseAgentOutput, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
+                    ToolUseAgentOutputType, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
                 },
             },
             terminal::terminal::TerminalInput,
@@ -468,15 +468,18 @@ Always include the <thinking></thinking> section before using the tool."#
         );
 
         // now create the input for the tool use agent
-        let tool_use_output = tool_use_agent.invoke(tool_agent_input).await;
+        let tool_use_output = tool_use_agent
+            .invoke(tool_agent_input)
+            .await
+            .map(|tool_use_output| tool_use_output.output_type());
 
         // Now we get the tool use output
         match tool_use_output {
             Ok(tool_use_parameters) => match tool_use_parameters {
-                ToolUseAgentOutput::Reasoning(_) => todo!("not implemented"),
+                ToolUseAgentOutputType::Reasoning(_) => todo!("not implemented"),
                 // we are going to execute this branch of the code so we can get the output
                 // over here
-                ToolUseAgentOutput::Success((tool_input_partial, thinking)) => {
+                ToolUseAgentOutputType::Success((tool_input_partial, thinking)) => {
                     let tool_parameters = ActionToolParameters::tool(
                         "tool_use".to_owned(),
                         tool_input_partial.clone(),
@@ -521,7 +524,7 @@ Always include the <thinking></thinking> section before using the tool."#
                         }
                     }
                 }
-                ToolUseAgentOutput::Failure(failed_string) => Ok(InferenceEngineResult::new(
+                ToolUseAgentOutputType::Failure(failed_string) => Ok(InferenceEngineResult::new(
                     Some(ActionObservation::errored(
                         failed_string.to_owned(),
                         // we failed to parse the tool output, so we can expect an correction
