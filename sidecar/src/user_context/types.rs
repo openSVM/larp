@@ -2,6 +2,7 @@ use std::collections::HashSet;
 use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
 use caesium::{parameters::CSParameters, compress_in_memory};
 use anyhow::Result;
+use image::{load_from_memory, GenericImageView};
 
 use crate::chunking::{
     text_document::{Position, Range},
@@ -77,6 +78,7 @@ pub struct ImageInformation {
 impl ImageInformation {
     fn compress_base64_image(data: &str) -> Result<String, UserContextError> {
         println!("Starting image compression...");
+        println!("Original base64 string length: {} characters", data.len());
 
         // Decode base64
         let bytes = BASE64.decode(data)
@@ -84,8 +86,24 @@ impl ImageInformation {
         let original_size = bytes.len();
         println!("Original image size: {} bytes", original_size);
 
+        // Read image dimensions using the image crate
+        let img = load_from_memory(&bytes)
+            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+        let (width, height) = img.dimensions();
+
+        // Calculate new dimensions if width > 1080
+        let (new_width, new_height) = if width > 1080 {
+            let aspect_ratio = height as f32 / width as f32;
+            let new_height = (1080.0 * aspect_ratio).round() as u32;
+            (1080, new_height)
+        } else {
+            (width, height)
+        };
+
         // Compress using caesium
-        let params = CSParameters::default();
+        let mut params = CSParameters::default();
+        params.height = new_height;
+        params.width = new_width;
         let compressed = compress_in_memory(bytes, &params)
             .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
         println!("Compressed image size: {} bytes", compressed.len());
@@ -96,6 +114,9 @@ impl ImageInformation {
 
         // Re-encode as base64
         let result = BASE64.encode(compressed);
+        println!("Compressed base64 string length: {} characters", result.len());
+        println!("Base64 string length reduction: {:.2}%",
+            (1.0 - (result.len() as f64 / data.len() as f64)) * 100.0);
         println!("Image compression completed successfully");
 
         Ok(result)
@@ -468,6 +489,21 @@ impl UserContext {
         self.images.as_slice()
     }
 
+    pub fn compress_images(mut self, images: Vec<ImageInformation>) -> Result<Self, UserContextError> {
+        let mut processed_images = Vec::new();
+        for image in images {
+            if let Ok(compressed_image) = ImageInformation::new(
+                image.r#type().to_owned(),
+                image.media_type().to_owned(),
+                image.data().to_owned(),
+            ) {
+                processed_images.push(compressed_image);
+            }
+        }
+        self.images = processed_images;
+        Ok(self)
+    }
+
     pub fn copy_at_instance(mut self) -> Self {
         self.variables = self
             .variables
@@ -750,6 +786,20 @@ impl UserContext {
                 })
             })
             .collect::<Vec<_>>();
+
+        // Process and compress any new images before merging
+        let mut processed_new_images = Vec::new();
+        for image in new_user_context.images {
+            if let Ok(compressed_image) = ImageInformation::new(
+                image.r#type().to_owned(),
+                image.media_type().to_owned(),
+                image.data().to_owned(),
+            ) {
+                processed_new_images.push(compressed_image);
+            }
+        }
+        new_user_context.images = processed_new_images;
+
         let images_to_extend = self
             .images
             .into_iter()
