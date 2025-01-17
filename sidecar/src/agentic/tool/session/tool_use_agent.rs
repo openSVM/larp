@@ -8,7 +8,7 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage, LLMType},
+        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType},
     },
     provider::LLMProvider,
 };
@@ -109,7 +109,37 @@ pub enum ToolUseAgentOutputWithTools {
 }
 
 #[derive(Debug)]
-pub enum ToolUseAgentOutput {
+pub struct ToolUseAgentOutput {
+    r#type: ToolUseAgentOutputType,
+    usage_statistics: LLMClientUsageStatistics,
+}
+
+impl ToolUseAgentOutput {
+    fn new(r#type: ToolUseAgentOutputType, usage_statistics: LLMClientUsageStatistics) -> Self {
+        Self {
+            r#type,
+            usage_statistics,
+        }
+    }
+
+    pub fn usage_statistics(&self) -> LLMClientUsageStatistics {
+        self.usage_statistics.clone()
+    }
+
+    pub fn output_type(self) -> ToolUseAgentOutputType {
+        self.r#type
+    }
+
+    fn reasoning(reasoning: String, usage_statistics: LLMClientUsageStatistics) -> Self {
+        Self {
+            r#type: ToolUseAgentOutputType::Reasoning(reasoning),
+            usage_statistics,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum ToolUseAgentOutputType {
     Success((ToolInputPartial, String)),
     Failure(String),
     Reasoning(String),
@@ -122,13 +152,15 @@ pub enum ToolUseAgentOutput {
 pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
+    aide_rules: Option<String>,
 }
 
 impl ToolUseAgentProperties {
-    pub fn new(in_editor: bool, repo_name: Option<String>) -> Self {
+    pub fn new(in_editor: bool, repo_name: Option<String>, aide_rules: Option<String>) -> Self {
         Self {
             _in_editor: in_editor,
             repo_name,
+            aide_rules,
         }
     }
 }
@@ -488,6 +520,21 @@ Remember: Focus on the task's objectives and encourage forward progress by compr
         let tool_descriptions = context.tool_descriptions.join("\n\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
+        let aide_rules = match self.properties.aide_rules.clone() {
+            Some(aide_rules) => {
+                format!(
+                    "
+
+====
+
+Additional guildelines the user has provided which must be followed:
+{aide_rules}
+
+===="
+                )
+            }
+            None => "".to_owned(),
+        };
         let default_shell = self.shell.to_owned();
         format!(
             r#"You are SOTA-agent, a highly skilled AI software engineer with extensive knowledge in all programming languages, frameworks, design patterns, and best practices. Your primary goal is to accomplish tasks related to software development, file manipulation, and system operations within the specified project directory.
@@ -501,6 +548,7 @@ Default Shell: {default_shell}
 Current Working Directory: {working_directory}
 
 ====
+{aide_rules}
 
 TOOL USE
 
@@ -911,7 +959,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         // wait for the delta streaming to finish
         let answer_up_until_now = polling_llm_response.await;
         match answer_up_until_now {
-            Some(Ok(response)) => Ok(ToolUseAgentOutput::Reasoning(response)),
+            Some(Ok(response)) => Ok(ToolUseAgentOutput::reasoning(response, Default::default())),
             _ => Err(SymbolError::CancelledResponseStream),
         }
     }
@@ -1123,15 +1171,18 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             delta_updater_task.await
         {
             let final_output = match tool_input_partial {
-                Some(tool_input_partial) => Ok(ToolUseAgentOutput::Success((
+                Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
                     tool_input_partial,
                     thinking_for_tool,
                 ))),
-                None => Ok(ToolUseAgentOutput::Failure(complete_response)),
+                None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
             };
             match response.await {
-                Some(_) => final_output,
-                None => Err(SymbolError::CancelledResponseStream),
+                Some(Ok(Ok(response))) => Ok(ToolUseAgentOutput::new(
+                    final_output?,
+                    response.usage_statistics(),
+                )),
+                _ => Err(SymbolError::CancelledResponseStream),
             }
         } else {
             Err(SymbolError::CancelledResponseStream)
