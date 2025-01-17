@@ -179,7 +179,7 @@ impl LLMClient for TogetherAIClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(
@@ -235,7 +235,7 @@ impl LLMClient for TogetherAIClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let original_model_name = request.model().to_string();
         let model = TogetherAIClient::model_str(request.model());
         if model.is_none() {
@@ -276,6 +276,6 @@ impl LLMClient for TogetherAIClient {
             }
         }
 
-        Ok(buffered_string)
+        Ok(LLMClientCompletionResponse::new(buffered_string.to_owned(), None, original_model_name))
     }
 }

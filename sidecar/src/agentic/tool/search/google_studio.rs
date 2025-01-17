@@ -346,7 +346,7 @@ false
                 .await
             {
                 Ok(response) => {
-                    break Ok(GoogleStudioLLM::parse_search_response(&response)?.requests)
+                    break Ok(GoogleStudioLLM::parse_search_response(response.answer_up_until_now())?.requests)
                 }
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
@@ -440,7 +440,7 @@ false
                 )
                 .await
             {
-                Ok(response) => break Ok(GoogleStudioLLM::parse_identify_response(&response)?),
+                Ok(response) => break Ok(GoogleStudioLLM::parse_identify_response(response.answer_up_until_now())?),
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
                     sleep(RETRY_DELAY).await;
@@ -489,7 +489,7 @@ false
                 )
                 .await
             {
-                Ok(response) => break Ok(GoogleStudioLLM::parse_decide_response(&response)?),
+                Ok(response) => break Ok(GoogleStudioLLM::parse_decide_response(response.answer_up_until_now())?),
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
                     sleep(RETRY_DELAY).await;
@@ -653,7 +653,7 @@ Notice how each xml tag ends with a new line, follow this format strictly.
                     {
                         Ok(response) => {
                             break Ok(GoogleStudioLLM::parse_query_relevant_files_response(
-                                &response,
+                                response.answer_up_until_now(),
                             )?)
                         }
                         Err(e) if attempt < MAX_RETRIES => {
@@ -813,7 +813,7 @@ None
                 )
                 .await
             {
-                Ok(response) => break Ok(response),
+                Ok(response) => break Ok(response.answer_up_until_now().to_owned()),
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
                     sleep(RETRY_DELAY).await;

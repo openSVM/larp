@@ -217,7 +217,7 @@ impl LLMClient for GeminiProClient {
         provider_api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let model = self.model(request.model());
         if model.is_none() {
             return Err(LLMClientError::UnSupportedModel);
@@ -311,7 +311,7 @@ impl LLMClient for GeminiProClient {
                 }
             }
         }
-        Ok(buffered_string)
+        Ok(LLMClientCompletionResponse::new(buffered_string, None, model))
     }
 
     async fn completion(
@@ -320,7 +320,7 @@ impl LLMClient for GeminiProClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(

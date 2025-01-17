@@ -240,7 +240,7 @@ impl Tool for ReasoningClient {
                     session_id.to_owned(),
                     scratch_pad_range.clone(),
                     fs_file_path.to_owned(),
-                    output.to_owned(),
+                    output.answer_up_until_now().to_owned(),
                     exchange_id.to_owned(),
                     None,
                 )
@@ -277,7 +277,7 @@ impl Tool for ReasoningClient {
             )
             .await;
         Ok(ToolOutput::reasoning(ReasoningResponse {
-            response: output,
+            response: output.answer_up_until_now().to_owned(),
         }))
     }
 

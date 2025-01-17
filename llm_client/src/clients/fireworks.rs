@@ -175,7 +175,7 @@ impl LLMClient for FireworksAIClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(
@@ -232,7 +232,7 @@ impl LLMClient for FireworksAIClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let original_model_str = request.model().to_string();
         let _ = FireworksAIClient::model_str(request.model())
             .ok_or(LLMClientError::UnSupportedModel)?;
@@ -274,6 +274,6 @@ impl LLMClient for FireworksAIClient {
             }
         }
 
-        Ok(buffered_string)
+        Ok(LLMClientCompletionResponse::new(buffered_string, None, original_model_str))
     }
 }

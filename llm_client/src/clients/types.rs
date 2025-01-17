@@ -824,11 +824,56 @@ impl LLMClientCompletionRequest {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct LLMClientUsageStatistics {
+    input_tokens: Option<u32>,
+    output_tokens: Option<u32>,
+    cached_input_tokens: Option<u32>,
+}
+
+impl LLMClientUsageStatistics {
+    pub fn new() -> Self {
+        Self {
+            input_tokens: None,
+            output_tokens: None,
+            cached_input_tokens: None,
+        }
+    }
+
+    pub fn set_input_tokens(mut self, input_tokens: u32) -> Self {
+        self.input_tokens = Some(input_tokens);
+        self
+    }
+
+    pub fn set_output_tokens(mut self, output_tokens: u32) -> Self {
+        self.output_tokens = Some(output_tokens);
+        self
+    }
+
+    pub fn set_cached_input_tokens(mut self, cached_input_tokens: u32) -> Self {
+        self.cached_input_tokens = Some(cached_input_tokens);
+        self
+    }
+
+    pub fn input_tokens(&self) -> Option<u32> {
+        self.input_tokens
+    }
+
+    pub fn output_tokens(&self) -> Option<u32> {
+        self.output_tokens
+    }
+
+    pub fn cached_input_tokens(&self) -> Option<u32> {
+        self.cached_input_tokens
+    }
+}
+
 #[derive(Debug)]
 pub struct LLMClientCompletionResponse {
     answer_up_until_now: String,
     delta: Option<String>,
     model: String,
+    usage_statistics: LLMClientUsageStatistics,
 }
 
 impl LLMClientCompletionResponse {
@@ -837,7 +882,17 @@ impl LLMClientCompletionResponse {
             answer_up_until_now,
             delta,
             model,
+            usage_statistics: LLMClientUsageStatistics::new(),
         }
+    }
+
+    pub fn set_usage_statistics(mut self, usage_statistics: LLMClientUsageStatistics) -> Self {
+        self.usage_statistics = usage_statistics;
+        self
+    }
+
+    pub fn usage_statistics(&self) -> LLMClientUsageStatistics {
+        self.usage_statistics.clone()
     }
 
     pub fn answer_up_until_now(&self) -> &str {
@@ -910,7 +965,7 @@ pub trait LLMClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError>;
+    ) -> Result<LLMClientCompletionResponse, LLMClientError>;
 
     async fn completion(
         &self,

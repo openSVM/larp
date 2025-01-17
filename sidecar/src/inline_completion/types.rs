@@ -563,11 +563,11 @@ impl FillInMiddleCompletionAgent {
                                     InlineCompletionResponse::new(
                                         // this gets sent at the very end
                                         vec![InlineCompletion::new(
-                                            response.to_owned(),
+                                            response.answer_up_until_now().to_owned(),
                                             insert_range(
                                                 completion_request.position,
                                                 &document_lines,
-                                                &response,
+                                                response.answer_up_until_now(),
                                             ),
                                             None,
                                         )],

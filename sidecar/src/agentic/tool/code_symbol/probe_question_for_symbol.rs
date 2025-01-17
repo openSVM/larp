@@ -171,9 +171,10 @@ impl Tool for ProbeQuestionForSymbol {
                 )
                 .await;
             if let Ok(response) = response {
-                if response.contains("<question>") && response.contains("</question>") {
+                if response.answer_up_until_now().contains("<question>") && response.answer_up_until_now().contains("</question>") {
                     // then we can grab the response here between the question tags and the send it back
                     let parsed_response = response
+                        .answer_up_until_now()
                         .lines()
                         .into_iter()
                         .skip_while(|line| !line.contains("<question>"))

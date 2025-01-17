@@ -336,7 +336,7 @@ impl LLMClient for CodeStoryClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_completion(
@@ -344,7 +344,7 @@ impl LLMClient for CodeStoryClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let model = self.model_name(request.model())?;
         let endpoint = self.model_endpoint(request.model())?;
         // get access token from api_key
@@ -386,7 +386,7 @@ impl LLMClient for CodeStoryClient {
                 }
             }
         }
-        Ok(buffered_stream)
+        Ok(LLMClientCompletionResponse::new(buffered_stream, None, model))
     }
 
     async fn stream_prompt_completion(

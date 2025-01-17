@@ -173,7 +173,7 @@ impl LLMClient for OpenAIClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: tokio::sync::mpsc::UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         let llm_model = request.model();
         let model = self.model(llm_model);
         if model.is_none() {
@@ -286,7 +286,8 @@ impl LLMClient for OpenAIClient {
                 }
             }
         }
-        Ok(buffer)
+
+        Ok(LLMClientCompletionResponse::new(buffer, None, model.to_owned()))
     }
 
     async fn completion(
@@ -296,7 +297,7 @@ impl LLMClient for OpenAIClient {
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let result = self.stream_completion(api_key, request, sender).await?;
-        Ok(result)
+        Ok(result.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(

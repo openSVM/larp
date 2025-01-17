@@ -1341,7 +1341,7 @@ InitialRequestData
         .stream_completion(fireworks_ai.api_key().clone(), llm_request, sender)
         .await;
     println!(
-        "response {}:\n{}",
+        "response {}:\n{:?}",
         start_instant.elapsed().as_millis(),
         response.expect("to work always")
     );

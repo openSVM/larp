@@ -312,7 +312,7 @@ impl Tool for SemanticSearch {
                         match completion_response {
                             Ok(completion_response) => (
                                 fs_file_path.to_string_lossy().to_string(),
-                                from_str::<SemanticSearchLLMResponse>(&completion_response)
+                                from_str::<SemanticSearchLLMResponse>(completion_response.answer_up_until_now())
                                     .unwrap_or(SemanticSearchLLMResponse::negative_response()),
                             ),
                             Err(_) => (

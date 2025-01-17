@@ -7,7 +7,10 @@ use logging::parea::{PareaClient, PareaLogCompletion, PareaLogMessage};
 use tokio::sync::mpsc::UnboundedSender;
 use tracing::debug;
 
-use crate::provider::{LLMProvider, LLMProviderAPIKeys};
+use crate::{
+    clients::types::LLMClientUsageStatistics,
+    provider::{LLMProvider, LLMProviderAPIKeys},
+};
 
 use super::types::{
     LLMClient, LLMClientCompletionRequest, LLMClientCompletionResponse,
@@ -125,6 +128,8 @@ enum AnthropicEvent {
     MessageStart {
         #[serde(rename = "message")]
         message: MessageData,
+        #[serde(rename = "usage")]
+        usage: Usage,
     },
     #[serde(rename = "content_block_start")]
     ContentBlockStart {
@@ -150,7 +155,7 @@ enum AnthropicEvent {
         #[serde(rename = "edit")]
         _delta: MessageDeltaData,
         #[serde(rename = "usage")]
-        _usage: Usage,
+        usage: Usage,
     },
     #[serde(rename = "message_stop")]
     MessageStop,
@@ -186,9 +191,9 @@ struct MessageDeltaData {
 
 #[derive(Debug, Deserialize)]
 struct Usage {
-    // input_tokens: u32,
-    // output_tokens: u32,
-    cache_read_input_tokens: u32,
+    input_tokens: Option<u32>,
+    output_tokens: Option<u32>,
+    cache_read_input_tokens: Option<u32>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -537,9 +542,12 @@ impl AnthropicClient {
                     *running_tool_input_ref = "".to_owned();
                     *current_tool_use_id_ref = None;
                 }
-                Ok(AnthropicEvent::MessageStart { message }) => {
+                Ok(AnthropicEvent::MessageStart {
+                    message,
+                    usage: _usage,
+                }) => {
                     println!(
-                        "anthropic::cache_hit::{}",
+                        "anthropic::cache_hit::{:?}",
                         message.usage.cache_read_input_tokens
                     );
                 }
@@ -659,7 +667,9 @@ impl LLMClient for AnthropicClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_completion(
@@ -667,7 +677,7 @@ impl LLMClient for AnthropicClient {
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-    ) -> Result<String, LLMClientError> {
+    ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         println!("anthropic::stream_completion");
         let endpoint = self.chat_endpoint();
         let model_str = self.get_model_string(request.model())?;
@@ -711,6 +721,10 @@ impl LLMClient for AnthropicClient {
             })?;
 
         let mut event_source = response_stream.bytes_stream().eventsource();
+
+        let mut input_tokens = 0;
+        let mut output_tokens = 0;
+        let mut input_cached_tokens = 0;
 
         // let event_next = event_source.next().await;
         // dbg!(&event_next);
@@ -759,11 +773,21 @@ impl LLMClient for AnthropicClient {
                         println!("input_json_delta::{}", &partial_json);
                     }
                 },
-                Ok(AnthropicEvent::MessageStart { message }) => {
+                Ok(AnthropicEvent::MessageStart { message, usage }) => {
+                    input_tokens = input_tokens + usage.input_tokens.unwrap_or_default();
+                    output_tokens = output_tokens + usage.output_tokens.unwrap_or_default();
+                    input_cached_tokens =
+                        input_cached_tokens + usage.cache_read_input_tokens.unwrap_or_default();
                     println!(
-                        "anthropic::cache_hit::{}",
+                        "anthropic::cache_hit::{:?}",
                         message.usage.cache_read_input_tokens
                     );
+                }
+                Ok(AnthropicEvent::MessageDelta { _delta: _, usage }) => {
+                    input_tokens = input_tokens + usage.input_tokens.unwrap_or_default();
+                    output_tokens = output_tokens + usage.output_tokens.unwrap_or_default();
+                    input_cached_tokens =
+                        input_cached_tokens + usage.cache_read_input_tokens.unwrap_or_default();
                 }
                 Err(e) => {
                     println!("{:?}", e);
@@ -775,7 +799,15 @@ impl LLMClient for AnthropicClient {
             }
         }
 
-        Ok(buffered_string)
+        Ok(
+            LLMClientCompletionResponse::new(buffered_string, None, model_str)
+                .set_usage_statistics(
+                    LLMClientUsageStatistics::new()
+                        .set_input_tokens(input_tokens)
+                        .set_output_tokens(output_tokens)
+                        .set_cached_input_tokens(input_cached_tokens),
+                ),
+        )
     }
 
     async fn stream_prompt_completion(

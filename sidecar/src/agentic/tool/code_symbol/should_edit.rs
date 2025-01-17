@@ -154,7 +154,7 @@ impl Tool for ShouldEditCodeSymbol {
             )
             .await
             .map_err(|e| ToolError::LLMClientError(e))?;
-        let parsed_response = ShouldEditCodeSymbolResponse::parse_response(&response)?;
+        let parsed_response = ShouldEditCodeSymbolResponse::parse_response(response.answer_up_until_now())?;
         Ok(ToolOutput::should_edit_code(parsed_response))
     }
 

@@ -617,7 +617,7 @@ impl ReRank for AnthropicReRank {
             .await
             .map_err(|e| ReRankError::LlmClientError(e))?;
         // now we parse out the ranked list from here
-        let ids = self.parse_ids(&response);
+        let ids = self.parse_ids(response.answer_up_until_now());
         // now we re-order the input based on the ids
         let mut reordered_input = vec![];
         let mut mapped_input = input

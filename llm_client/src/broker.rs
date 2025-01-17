@@ -47,7 +47,7 @@ pub struct LLMBroker {
     parea_client: Arc<PareaClient>,
 }
 
-pub type LLMBrokerResponse = Result<String, LLMClientError>;
+pub type LLMBrokerResponse = Result<LLMClientCompletionResponse, LLMClientError>;
 
 impl LLMBroker {
     pub async fn new(config: LLMBrokerConfiguration) -> Result<Self, LLMClientError> {
@@ -184,7 +184,7 @@ impl LLMBroker {
                         })
                         .collect::<Vec<_>>(),
                     metadata.clone(),
-                    result.to_owned(),
+                    result.answer_up_until_now().to_owned(),
                     request.temperature(),
                     request_id.to_string(),
                     request_id.to_string(),
@@ -209,7 +209,7 @@ impl LLMBroker {
                 // Log to posthog as well
                 let _ = self
                     .posthog_client
-                    .capture_reqeust_and_response(&request, result.as_str(), metadata)
+                    .capture_reqeust_and_response(&request, result.answer_up_until_now(), metadata)
                     .await;
                 let messages = serde_json::to_string(&request.messages())?;
                 let mut tx = self
@@ -217,13 +217,14 @@ impl LLMBroker {
                     .begin()
                     .await
                     .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
+                let result_string = result.answer_up_until_now().to_owned();
                 let _ = sqlx::query! {
                     r#"
                     INSERT INTO llm_data (chat_messages, response, llm_type, temperature, max_tokens, event_type)
                     VALUES ($1, $2, $3, $4, $5, $6)
                     "#,
                     messages,
-                    result,
+                    result_string,
                     llm_type_str,
                     temperature,
                     -1,
@@ -473,7 +474,7 @@ impl LLMBroker {
                     .await
                     .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
             }
-            result
+            result.map(|result| LLMClientCompletionResponse::new(result, None, "not_present".to_owned()))
         } else {
             Err(LLMClientError::UnSupportedModel)
         }

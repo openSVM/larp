@@ -601,9 +601,9 @@ impl Agent {
         match final_answer {
             Some(Ok(reply)) => {
                 let last_message = self.get_last_conversation_message();
-                last_message.set_answer(reply.to_owned());
+                last_message.set_answer(reply.answer_up_until_now().to_owned());
                 last_message.set_generated_answer_context(context);
-                Ok(reply)
+                Ok(reply.answer_up_until_now().to_owned())
             }
             Some(Err(e)) => Err(e.into()),
             None => Err(anyhow::anyhow!("no answer from llm")),

@@ -320,7 +320,7 @@ impl Tool for ProbeEnoughOrDeeper {
                 )
                 .await
                 .map_err(|e| ToolError::CodeSymbolError(CodeSymbolError::LLMClientError(e)))?;
-            let parsed_response = ProbeEnoughOrDeeperResponse::from_string(&response);
+            let parsed_response = ProbeEnoughOrDeeperResponse::from_string(response.answer_up_until_now());
             match parsed_response {
                 Ok(response) => return Ok(ToolOutput::ProbeEnoughOrDeeper(response)),
                 Err(_) => continue,

@@ -180,7 +180,7 @@ impl Tool for FindFileForNewSymbol {
             )
             .await
             .map_err(|e| ToolError::LLMClientError(e))?;
-        let parsed_response = FindFileForSymbolResponse::parse_response(&response)?;
+        let parsed_response = FindFileForSymbolResponse::parse_response(response.answer_up_until_now())?;
         Ok(ToolOutput::find_file_for_new_symbol(parsed_response))
     }
 

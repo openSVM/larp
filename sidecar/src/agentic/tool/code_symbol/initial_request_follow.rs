@@ -317,7 +317,7 @@ impl Tool for CodeSymbolFollowInitialRequestBroker {
             )
             .await
             .map_err(|e| ToolError::LLMClientError(e))?;
-        CodeSymbolFollowInitialResponse::parse_response(&response)
+        CodeSymbolFollowInitialResponse::parse_response(response.answer_up_until_now())
             .map(|output| ToolOutput::code_symbol_follow_for_initial_request(output))
     }
 
