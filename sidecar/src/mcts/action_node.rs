@@ -5,7 +5,7 @@ use std::{
 };
 
 use colored::Colorize;
-use llm_client::broker::LLMBroker;
+use llm_client::{broker::LLMBroker, clients::types::LLMClientUsageStatistics};
 
 use crate::{
     agentic::{
@@ -182,6 +182,8 @@ pub struct ActionNode {
     max_expansions: usize,
     /// time taken for the action node
     time_taken_seconds: Option<f32>,
+    // usage statistics
+    llm_usage_statistics: Option<LLMClientUsageStatistics>,
     observation: Option<ActionObservation>,
     // this tracks the context associated with the current action node
     user_context: UserContext,
@@ -203,6 +205,7 @@ impl ActionNode {
             value: 0.0,
             max_expansions,
             time_taken_seconds: None,
+            llm_usage_statistics: None,
             observation: None,
             user_context: UserContext::default(),
             message: None,
@@ -216,6 +219,13 @@ impl ActionNode {
 
     pub fn default_with_index(index: usize) -> Self {
         Self::new(index, 1)
+    }
+
+    pub fn set_llm_usage_statistics_maybe(
+        &mut self,
+        llm_usage_satatistics: Option<LLMClientUsageStatistics>,
+    ) {
+        self.llm_usage_statistics = llm_usage_satatistics;
     }
 
     /// Updates the time taken for the action node to finish

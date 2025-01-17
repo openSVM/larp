@@ -824,7 +824,7 @@ impl LLMClientCompletionRequest {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default, serde::Serialize, serde::Deserialize)]
 pub struct LLMClientUsageStatistics {
     input_tokens: Option<u32>,
     output_tokens: Option<u32>,
@@ -838,6 +838,18 @@ impl LLMClientUsageStatistics {
             output_tokens: None,
             cached_input_tokens: None,
         }
+    }
+
+    pub fn add(mut self, other: LLMClientUsageStatistics) -> Self {
+        self.input_tokens =
+            Some(self.input_tokens.unwrap_or_default() + other.input_tokens.unwrap_or_default());
+        self.output_tokens =
+            Some(self.output_tokens.unwrap_or_default() + other.output_tokens.unwrap_or_default());
+        self.cached_input_tokens = Some(
+            self.cached_input_tokens.unwrap_or_default()
+                + other.cached_input_tokens.unwrap_or_default(),
+        );
+        self
     }
 
     pub fn set_input_tokens(mut self, input_tokens: u32) -> Self {

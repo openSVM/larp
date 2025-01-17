@@ -57,7 +57,7 @@ use super::{
         SessionChatToolReturn, SessionChatToolUse,
     },
     hot_streak::SessionHotStreakRequest,
-    tool_use_agent::{ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutput},
+    tool_use_agent::{ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutputType},
 };
 
 #[derive(Debug)]
@@ -1197,8 +1197,9 @@ impl Session {
         match tool_use_agent
             .map_reduce_trajectory(tool_use_agent_input)
             .await
+            .map(|tool_output| tool_output.output_type())
         {
-            Ok(ToolUseAgentOutput::Success((tool_input_partial, thinking))) => {
+            Ok(ToolUseAgentOutputType::Success((tool_input_partial, thinking))) => {
                 // send over a UI event over here to inform the editor layer that we found a tool to use
                 let _ = message_properties
                     .ui_sender()
@@ -1219,10 +1220,10 @@ impl Session {
                 ));
                 Ok(AgentToolUseOutput::Success((tool_input_partial, self)))
             }
-            Ok(ToolUseAgentOutput::Failure(input_string)) => {
+            Ok(ToolUseAgentOutputType::Failure(input_string)) => {
                 Ok(AgentToolUseOutput::Failed(input_string))
             }
-            Ok(ToolUseAgentOutput::Reasoning(reasoning)) => {
+            Ok(ToolUseAgentOutputType::Reasoning(reasoning)) => {
                 // we also set our previous messages as discarded
                 self.exchanges.iter_mut().for_each(|exchange| {
                     exchange.is_compressed = true;
@@ -1278,8 +1279,11 @@ impl Session {
 
         // now we can invoke the tool use agent over here and get the parsed input and store it
         let output = tool_use_agent.invoke(tool_use_agent_input).await;
-        match output {
-            Ok(ToolUseAgentOutput::Success((tool_input_partial, thinking))) => {
+        let usage_stats = output.as_ref().map(|output| output.usage_statistics()).ok();
+
+        // we match on the output type
+        match output.map(|output| output.output_type()) {
+            Ok(ToolUseAgentOutputType::Success((tool_input_partial, thinking))) => {
                 // send over a UI event over here to inform the editor layer that we found a tool to use
                 let _ = message_properties
                     .ui_sender()
@@ -1294,6 +1298,7 @@ impl Session {
                 // add the action node for it
                 let mut action_node = ActionNode::default_with_index(self.exchanges());
                 action_node = action_node.set_action_tools(tool_input_partial.clone());
+                action_node.set_llm_usage_statistics_maybe(usage_stats);
                 self.action_nodes.push(action_node);
 
                 // add to our exchange over here
@@ -1307,19 +1312,20 @@ impl Session {
                 ));
                 Ok(AgentToolUseOutput::Success((tool_input_partial, self)))
             }
-            Ok(ToolUseAgentOutput::Failure(input_string)) => {
+            Ok(ToolUseAgentOutputType::Failure(input_string)) => {
                 // add action node to it
                 let mut action_node = ActionNode::default_with_index(self.exchanges());
                 action_node = action_node
                     .set_action_error(input_string.to_owned())
                     .error_observation(input_string.to_owned());
+                action_node.set_llm_usage_statistics_maybe(usage_stats);
                 self.action_nodes.push(action_node);
 
                 // return the value
                 Ok(AgentToolUseOutput::Failed(input_string))
             }
             // tool use agent should not generate reasoning
-            Ok(ToolUseAgentOutput::Reasoning(reasoning)) => {
+            Ok(ToolUseAgentOutputType::Reasoning(reasoning)) => {
                 Ok(AgentToolUseOutput::Failed(reasoning))
             }
             Err(e) => {
@@ -1328,6 +1334,7 @@ impl Session {
                 action_node = action_node
                     .set_action_error(e.to_string())
                     .error_observation(e.to_string());
+                action_node.set_llm_usage_statistics_maybe(usage_stats);
                 self.action_nodes.push(action_node);
 
                 Ok(AgentToolUseOutput::Errored(e))
