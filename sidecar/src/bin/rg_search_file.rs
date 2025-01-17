@@ -75,4 +75,6 @@ async fn main() {
         output.push('\n');
         line_count += 1;
     }
+
+    println!("{:?}", &output);
 }
