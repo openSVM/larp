@@ -181,7 +181,7 @@ pub struct ActionNode {
     value: f32,
     max_expansions: usize,
     /// time taken for the action node
-    time_taken_ms: Option<f32>,
+    time_taken_seconds: Option<f32>,
     observation: Option<ActionObservation>,
     // this tracks the context associated with the current action node
     user_context: UserContext,
@@ -202,7 +202,7 @@ impl ActionNode {
             visits: 0,
             value: 0.0,
             max_expansions,
-            time_taken_ms: None,
+            time_taken_seconds: None,
             observation: None,
             user_context: UserContext::default(),
             message: None,
@@ -219,9 +219,8 @@ impl ActionNode {
     }
 
     /// Updates the time taken for the action node to finish
-    pub fn set_time_taken_ms(mut self, time_taken_ms: f32) -> Self {
-        self.time_taken_ms = Some(time_taken_ms);
-        self
+    pub fn set_time_taken_seconds(&mut self, time_taken_seconds: f32) {
+        self.time_taken_seconds = Some(time_taken_seconds);
     }
 
     pub fn set_action_tools(mut self, tool_input_partial: ToolInputPartial) -> Self {

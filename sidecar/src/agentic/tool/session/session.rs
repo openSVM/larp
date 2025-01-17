@@ -2309,6 +2309,7 @@ impl Session {
         root_directory: String,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<Self, SymbolError> {
+        let tool_use_time_taken = std::time::Instant::now();
         let exchange_id = message_properties.request_id_str().to_owned();
         match tool_input_partial {
             ToolInputPartial::TestRunner(test_runner) => {
@@ -2371,6 +2372,7 @@ impl Session {
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(followup_question.question().to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                     action_node.mark_as_terminal();
                 }
             }
@@ -2384,6 +2386,7 @@ impl Session {
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(attempt_completion.to_string());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                     action_node.mark_as_terminal();
                 }
             }
@@ -2479,6 +2482,7 @@ impl Session {
 {}"#,
                         diff_changes.l1_changes()
                     ));
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 // we need to take the L1 level changes here since those are the ones we are interested in and then add
@@ -2521,6 +2525,7 @@ impl Session {
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(formatted_diagnostics.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
                 // send an update over here
                 let _ =
@@ -2570,6 +2575,7 @@ impl Session {
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(response.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 self = self.tool_output(
@@ -2606,6 +2612,7 @@ impl Session {
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(response.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 self = self.tool_output(
@@ -2672,6 +2679,7 @@ reason: {}"#,
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(semantic_search_response.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 let _ =
@@ -2713,6 +2721,7 @@ reason: {}"#,
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(response.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 // if the cancellation token is set, then we should not update
@@ -2755,6 +2764,7 @@ reason: {}"#,
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(output.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 // if the cancellation token is set, then we should not update
@@ -2800,6 +2810,7 @@ reason: {}"#,
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
                     action_node.add_observation_mut(repo_map_str.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
                 }
 
                 let _ =
