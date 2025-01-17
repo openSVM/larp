@@ -415,7 +415,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(false, Some(repo_name)),
+            ToolUseAgentProperties::new(false, Some(repo_name), None),
         );
 
         session = session
@@ -539,6 +539,7 @@ impl SessionService {
         tool_box: Arc<ToolBox>,
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
+        aide_rules: Option<String>,
         reasoning: bool,
         running_in_editor: bool,
         semantic_search: bool,
@@ -606,7 +607,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, None),
+            ToolUseAgentProperties::new(running_in_editor, None, aide_rules),
         );
 
         session = session

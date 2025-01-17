@@ -1453,7 +1453,7 @@ pub async fn agent_tool_use(
         all_files,
         open_files,
         shell,
-        aide_rules: _aide_rules,
+        aide_rules,
         // TODO(skcd): use the reasoning here to force the agentic llm to behave better
         reasoning: _reasoning,
         semantic_search,
@@ -1511,6 +1511,7 @@ pub async fn agent_tool_use(
                 tool_box,
                 llm_broker,
                 user_context,
+                aide_rules,
                 reasoning,
                 true, // we are running inside the editor over here
                 semantic_search,

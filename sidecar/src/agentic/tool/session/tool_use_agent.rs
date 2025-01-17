@@ -152,13 +152,15 @@ pub enum ToolUseAgentOutputType {
 pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
+    aide_rules: Option<String>,
 }
 
 impl ToolUseAgentProperties {
-    pub fn new(in_editor: bool, repo_name: Option<String>) -> Self {
+    pub fn new(in_editor: bool, repo_name: Option<String>, aide_rules: Option<String>) -> Self {
         Self {
             _in_editor: in_editor,
             repo_name,
+            aide_rules,
         }
     }
 }
@@ -518,6 +520,21 @@ Remember: Focus on the task's objectives and encourage forward progress by compr
         let tool_descriptions = context.tool_descriptions.join("\n\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
+        let aide_rules = match self.properties.aide_rules.clone() {
+            Some(aide_rules) => {
+                format!(
+                    "
+
+====
+
+Additional guildelines the user has provided which must be followed:
+{aide_rules}
+
+===="
+                )
+            }
+            None => "".to_owned(),
+        };
         let default_shell = self.shell.to_owned();
         format!(
             r#"You are SOTA-agent, a highly skilled AI software engineer with extensive knowledge in all programming languages, frameworks, design patterns, and best practices. Your primary goal is to accomplish tasks related to software development, file manipulation, and system operations within the specified project directory.
@@ -531,6 +548,7 @@ Default Shell: {default_shell}
 Current Working Directory: {working_directory}
 
 ====
+{aide_rules}
 
 TOOL USE
 
