@@ -1459,13 +1459,6 @@ pub async fn agent_tool_use(
         semantic_search,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
-    // Process and compress any images in the user_context
-    let processed_user_context = if let Ok(processed_context) = user_context.clone().compress_images(user_context.images().to_vec()) {
-        processed_context
-    } else {
-        user_context
-    };
-
     // disable reasoning
     let reasoning = false;
     let llm_provider = model_configuration
@@ -1481,7 +1474,6 @@ pub async fn agent_tool_use(
         "webserver::agent_session::tool_use::session_id({})",
         &session_id
     );
-    println!("user_context::({:?})", &processed_user_context);
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let message_properties = SymbolEventMessageProperties::new(
@@ -1517,7 +1509,7 @@ pub async fn agent_tool_use(
                 root_directory,
                 tool_box,
                 llm_broker,
-                processed_user_context,
+                user_context,
                 aide_rules,
                 reasoning,
                 true, // we are running inside the editor over here

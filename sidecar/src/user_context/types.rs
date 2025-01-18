@@ -1,8 +1,8 @@
-use std::collections::HashSet;
-use base64::{Engine as _, engine::general_purpose::STANDARD as BASE64};
-use caesium::{parameters::CSParameters, compress_in_memory};
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use caesium::{compress_in_memory, parameters::CSParameters};
 use image::{load_from_memory, GenericImageView};
+use std::collections::HashSet;
 
 use crate::chunking::{
     text_document::{Position, Range},
@@ -76,15 +76,12 @@ pub struct ImageInformation {
 }
 
 impl ImageInformation {
-    fn compress_base64_image(data: &str) -> Result<String, UserContextError> {
-        println!("Starting image compression...");
-        println!("Original base64 string length: {} characters", data.len());
-
+    fn compress_base64_image(self) -> Result<Self, UserContextError> {
         // Decode base64
-        let bytes = BASE64.decode(data)
+        let bytes = BASE64
+            .decode(&self.data)
             .map_err(|e| UserContextError::Base64DecodeError(e.to_string()))?;
         let original_size = bytes.len();
-        println!("Original image size: {} bytes", original_size);
 
         // Read image dimensions using the image crate
         let img = load_from_memory(&bytes)
@@ -106,7 +103,6 @@ impl ImageInformation {
         params.width = new_width;
         let compressed = compress_in_memory(bytes, &params)
             .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
-        println!("Compressed image size: {} bytes", compressed.len());
 
         // Calculate compression ratio
         let compression_ratio = (1.0 - (compressed.len() as f64 / original_size as f64)) * 100.0;
@@ -114,23 +110,16 @@ impl ImageInformation {
 
         // Re-encode as base64
         let result = BASE64.encode(compressed);
-        println!("Compressed base64 string length: {} characters", result.len());
-        println!("Base64 string length reduction: {:.2}%",
-            (1.0 - (result.len() as f64 / data.len() as f64)) * 100.0);
-        println!("Image compression completed successfully");
 
-        Ok(result)
+        Ok(Self::new(self.r#type, self.media_type, result))
     }
 
-    pub fn new(r#type: String, media_type: String, data: String) -> Result<Self, UserContextError> {
-        // Compress the image data if it's base64 encoded
-        let compressed_data = Self::compress_base64_image(&data)?;
-
-        Ok(Self {
+    pub fn new(r#type: String, media_type: String, data: String) -> Self {
+        Self {
             r#type,
             media_type,
-            data: compressed_data,
-        })
+            data,
+        }
     }
 
     pub fn r#type(&self) -> &str {
@@ -485,23 +474,20 @@ impl UserContext {
         }
     }
 
-    pub fn images(&self) -> &[ImageInformation] {
-        self.images.as_slice()
-    }
-
-    pub fn compress_images(mut self, images: Vec<ImageInformation>) -> Result<Self, UserContextError> {
+    pub fn images(&self) -> Vec<ImageInformation> {
         let mut processed_images = Vec::new();
-        for image in images {
+        for image in self.images.iter() {
             if let Ok(compressed_image) = ImageInformation::new(
                 image.r#type().to_owned(),
                 image.media_type().to_owned(),
                 image.data().to_owned(),
-            ) {
+            )
+            .compress_base64_image()
+            {
                 processed_images.push(compressed_image);
             }
         }
-        self.images = processed_images;
-        Ok(self)
+        processed_images
     }
 
     pub fn copy_at_instance(mut self) -> Self {
@@ -790,13 +776,12 @@ impl UserContext {
         // Process and compress any new images before merging
         let mut processed_new_images = Vec::new();
         for image in new_user_context.images {
-            if let Ok(compressed_image) = ImageInformation::new(
+            let compressed_image = ImageInformation::new(
                 image.r#type().to_owned(),
                 image.media_type().to_owned(),
                 image.data().to_owned(),
-            ) {
-                processed_new_images.push(compressed_image);
-            }
+            );
+            processed_new_images.push(compressed_image);
         }
         new_user_context.images = processed_new_images;
 
