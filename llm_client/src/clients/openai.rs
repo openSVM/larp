@@ -5,7 +5,7 @@ use async_openai::{
     types::{
         ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
-        CreateChatCompletionRequestArgs, FunctionCall, Role,
+        CreateChatCompletionRequestArgs, FunctionCall,
     },
     Client,
 };
@@ -73,13 +73,11 @@ impl OpenAIClient {
                 let role = message.role();
                 match role {
                     LLMClientRole::User => ChatCompletionRequestUserMessageArgs::default()
-                        .role(Role::User)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::User(message))
                         .map_err(|e| LLMClientError::OpenAPIError(e)),
                     LLMClientRole::System => ChatCompletionRequestSystemMessageArgs::default()
-                        .role(Role::System)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::System(message))
@@ -88,7 +86,6 @@ impl OpenAIClient {
                     // do not use these branches at all
                     LLMClientRole::Assistant => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),
                                 arguments: function_call.arguments().to_owned(),
@@ -97,7 +94,6 @@ impl OpenAIClient {
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
                             .map_err(|e| LLMClientError::OpenAPIError(e)),
                         None => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Assistant)
                             .content(message.content().to_owned())
                             .build()
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
@@ -105,7 +101,6 @@ impl OpenAIClient {
                     },
                     LLMClientRole::Function => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .content(message.content().to_owned())
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),
@@ -287,7 +282,11 @@ impl LLMClient for OpenAIClient {
             }
         }
 
-        Ok(LLMClientCompletionResponse::new(buffer, None, model.to_owned()))
+        Ok(LLMClientCompletionResponse::new(
+            buffer,
+            None,
+            model.to_owned(),
+        ))
     }
 
     async fn completion(
