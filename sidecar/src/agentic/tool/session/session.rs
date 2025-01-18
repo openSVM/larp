@@ -1234,6 +1234,17 @@ impl Session {
         }
     }
 
+    pub async fn reasoning(
+        mut self,
+        tool_box: Arc<ToolBox>,
+        exchange_id: &str,
+        parent_exchange_id: String,
+        tool_use_agent: ToolUseAgent,
+        message_properties: SymbolEventMessageProperties,
+    ) {
+        // the goal of reasoning is to use o1 to better steer sonnet to success
+    }
+
     pub async fn get_tool_to_use(
         mut self,
         tool_box: Arc<ToolBox>,

@@ -626,6 +626,9 @@ impl SessionService {
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
         let mut previous_failure = false;
+        // we want something here which is giving tasks to the agent so we can run the loop below
+        // for the agent and hard cut it after some steps
+
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
         loop {

@@ -6,7 +6,7 @@ use async_openai::{
         ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestDeveloperMessageArgs,
         ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
         ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs, FunctionCall,
-        ReasoningEffort,
+        ReasoningEffort, ResponseFormat,
     },
     Client,
 };
@@ -227,9 +227,18 @@ impl LLMClient for OpenAIClient {
         let mut request_builder = request_builder_args
             .model(model.to_owned())
             .messages(messages);
-        request_builder = request_builder
-            .temperature(request.temperature())
-            .stream(true);
+
+        // o1 does not support streaming on the api
+        if llm_model != &LLMType::O1 {
+            request_builder = request_builder.stream(true);
+        }
+        // set response format to text
+        request_builder.response_format(ResponseFormat::Text);
+
+        // we cannot set temperature for o1
+        if llm_model != &LLMType::O1 {
+            request_builder = request_builder.temperature(request.temperature());
+        }
 
         // if its o1 we should set reasoning_effort to high
         if llm_model == &LLMType::O1 {
@@ -283,7 +292,7 @@ impl LLMClient for OpenAIClient {
                 }
             }
             OpenAIClientType::OpenAIClient(client) => {
-                if false {
+                if true {
                     let completion = client.chat().create(request).await?;
                     let response = completion
                         .choices
@@ -303,6 +312,7 @@ impl LLMClient for OpenAIClient {
                 } else {
                     let mut stream = client.chat().create_stream(request).await?;
                     while let Some(response) = stream.next().await {
+                        println!("{:?}", &response);
                         match response {
                             Ok(response) => {
                                 let response = response
