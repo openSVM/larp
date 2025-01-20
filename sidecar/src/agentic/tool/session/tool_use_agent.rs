@@ -10,6 +10,7 @@ use llm_client::{
         open_router::OpenRouterClient,
         types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType},
     },
+    provider::OpenAIProvider,
 };
 
 use crate::{
@@ -70,27 +71,24 @@ impl ToolUseAgentInputOnlyTools {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ToolUseAgentReasoningParams {
     plan: String,
     instruction: String,
     notes: String,
-    action_nodes: Vec<ActionNode>,
 }
 
 impl ToolUseAgentReasoningParams {
-    pub fn new(
-        plan: String,
-        instruction: String,
-        notes: String,
-        action_nodes: Vec<ActionNode>,
-    ) -> Self {
+    pub fn new(plan: String, instruction: String, notes: String) -> Self {
         Self {
             plan,
             instruction,
             notes,
-            action_nodes,
         }
+    }
+
+    pub fn instruction(&self) -> &str {
+        &self.instruction
     }
 
     pub fn from_response(response: &str) -> Self {
@@ -125,14 +123,39 @@ impl ToolUseAgentReasoningParams {
             plan,
             instruction,
             notes,
-            action_nodes: vec![],
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ToolUseAgentReasoningParamsPartial {
+    user_instruction: String,
+    action_nodes: Vec<ActionNode>,
+    params: Option<ToolUseAgentReasoningParams>,
+}
+
+impl ToolUseAgentReasoningParamsPartial {
+    // TODO(skcd): We do not really require this
+    pub fn to_string(&self) -> String {
+        "".to_owned()
+    }
+
+    pub fn from_params(
+        params: Option<ToolUseAgentReasoningParams>,
+        user_instruction: String,
+    ) -> Self {
+        Self {
+            user_instruction,
+            action_nodes: vec![],
+            params,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
 pub struct ToolUseAgentReasoningInput {
     user_instruction: String,
+    action_nodes: Vec<ActionNode>,
     params: Option<ToolUseAgentReasoningParams>,
     symbol_event_message_properties: SymbolEventMessageProperties,
 }
@@ -140,11 +163,13 @@ pub struct ToolUseAgentReasoningInput {
 impl ToolUseAgentReasoningInput {
     pub fn new(
         user_instruction: String,
+        action_nodes: Vec<ActionNode>,
         params: Option<ToolUseAgentReasoningParams>,
         symbol_event_message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
             user_instruction,
+            action_nodes,
             params,
             symbol_event_message_properties,
         }
@@ -348,7 +373,7 @@ This is the updated plan, reflecting the overall strategy and steps to address t
 </notes>
 This can contain extra details or code for future use.
 
-### Current Task Section
+### Current Task Section (if needed)
 
 <current_task>
 <instruction>
@@ -393,7 +418,7 @@ And the steps they took to work on the instruction:
     fn user_message_for_o1(&self, input: ToolUseAgentReasoningInput) -> String {
         let problem_statement = input.user_instruction.to_owned();
         if let Some(params) = input.params.clone() {
-            let steps = params
+            let steps = input
                 .action_nodes
                 .iter()
                 .filter_map(|action_node| {
@@ -852,7 +877,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
     pub async fn reasoning_output(
         &self,
         input: ToolUseAgentReasoningInput,
-    ) -> Result<(), SymbolError> {
+    ) -> Result<ToolUseAgentReasoningParams, SymbolError> {
         let repo_name = self.properties.repo_name.clone().expect("to be present");
         let message_properties = input.symbol_event_message_properties.clone();
         let system_message = LLMClientMessage::system(self.system_message_for_o1(&repo_name));
@@ -870,12 +895,14 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         // Parse out the output from here
-        let _response = self
+        let response = self
             .llm_client
             .stream_completion(
-                llm_properties.api_key().clone(),
+                llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
+                    std::env::var("OPENAI_API_KEY").expect("env var to be present"),
+                )),
                 request,
-                llm_properties.provider().clone(),
+                llm_client::provider::LLMProvider::OpenAI,
                 vec![
                     ("event_type".to_owned(), "o1_orchestrator".to_owned()),
                     (
@@ -887,9 +914,12 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 .collect(),
                 sender,
             )
-            .await;
+            .await
+            .map_err(|e| SymbolError::LLMClientError(e))?;
         // parse out the response from here somehow
-        todo!()
+        Ok(ToolUseAgentReasoningParams::from_response(
+            response.answer_up_until_now(),
+        ))
     }
 
     /// This is a special call we are using only for anthropic and nothing

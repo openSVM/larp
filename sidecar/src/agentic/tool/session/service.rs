@@ -21,7 +21,9 @@ use crate::{
             r#type::ToolType,
             session::{
                 session::AgentToolUseOutput,
-                tool_use_agent::{ToolUseAgent, ToolUseAgentProperties},
+                tool_use_agent::{
+                    ToolUseAgent, ToolUseAgentProperties, ToolUseAgentReasoningParamsPartial,
+                },
             },
         },
     },
@@ -558,7 +560,7 @@ impl SessionService {
                     &session_id,
                     project_labels.to_vec(),
                     repo_ref.clone(),
-                    storage_path,
+                    storage_path.to_owned(),
                     vec![],
                     UserContext::default(),
                 )
@@ -615,8 +617,8 @@ impl SessionService {
                 user_message.to_owned(),
                 all_files,
                 open_files,
-                shell,
-                user_context,
+                shell.to_owned(),
+                user_context.clone(),
             )
             .await;
         let _ = self
@@ -629,6 +631,88 @@ impl SessionService {
         // token which will imply that we should end the current loop
         if reasoning {
             // do the reasoning here and then send over the task to the agent_loop
+            let mut action_nodes_from = session.action_nodes().len();
+            let mut tool_use_reasoning_input = None;
+            loop {
+                let session = self.load_from_storage(storage_path.to_owned()).await;
+                if let Err(_) = session {
+                    break;
+                }
+                let mut session = session.expect("if let Err to hold");
+                // grab the reasoning instruction
+                let reasoning_instruction = session
+                    .clone()
+                    .get_reasoning_instruction(
+                        tool_agent.clone(),
+                        user_message.to_owned(),
+                        action_nodes_from,
+                        tool_use_reasoning_input.clone(),
+                        message_properties.clone(),
+                    )
+                    .await;
+
+                if reasoning_instruction.is_err() {
+                    break;
+                }
+
+                let reasoning_instruction = reasoning_instruction.expect("is_err to hold");
+
+                // when we have no instrucions we should break
+                if reasoning_instruction.instruction().is_empty() {
+                    break;
+                }
+
+                // add the reasoning to our action nodes
+                session.add_action_node(
+                    ActionNode::default_with_index(session.action_nodes().len()).set_action_tools(
+                        ToolInputPartial::Reasoning(
+                            ToolUseAgentReasoningParamsPartial::from_params(
+                                Some(reasoning_instruction.clone()),
+                                user_message.clone(),
+                            ),
+                        ),
+                    ),
+                );
+
+                // keep track of where we are last starting from
+                action_nodes_from = session.action_nodes().len();
+
+                tool_use_reasoning_input = Some(reasoning_instruction.clone());
+
+                // reset the exchanges in the session
+                session.reset_exchanges();
+
+                // update the human message here with the instruction from o1
+                session = session
+                    .human_message_tool_use(
+                        exchange_id.to_owned(),
+                        reasoning_instruction.instruction().to_owned(),
+                        vec![],
+                        vec![],
+                        shell.to_owned(),
+                        user_context.clone(),
+                    )
+                    .await;
+
+                // start the agent loop
+                let _ = self
+                    .agent_loop(
+                        session.clone(),
+                        running_in_editor,
+                        mcts_log_directory.clone(),
+                        tool_box.clone(),
+                        tool_agent.clone(),
+                        root_directory.clone(),
+                        exchange_id.clone(),
+                        message_properties.clone(),
+                    )
+                    .await;
+
+                // save to storage layer
+                let _ = self
+                    .save_to_storage(&session, mcts_log_directory.clone())
+                    .await;
+            }
             Ok(())
         } else {
             self.agent_loop(
@@ -1181,6 +1265,9 @@ impl SessionService {
                             tool_type.to_string().magenta().to_string()
                         }
                         ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
+                        ToolInputPartial::Reasoning(_) => {
+                            tool_type.to_string().bright_blue().to_string()
+                        }
                     };
                     state_params.push(tool_str);
                 }
