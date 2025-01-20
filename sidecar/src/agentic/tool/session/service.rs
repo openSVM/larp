@@ -540,11 +540,11 @@ impl SessionService {
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
         aide_rules: Option<String>,
-        reasoning: bool,
+        _reasoning: bool,
         running_in_editor: bool,
         semantic_search: bool,
         mcts_log_directory: Option<String>,
-        mut message_properties: SymbolEventMessageProperties,
+        message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
         let mut session =
@@ -599,12 +599,12 @@ impl SessionService {
                 .collect(),
             );
 
-        // os can be passed over here safely since we can assume the sidecar is running
-        // close to the vscode server
-        // we should ideally get this information from the vscode-server side setting
         let tool_agent = ToolUseAgent::new(
             llm_broker.clone(),
             root_directory.to_owned(),
+            // os can be passed over here safely since we can assume the sidecar is running
+            // close to the vscode server
+            // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
             ToolUseAgentProperties::new(running_in_editor, None, aide_rules),
@@ -625,12 +625,35 @@ impl SessionService {
             .await;
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
-        let mut previous_failure = false;
-        // we want something here which is giving tasks to the agent so we can run the loop below
-        // for the agent and hard cut it after some steps
 
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
+        self.agent_loop(
+            session,
+            running_in_editor,
+            mcts_log_directory,
+            tool_box,
+            tool_agent,
+            root_directory,
+            exchange_id,
+            message_properties,
+        )
+        .await
+    }
+
+    /// Hot loop for the tool agent to work in
+    async fn agent_loop(
+        &self,
+        mut session: Session,
+        running_in_editor: bool,
+        mcts_log_directory: Option<String>,
+        tool_box: Arc<ToolBox>,
+        tool_agent: ToolUseAgent,
+        root_directory: String,
+        parent_exchange_id: String,
+        mut message_properties: SymbolEventMessageProperties,
+    ) -> Result<(), SymbolError> {
+        let mut previous_failure = false;
         loop {
             println!("tool_use_agentic::looping_again");
             let _ = self
@@ -638,7 +661,7 @@ impl SessionService {
                 .await;
             let tool_exchange_id = self
                 .tool_box
-                .create_new_exchange(session_id.to_owned(), message_properties.clone())
+                .create_new_exchange(session.session_id().to_owned(), message_properties.clone())
                 .await?;
 
             println!("tool_exchange_id::({:?})", &tool_exchange_id);
@@ -650,8 +673,12 @@ impl SessionService {
                 .set_cancellation_token(cancellation_token.clone());
 
             // track the new exchange over here
-            self.track_exchange(&session_id, &tool_exchange_id, cancellation_token.clone())
-                .await;
+            self.track_exchange(
+                &session.session_id(),
+                &tool_exchange_id,
+                cancellation_token.clone(),
+            )
+            .await;
 
             // update the setting for the tool agent
             let tool_agent = if previous_failure {
@@ -665,34 +692,18 @@ impl SessionService {
 
             // if reasoning is enabled we check how many steps we have taken and trigger
             // the reasoning in between
-            let tool_use_output = if reasoning && session.exchanges_not_compressed() >= 5 {
-                println!("session::tool_use_agent::reasoning");
-                session
-                    // the clone here is pretty bad but its the easiest and the sanest
-                    // way to keep things on the happy path
-                    .clone()
-                    .map_reduce_context(
-                        tool_box.clone(),
-                        tool_exchange_id.to_owned(),
-                        exchange_id.to_owned(),
-                        tool_agent,
-                        message_properties.clone(),
-                    )
-                    .await
-            } else {
-                session
-                    // the clone here is pretty bad but its the easiest and the sanest
-                    // way to keep things on the happy path
-                    .clone()
-                    .get_tool_to_use(
-                        tool_box.clone(),
-                        tool_exchange_id.to_owned(),
-                        exchange_id.to_owned(),
-                        tool_agent,
-                        message_properties.clone(),
-                    )
-                    .await
-            };
+            let tool_use_output = session
+                // the clone here is pretty bad but its the easiest and the sanest
+                // way to keep things on the happy path
+                .clone()
+                .get_tool_to_use(
+                    tool_box.clone(),
+                    tool_exchange_id.to_owned(),
+                    parent_exchange_id.to_owned(),
+                    tool_agent,
+                    message_properties.clone(),
+                )
+                .await;
 
             match tool_use_output {
                 Ok(AgentToolUseOutput::Success((tool_input_partial, new_session))) => {
@@ -741,7 +752,7 @@ impl SessionService {
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_not_found(
-                            session_id.to_owned(),
+                            session.session_id().to_owned(),
                             tool_exchange_id.to_owned(),
                             failed_to_parse_output.to_owned(),
                         ));
@@ -757,7 +768,7 @@ impl SessionService {
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_errored_out(
-                            session_id.to_owned(),
+                            session.session_id().to_owned(),
                             tool_exchange_id.to_owned(),
                             e.to_string(),
                         ));
@@ -771,7 +782,7 @@ impl SessionService {
                     let _ = message_properties
                         .ui_sender()
                         .send(UIEventWithID::tool_errored_out(
-                            session_id.to_owned(),
+                            session.session_id().to_owned(),
                             tool_exchange_id.to_owned(),
                             e.to_string(),
                         ));
