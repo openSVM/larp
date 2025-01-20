@@ -1191,6 +1191,8 @@ impl SessionService {
         file.write_all(serialized.as_bytes())
             .await
             .map_err(|e| SymbolError::IOError(e))?;
+        // flush forces the OS to flush any in-memory semantics to the disk
+        file.flush().await.map_err(|e| SymbolError::IOError(e))?;
         Ok(())
     }
 
