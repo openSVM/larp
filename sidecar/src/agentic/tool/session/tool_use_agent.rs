@@ -70,7 +70,7 @@ impl ToolUseAgentInputOnlyTools {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ToolUseAgentReasoningParams {
     plan: String,
     instruction: String,
@@ -90,6 +90,42 @@ impl ToolUseAgentReasoningParams {
             instruction,
             notes,
             action_nodes,
+        }
+    }
+
+    pub fn from_response(response: &str) -> Self {
+        // grab everything in the <plan> and </plan> section
+        let plan = response
+            .lines()
+            .into_iter()
+            .skip_while(|line| !line.contains("<plan>"))
+            .skip(1)
+            .take_while(|line| !line.contains("</plan>"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        // grab everything from <current_task> and </current_task> section
+        let instruction = response
+            .lines()
+            .into_iter()
+            .skip_while(|line| !line.contains("<current_task>"))
+            .skip(1)
+            .take_while(|line| !line.contains("</current_task>"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        // grab everything from <notes> and </notes> section
+        let notes = response
+            .lines()
+            .into_iter()
+            .skip_while(|line| !line.contains("<notes>"))
+            .skip(1)
+            .take_while(|line| !line.contains("</notes>"))
+            .collect::<Vec<&str>>()
+            .join("\n");
+        Self {
+            plan,
+            instruction,
+            notes,
+            action_nodes: vec![],
         }
     }
 }
@@ -2047,7 +2083,50 @@ fn get_last_newline_line_number(s: &str) -> Option<usize> {
 
 #[cfg(test)]
 mod tests {
+    use super::ToolUseAgentReasoningParams;
     use super::ToolUseGenerator;
+
+    #[test]
+    fn test_agent_reasoning_params_parsing() {
+        let response = r#"<plan>
+<instruction>
+1. Create a standalone Python script that demonstrates the unexpected behavior of separability_matrix with nested compound models.  
+2. Run the script to confirm that the final matrix for "m.Pix2Sky_TAN() & cm" is not the block diagonal, as suspected.  
+3. Analyze the output and proceed to inspect "astropy/modeling/separable.py" to understand how the separability_matrix is computed.  
+4. Propose and implement a fix in the code.  
+5. Rerun the reproduction script to verify the fix.  
+6. Confirm that the unexpected behavior is resolved.
+</instruction>
+</plan>
+
+<current_task>
+<instruction>
+1) In the root directory of the “astropy” repository, create a file named “reproduce_separability_issue.py”.  
+2) In that file, reproduce the user’s example code demonstrating the nested compound models and how separability_matrix is returning unexpected results:
+--------------------------------------------------------------------------------
+from astropy.modeling import models as m
+from astropy.modeling.separable import separability_matrix
+
+def main():
+    cm = m.Linear1D(10) & m.Linear1D(5)
+    print("separability_matrix(cm):")
+    print(separability_matrix(cm))
+    
+    tan_and_cm = m.Pix2Sky_TAN() & cm
+    print("\nseparability_matrix(m.Pix2Sky_TAN() & cm):")
+    print(separability_matrix(tan_and_cm))
+
+if __name__ == "__main__":
+    main()
+--------------------------------------------------------------------------------
+3) Save your changes.  
+4) Run the script (e.g., “python reproduce_separability_issue.py”) in the same directory and capture the output for our reference.
+</instruction>
+</current_task>"#;
+        let parsed_response = ToolUseAgentReasoningParams::from_response(&response);
+        assert!(!parsed_response.instruction.is_empty());
+        assert!(!parsed_response.plan.is_empty());
+    }
 
     #[test]
     fn test_make_tool_parsing_work() {
