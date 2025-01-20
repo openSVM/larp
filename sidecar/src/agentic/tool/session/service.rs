@@ -1155,11 +1155,11 @@ impl SessionService {
 
     async fn load_from_storage(&self, storage_path: String) -> Result<Session, SymbolError> {
         println!("loading_session_from_path::{}", &storage_path);
-        let content = dbg!(tokio::fs::read_to_string(storage_path.to_owned())
+        let content = tokio::fs::read_to_string(storage_path.to_owned())
             .await
-            .map_err(|e| SymbolError::IOError(e))?);
+            .map_err(|e| SymbolError::IOError(e))?;
 
-        let session: Session = dbg!(serde_json::from_str(&content)).expect(&format!(
+        let session: Session = serde_json::from_str(&content).expect(&format!(
             "converting to session from json is okay: {storage_path}"
         ));
         Ok(session)
