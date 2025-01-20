@@ -501,7 +501,6 @@ impl SessionService {
                         break;
                     }
                 }
-                AgentToolUseOutput::Reasoning(_) => {}
                 AgentToolUseOutput::Cancelled => {}
                 AgentToolUseOutput::Failed(failed_to_parse_output) => {
                     let human_message = format!(
@@ -540,7 +539,7 @@ impl SessionService {
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
         aide_rules: Option<String>,
-        _reasoning: bool,
+        reasoning: bool,
         running_in_editor: bool,
         semantic_search: bool,
         mcts_log_directory: Option<String>,
@@ -628,17 +627,22 @@ impl SessionService {
 
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
-        self.agent_loop(
-            session,
-            running_in_editor,
-            mcts_log_directory,
-            tool_box,
-            tool_agent,
-            root_directory,
-            exchange_id,
-            message_properties,
-        )
-        .await
+        if reasoning {
+            // do the reasoning here and then send over the task to the agent_loop
+            Ok(())
+        } else {
+            self.agent_loop(
+                session,
+                running_in_editor,
+                mcts_log_directory,
+                tool_box,
+                tool_agent,
+                root_directory,
+                exchange_id,
+                message_properties,
+            )
+            .await
+        }
     }
 
     /// Hot loop for the tool agent to work in
@@ -737,10 +741,6 @@ impl SessionService {
                         println!("session_service::tool_use_agentic::reached_terminating_tool");
                         break;
                     }
-                }
-                Ok(AgentToolUseOutput::Reasoning(_)) => {
-                    println!("session_service::tool_use_agentic::reasoning");
-                    continue;
                 }
                 Ok(AgentToolUseOutput::Cancelled) => {
                     println!("session_service::tool_use_agentic::cancelled");
