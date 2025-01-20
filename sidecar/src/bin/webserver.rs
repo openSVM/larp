@@ -143,8 +143,7 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
     let protected_routes = Router::new()
         .nest("/inline_completion", inline_completion())
         .nest("/agentic", agentic_router())
-        .nest("/plan", plan_router())
-        .nest("/agent", agent_router());
+        .nest("/plan", plan_router());
     // .layer(from_fn(auth_middleware)); // routes through middleware
 
     // no middleware check
@@ -155,7 +154,6 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
             get(sidecar::webserver::config::reach_the_devs),
         )
         .route("/version", get(sidecar::webserver::config::version))
-        .nest("/in_editor", in_editor_router())
         .nest("/tree_sitter", tree_sitter_router())
         .nest("/file", file_operations_router());
 
@@ -255,32 +253,6 @@ fn agentic_router() -> Router {
             "/user_handle_session_undo",
             post(sidecar::webserver::agentic::handle_session_undo),
         )
-}
-
-fn agent_router() -> Router {
-    use axum::routing::*;
-    Router::new()
-        .route(
-            "/search_agent",
-            get(sidecar::webserver::agent::search_agent),
-        )
-        .route(
-            "/hybrid_search",
-            get(sidecar::webserver::agent::hybrid_search),
-        )
-        .route("/explain", get(sidecar::webserver::agent::explain))
-        .route(
-            "/followup_chat",
-            post(sidecar::webserver::agent::followup_chat),
-        )
-}
-
-fn in_editor_router() -> Router {
-    use axum::routing::*;
-    Router::new().route(
-        "/answer",
-        post(sidecar::webserver::in_line_agent::reply_to_user),
-    )
 }
 
 fn tree_sitter_router() -> Router {

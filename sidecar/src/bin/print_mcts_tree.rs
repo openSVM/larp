@@ -1,9 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
-    config::LLMBrokerConfiguration,
     provider::{GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys},
 };
 use sidecar::{
@@ -22,13 +21,6 @@ use sidecar::{
     },
 };
 
-fn default_index_dir() -> PathBuf {
-    match directories::ProjectDirs::from("ai", "codestory", "sidecar") {
-        Some(dirs) => dirs.data_dir().to_owned(),
-        None => "codestory_sidecar".into(),
-    }
-}
-
 #[tokio::main]
 async fn main() {
     let content = tokio::fs::read("/Users/skcd/scratch/SWE-bench/swebench_logs/swebench_logs/django__django-12273/1733625780/mcts-1733625780.json")
@@ -37,11 +29,7 @@ async fn main() {
 
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
-    let llm_broker = Arc::new(
-        LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
-            .await
-            .expect("to initialize properly"),
-    );
+    let llm_broker = Arc::new(LLMBroker::new().await.expect("to initialize properly"));
     let tool_broker = Arc::new(ToolBroker::new(
         llm_broker.clone(),
         Arc::new(CodeEditBroker::new()),

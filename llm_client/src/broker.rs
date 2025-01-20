@@ -30,10 +30,8 @@ use crate::{
             LLMClientCompletionStringRequest, LLMClientError, LLMType,
         },
     },
-    config::LLMBrokerConfiguration,
     provider::{CodeStoryLLMTypes, LLMProvider, LLMProviderAPIKeys},
     reporting::posthog::{posthog_client, PosthogClient},
-    sqlite,
 };
 
 use logging::parea::{PareaClient, PareaLogCompletion, PareaLogMessage};
@@ -42,7 +40,6 @@ pub type SqlDb = Arc<SqlitePool>;
 
 pub struct LLMBroker {
     pub providers: HashMap<LLMProvider, Box<dyn LLMClient + Send + Sync>>,
-    db: SqlDb,
     posthog_client: Arc<PosthogClient>,
     parea_client: Arc<PareaClient>,
 }
@@ -50,15 +47,13 @@ pub struct LLMBroker {
 pub type LLMBrokerResponse = Result<LLMClientCompletionResponse, LLMClientError>;
 
 impl LLMBroker {
-    pub async fn new(config: LLMBrokerConfiguration) -> Result<Self, LLMClientError> {
-        let sqlite = Arc::new(sqlite::init(config).await?);
+    pub async fn new() -> Result<Self, LLMClientError> {
         // later we need to configure the user id over here to be the one from
         // the client machine we are running it on
         let posthog_client = Arc::new(posthog_client("agentic"));
         let parea_client = Arc::new(PareaClient::new());
         let broker = Self {
             providers: HashMap::new(),
-            db: sqlite,
             posthog_client,
             parea_client,
         };
@@ -202,38 +197,11 @@ impl LLMBroker {
                 let _ = self.parea_client.log_completion(parea_log_completion).await;
                 // we write the inputs to the DB so we can keep track of the inputs
                 // and the result provided by the LLM
-                let llm_type = request.model();
-                let temperature = request.temperature();
-                let str_metadata = serde_json::to_string(&metadata).unwrap_or_default();
-                let llm_type_str = serde_json::to_string(&llm_type)?;
                 // Log to posthog as well
                 let _ = self
                     .posthog_client
                     .capture_reqeust_and_response(&request, result.answer_up_until_now(), metadata)
                     .await;
-                let messages = serde_json::to_string(&request.messages())?;
-                let mut tx = self
-                    .db
-                    .begin()
-                    .await
-                    .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
-                let result_string = result.answer_up_until_now().to_owned();
-                let _ = sqlx::query! {
-                    r#"
-                    INSERT INTO llm_data (chat_messages, response, llm_type, temperature, max_tokens, event_type)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    "#,
-                    messages,
-                    result_string,
-                    llm_type_str,
-                    temperature,
-                    -1,
-                    str_metadata,
-                }.execute(&mut *tx).await?;
-                let _ = tx
-                    .commit()
-                    .await
-                    .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
             }
             result
         } else {
@@ -419,7 +387,7 @@ impl LLMBroker {
         &'a self,
         api_key: LLMProviderAPIKeys,
         request: LLMClientCompletionStringRequest,
-        metadata: HashMap<String, String>,
+        _metadata: HashMap<String, String>,
         sender: tokio::sync::mpsc::UnboundedSender<LLMClientCompletionResponse>,
     ) -> LLMBrokerResponse {
         let provider_type = match &api_key {
@@ -444,37 +412,9 @@ impl LLMBroker {
             let result = provider
                 .stream_prompt_completion(api_key, request.clone(), sender)
                 .await;
-            if let Ok(result) = result.as_ref() {
-                // we write the inputs to the DB so we can keep track of the inputs
-                // and the result provided by the LLM
-                let llm_type = request.model();
-                let temperature = request.temperature();
-                let str_metadata = serde_json::to_string(&metadata).unwrap_or_default();
-                let llm_type_str = serde_json::to_string(&llm_type)?;
-                let prompt = request.prompt();
-                let mut tx = self
-                    .db
-                    .begin()
-                    .await
-                    .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
-                let _ = sqlx::query! {
-                    r#"
-                    INSERT INTO llm_data (prompt, response, llm_type, temperature, max_tokens, event_type)
-                    VALUES ($1, $2, $3, $4, $5, $6)
-                    "#,
-                    prompt,
-                    result,
-                    llm_type_str,
-                    temperature,
-                    -1,
-                    str_metadata,
-                }.execute(&mut *tx).await?;
-                let _ = tx
-                    .commit()
-                    .await
-                    .map_err(|_e| LLMClientError::FailedToStoreInDB)?;
-            }
-            result.map(|result| LLMClientCompletionResponse::new(result, None, "not_present".to_owned()))
+            result.map(|result| {
+                LLMClientCompletionResponse::new(result, None, "not_present".to_owned())
+            })
         } else {
             Err(LLMClientError::UnSupportedModel)
         }
