@@ -3,9 +3,10 @@
 use async_openai::{
     config::{AzureConfig, OpenAIConfig},
     types::{
-        ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
-        ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs,
-        CreateChatCompletionRequestArgs, FunctionCall, Role,
+        ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestDeveloperMessageArgs,
+        ChatCompletionRequestMessage, ChatCompletionRequestSystemMessageArgs,
+        ChatCompletionRequestUserMessageArgs, CreateChatCompletionRequestArgs, FunctionCall,
+        ReasoningEffort, ResponseFormat,
     },
     Client,
 };
@@ -51,16 +52,55 @@ impl OpenAIClient {
         &self,
         messages: &[LLMClientMessage],
     ) -> Result<Vec<ChatCompletionRequestMessage>, LLMClientError> {
-        let mut final_messages = vec![];
-        for message in messages.into_iter() {
-            let message = if message.is_system_message() {
-                message.clone().set_role(LLMClientRole::User)
-            } else {
-                message.clone()
-            };
-            final_messages.push(message);
-        }
-        self.messages(&final_messages)
+        let formatted_messages = messages
+            .into_iter()
+            .map(|message| {
+                let role = message.role();
+                match role {
+                    LLMClientRole::User => ChatCompletionRequestUserMessageArgs::default()
+                        .content(message.content().to_owned())
+                        .build()
+                        .map(|message| ChatCompletionRequestMessage::User(message))
+                        .map_err(|e| LLMClientError::OpenAPIError(e)),
+                    // system messages for reasoning models are developer messages
+                    LLMClientRole::System => ChatCompletionRequestDeveloperMessageArgs::default()
+                        .content(message.content().to_owned())
+                        .build()
+                        .map(|message| ChatCompletionRequestMessage::Developer(message))
+                        .map_err(|e| LLMClientError::OpenAPIError(e)),
+                    LLMClientRole::Assistant => match message.get_function_call() {
+                        Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
+                            .function_call(FunctionCall {
+                                name: function_call.name().to_owned(),
+                                arguments: function_call.arguments().to_owned(),
+                            })
+                            .build()
+                            .map(|message| ChatCompletionRequestMessage::Assistant(message))
+                            .map_err(|e| LLMClientError::OpenAPIError(e)),
+                        None => ChatCompletionRequestAssistantMessageArgs::default()
+                            .content(message.content().to_owned())
+                            .build()
+                            .map(|message| ChatCompletionRequestMessage::Assistant(message))
+                            .map_err(|e| LLMClientError::OpenAPIError(e)),
+                    },
+                    LLMClientRole::Function => match message.get_function_call() {
+                        Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
+                            .content(message.content().to_owned())
+                            .function_call(FunctionCall {
+                                name: function_call.name().to_owned(),
+                                arguments: function_call.arguments().to_owned(),
+                            })
+                            .build()
+                            .map(|message| ChatCompletionRequestMessage::Assistant(message))
+                            .map_err(|e| LLMClientError::OpenAPIError(e)),
+                        None => Err(LLMClientError::FunctionCallNotPresent),
+                    },
+                }
+            })
+            .collect::<Vec<_>>();
+        formatted_messages
+            .into_iter()
+            .collect::<Result<Vec<ChatCompletionRequestMessage>, LLMClientError>>()
     }
 
     pub fn messages(
@@ -73,13 +113,11 @@ impl OpenAIClient {
                 let role = message.role();
                 match role {
                     LLMClientRole::User => ChatCompletionRequestUserMessageArgs::default()
-                        .role(Role::User)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::User(message))
                         .map_err(|e| LLMClientError::OpenAPIError(e)),
                     LLMClientRole::System => ChatCompletionRequestSystemMessageArgs::default()
-                        .role(Role::System)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::System(message))
@@ -88,7 +126,6 @@ impl OpenAIClient {
                     // do not use these branches at all
                     LLMClientRole::Assistant => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),
                                 arguments: function_call.arguments().to_owned(),
@@ -97,7 +134,6 @@ impl OpenAIClient {
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
                             .map_err(|e| LLMClientError::OpenAPIError(e)),
                         None => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Assistant)
                             .content(message.content().to_owned())
                             .build()
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
@@ -105,7 +141,6 @@ impl OpenAIClient {
                     },
                     LLMClientRole::Function => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .content(message.content().to_owned())
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),
@@ -180,7 +215,10 @@ impl LLMClient for OpenAIClient {
             return Err(LLMClientError::UnSupportedModel);
         }
         let model = model.unwrap();
-        let messages = if llm_model == &LLMType::O1Preview {
+        let messages = if llm_model == &LLMType::O1Preview
+            || llm_model == &LLMType::O1
+            || llm_model == &LLMType::O1Mini
+        {
             self.o1_preview_messages(request.messages())?
         } else {
             self.messages(request.messages())?
@@ -189,10 +227,23 @@ impl LLMClient for OpenAIClient {
         let mut request_builder = request_builder_args
             .model(model.to_owned())
             .messages(messages);
-        // o1-preview has no streaming
-        request_builder = request_builder
-            .temperature(request.temperature())
-            .stream(true);
+
+        // o1 does not support streaming on the api
+        if llm_model != &LLMType::O1 {
+            request_builder = request_builder.stream(true);
+        }
+        // set response format to text
+        request_builder.response_format(ResponseFormat::Text);
+
+        // we cannot set temperature for o1
+        if llm_model != &LLMType::O1 {
+            request_builder = request_builder.temperature(request.temperature());
+        }
+
+        // if its o1 we should set reasoning_effort to high
+        if llm_model == &LLMType::O1 {
+            request_builder = request_builder.reasoning_effort(ReasoningEffort::High);
+        }
 
         if let Some(frequency_penalty) = request.frequency_penalty() {
             request_builder = request_builder.frequency_penalty(frequency_penalty);
@@ -241,7 +292,7 @@ impl LLMClient for OpenAIClient {
                 }
             }
             OpenAIClientType::OpenAIClient(client) => {
-                if false {
+                if true {
                     let completion = client.chat().create(request).await?;
                     let response = completion
                         .choices
@@ -261,6 +312,7 @@ impl LLMClient for OpenAIClient {
                 } else {
                     let mut stream = client.chat().create_stream(request).await?;
                     while let Some(response) = stream.next().await {
+                        println!("{:?}", &response);
                         match response {
                             Ok(response) => {
                                 let response = response
@@ -287,7 +339,11 @@ impl LLMClient for OpenAIClient {
             }
         }
 
-        Ok(LLMClientCompletionResponse::new(buffer, None, model.to_owned()))
+        Ok(LLMClientCompletionResponse::new(
+            buffer,
+            None,
+            model.to_owned(),
+        ))
     }
 
     async fn completion(

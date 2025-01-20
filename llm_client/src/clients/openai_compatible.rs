@@ -6,7 +6,7 @@ use async_openai::{
     types::{
         ChatCompletionRequestAssistantMessageArgs, ChatCompletionRequestMessage,
         ChatCompletionRequestSystemMessageArgs, ChatCompletionRequestUserMessageArgs, Choice,
-        CreateChatCompletionRequestArgs, CreateCompletionRequestArgs, FunctionCall, Role,
+        CreateChatCompletionRequestArgs, CreateCompletionRequestArgs, FunctionCall,
     },
     Client,
 };
@@ -63,13 +63,11 @@ impl OpenAICompatibleClient {
                 let role = message.role();
                 match role {
                     LLMClientRole::User => ChatCompletionRequestUserMessageArgs::default()
-                        .role(Role::User)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::User(message))
                         .map_err(|e| LLMClientError::OpenAPIError(e)),
                     LLMClientRole::System => ChatCompletionRequestSystemMessageArgs::default()
-                        .role(Role::System)
                         .content(message.content().to_owned())
                         .build()
                         .map(|message| ChatCompletionRequestMessage::System(message))
@@ -78,7 +76,6 @@ impl OpenAICompatibleClient {
                     // do not use these branches at all
                     LLMClientRole::Assistant => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),
                                 arguments: function_call.arguments().to_owned(),
@@ -87,7 +84,6 @@ impl OpenAICompatibleClient {
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
                             .map_err(|e| LLMClientError::OpenAPIError(e)),
                         None => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Assistant)
                             .content(message.content().to_owned())
                             .build()
                             .map(|message| ChatCompletionRequestMessage::Assistant(message))
@@ -95,7 +91,6 @@ impl OpenAICompatibleClient {
                     },
                     LLMClientRole::Function => match message.get_function_call() {
                         Some(function_call) => ChatCompletionRequestAssistantMessageArgs::default()
-                            .role(Role::Function)
                             .content(message.content().to_owned())
                             .function_call(FunctionCall {
                                 name: function_call.name().to_owned(),

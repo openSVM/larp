@@ -476,7 +476,6 @@ Always include the <thinking></thinking> section before using the tool."#
         // Now we get the tool use output
         match tool_use_output {
             Ok(tool_use_parameters) => match tool_use_parameters {
-                ToolUseAgentOutputType::Reasoning(_) => todo!("not implemented"),
                 // we are going to execute this branch of the code so we can get the output
                 // over here
                 ToolUseAgentOutputType::Success((tool_input_partial, thinking)) => {
