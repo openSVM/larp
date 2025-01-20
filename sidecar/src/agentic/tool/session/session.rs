@@ -57,7 +57,10 @@ use super::{
         SessionChatToolReturn, SessionChatToolUse,
     },
     hot_streak::SessionHotStreakRequest,
-    tool_use_agent::{ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutputType},
+    tool_use_agent::{
+        ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutputType, ToolUseAgentReasoningInput,
+        ToolUseAgentReasoningParams,
+    },
 };
 
 #[derive(Debug)]
@@ -770,8 +773,16 @@ impl Session {
         &self.repo_ref
     }
 
+    pub fn add_action_node(&mut self, action_node: ActionNode) {
+        self.action_nodes.push(action_node);
+    }
+
     pub fn action_nodes(&self) -> &[ActionNode] {
         self.action_nodes.as_slice()
+    }
+
+    pub fn reset_exchanges(&mut self) {
+        self.exchanges = vec![];
     }
 
     /// Updates the tools which are present in the session
@@ -1158,6 +1169,35 @@ impl Session {
                 message_properties.request_id_str().to_owned(),
             ));
         Ok(self)
+    }
+
+    /// We perform the reasoning here on the agent and grab the output and pass that
+    /// as the new instruction for the agent
+    pub async fn get_reasoning_instruction(
+        self,
+        tool_use_agent: ToolUseAgent,
+        user_instruction: String,
+        action_nodes_from: usize,
+        tool_use_reasoning_input: Option<ToolUseAgentReasoningParams>,
+        message_properties: SymbolEventMessageProperties,
+    ) -> Result<ToolUseAgentReasoningParams, SymbolError> {
+        // for reasoning the flow looks like the following:
+        // there is a user message which is always present
+        // then there are messages which the agent has taken
+        // and finally there is the
+        let action_nodes = self.action_nodes[action_nodes_from..]
+            .into_iter()
+            .map(|action_node| action_node.clone())
+            .collect::<Vec<_>>();
+
+        let tool_reasoning_input = ToolUseAgentReasoningInput::new(
+            user_instruction,
+            action_nodes,
+            tool_use_reasoning_input,
+            message_properties,
+        );
+
+        tool_use_agent.reasoning_output(tool_reasoning_input).await
     }
 
     pub async fn get_tool_to_use(
@@ -2761,6 +2801,9 @@ reason: {}"#,
             }
             ToolInputPartial::CodeEditorParameters(_code_editor_parameters) => {
                 // we do not use this tool via the session.invoke_tool flow at all
+            }
+            ToolInputPartial::Reasoning(_) => {
+                // we do not call this as a tool explicitly
             }
         }
         Ok(self)

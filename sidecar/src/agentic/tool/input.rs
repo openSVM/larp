@@ -76,6 +76,7 @@ use super::{
         ask_followup_question::AskFollowupQuestionsRequest,
         attempt_completion::AttemptCompletionClientRequest, chat::SessionChatClientRequest,
         exchange::SessionExchangeNewRequest, hot_streak::SessionHotStreakRequest,
+        tool_use_agent::ToolUseAgentReasoningParamsPartial,
     },
     swe_bench::test_tool::SWEBenchTestRequest,
     terminal::terminal::{TerminalInput, TerminalInputPartial},
@@ -96,6 +97,7 @@ pub enum ToolInputPartial {
     TestRunner(TestRunnerRequestPartial),
     CodeEditorParameters(CodeEditorParameters),
     SemanticSearch(SemanticSearchParametersPartial),
+    Reasoning(ToolUseAgentReasoningParamsPartial),
 }
 
 impl ToolInputPartial {
@@ -113,6 +115,7 @@ impl ToolInputPartial {
             Self::TestRunner(_) => ToolType::TestRunner,
             Self::CodeEditorParameters(_) => ToolType::CodeEditorTool,
             Self::SemanticSearch(_) => ToolType::SemanticSearch,
+            Self::Reasoning(_) => ToolType::Reasoning,
         }
     }
 
@@ -136,6 +139,7 @@ impl ToolInputPartial {
             Self::SemanticSearch(semantic_search_parameters) => {
                 semantic_search_parameters.to_string()
             }
+            Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
         }
     }
 
@@ -167,6 +171,7 @@ impl ToolInputPartial {
             Self::SemanticSearch(semantic_search_parameters) => {
                 serde_json::to_value(semantic_search_parameters).ok()
             }
+            Self::Reasoning(reasoning_input) => serde_json::to_value(reasoning_input).ok(),
         }
     }
 
