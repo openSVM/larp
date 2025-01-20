@@ -318,6 +318,7 @@ Keep refining the plan and giving out tasks to the junior engineer until the git
 - After making the changes in the codebase you should run the reproduction script again to make sure that the issue has been resolved.
 - You cannot access any file outside the repository directory.
 - You are not allowed to install any new packages as the developer environment has been already setup in the repository directory.
+- Once you have solved the Github Issue, finish by not returning any instruction to the junior eningeer.
 
 ## How to leverage the junior engineer
 
@@ -331,6 +332,7 @@ Be explicit in what files to edit or create, what changes to make, and commands 
 Include sample code snippets or test code for clarity and to avoid ambiguity.
 Provide context and justification for each task so the junior engineer understands why they are doing it.
 Consider any edge cases or complexities in your instructions.
+Do not reference any information from the Github Issue in your instruction to the junior engineer.
 
 ## Plan generation
 
@@ -446,9 +448,9 @@ And the steps they took to work on the instruction:
             let previous_plan = params.plan.clone();
             let previous_notes = params.notes.clone();
             format!(
-                r#"<user_query>
+                r#"<github_issue>
 {}
-</user_query>
+</github_issue>
 <plan>
 {}
 </plan>
@@ -465,9 +467,9 @@ And the steps they took to work on the instruction:
             )
         } else {
             format!(
-                r#"<user_query>
+                r#"<github_issue>
 {}
-</user_query>"#,
+</github_issue>"#,
                 problem_statement
             )
         }
@@ -605,7 +607,11 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         )
     }
 
-    fn system_message_for_swe_bench(&self, context: &ToolUseAgentInput, repo_name: &str) -> String {
+    fn _system_message_for_swe_bench(
+        &self,
+        context: &ToolUseAgentInput,
+        repo_name: &str,
+    ) -> String {
         let tool_descriptions = context.tool_descriptions.join("\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
