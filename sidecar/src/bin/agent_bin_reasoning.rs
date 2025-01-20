@@ -198,6 +198,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             false,
             false,
             Some(args.log_directory.clone()),
+            Some(args.repo_name.clone()),
             message_properties,
         )
         .await;

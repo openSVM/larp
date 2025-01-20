@@ -1515,6 +1515,7 @@ pub async fn agent_tool_use(
                 true, // we are running inside the editor over here
                 semantic_search,
                 mcts_log_directory,
+                None,
                 message_properties,
             )
             .await;
