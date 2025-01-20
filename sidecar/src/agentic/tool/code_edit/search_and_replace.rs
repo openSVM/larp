@@ -1379,6 +1379,10 @@ fn get_range_for_search_block(
     start_line: usize,
     search_block: &str,
 ) -> Option<Range> {
+    if search_block.is_empty() {
+        return Some(Range::new(Position::new(start_line, 0, 0), Position::new(start_line, 0, 0)));
+    }
+
     let code_to_look_at_lines = code_to_look_at
         .lines()
         .into_iter()
