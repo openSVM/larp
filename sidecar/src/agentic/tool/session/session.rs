@@ -1250,10 +1250,6 @@ impl Session {
                 // return the value
                 Ok(AgentToolUseOutput::Failed(input_string))
             }
-            // tool use agent should not generate reasoning
-            Ok(ToolUseAgentOutputType::Reasoning(reasoning)) => {
-                Ok(AgentToolUseOutput::Failed(reasoning))
-            }
             Err(e) => {
                 // add action node over here
                 let mut action_node = ActionNode::default_with_index(self.exchanges());
