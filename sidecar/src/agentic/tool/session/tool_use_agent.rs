@@ -331,6 +331,7 @@ Be explicit in what files to edit or create, what changes to make, and commands 
 Include sample code snippets or test code for clarity and to avoid ambiguity.
 Provide context and justification for each task so the junior engineer understands why they are doing it.
 Consider any edge cases or complexities in your instructions.
+Do not reference any information from the Github Issue in your instruction to the junior engineer.
 
 ## Plan generation
 
@@ -446,9 +447,9 @@ And the steps they took to work on the instruction:
             let previous_plan = params.plan.clone();
             let previous_notes = params.notes.clone();
             format!(
-                r#"<user_query>
+                r#"<github_issue>
 {}
-</user_query>
+</github_issue>
 <plan>
 {}
 </plan>
@@ -465,9 +466,9 @@ And the steps they took to work on the instruction:
             )
         } else {
             format!(
-                r#"<user_query>
+                r#"<github_issue>
 {}
-</user_query>"#,
+</github_issue>"#,
                 problem_statement
             )
         }
