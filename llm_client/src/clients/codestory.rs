@@ -168,6 +168,8 @@ impl CodeStoryClient {
             LLMType::O1 => Ok("o1".to_owned()),          // o1
             LLMType::O1Mini => Ok("o1-mini".to_owned()), // o1 mini
             LLMType::DeepSeekCoderV3 => Ok("deepseek/deepseek-chat".to_owned()),
+            LLMType::DeepSeekR1 => Ok("deepseek/deepseek-r1".to_owned()),
+            LLMType::Custom(custom) => Ok(custom.to_owned()),
             _ => Err(LLMClientError::UnSupportedModel),
         }
     }
@@ -336,7 +338,9 @@ impl LLMClient for CodeStoryClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_completion(
@@ -386,7 +390,11 @@ impl LLMClient for CodeStoryClient {
                 }
             }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_stream, None, model))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_stream,
+            None,
+            model,
+        ))
     }
 
     async fn stream_prompt_completion(

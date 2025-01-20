@@ -45,6 +45,8 @@ pub enum LLMType {
     DeepSeekCoderV2,
     /// DeepSeek Coder V3 model
     DeepSeekCoderV3,
+    /// DeepSeek r1
+    DeepSeekR1,
     /// CodeLLama 70B Instruct model
     CodeLLama70BInstruct,
     /// CodeLlama 13B Instruct model
@@ -135,6 +137,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "gemini-2.0-flash-thinking-exp-1219" => {
                         Ok(LLMType::Gemini2_0FlashThinkingExperimental)
                     }
+                    "deepseek/deepseek-r1" => Ok(LLMType::DeepSeekR1),
                     "Llama3_8bInstruct" => Ok(LLMType::Llama3_8bInstruct),
                     "Llama3_1_8bInstruct" => Ok(LLMType::Llama3_1_8bInstruct),
                     "Llama3_1_70bInstruct" => Ok(LLMType::Llama3_1_70bInstruct),
@@ -231,6 +234,7 @@ impl fmt::Display for LLMType {
             LLMType::Gemini2_0FlashThinkingExperimental => {
                 write!(f, "gemini-2.0-flash-thinking-exp-1219")
             }
+            LLMType::DeepSeekR1 => write!(f, "deepseek/deepseek-r1"),
             LLMType::Gpt4O => write!(f, "Gpt4O"),
             LLMType::GeminiProFlash => write!(f, "GeminiProFlash"),
             LLMType::DeepSeekCoderV2 => write!(f, "DeepSeekCoderV2"),
