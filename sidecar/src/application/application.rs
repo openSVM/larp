@@ -6,7 +6,6 @@ use std::sync::Arc;
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
-    config::LLMBrokerConfiguration,
     provider::{AnthropicAPIKey, LLMProvider, LLMProviderAPIKeys, OpenAIProvider},
     tokenizer::tokenizer::LLMTokenizer,
 };
@@ -29,7 +28,6 @@ use crate::{
         },
     },
     chunking::{editor_parsing::EditorParsing, languages::TSLanguageParsing},
-    db::sqlite::{self, SqlDb},
     inline_completion::{state::FillInMiddleState, symbols_tracker::SymbolTrackerInline},
     reporting::posthog::client::{posthog_client, PosthogClient},
     webserver::agentic::{AnchoredEditingTracker, ProbeRequestTracker},
@@ -47,7 +45,6 @@ pub struct Application {
     pub repo_pool: RepositoryPool,
     /// We also want to keep the language parsing functionality here
     pub language_parsing: Arc<TSLanguageParsing>,
-    pub sql: SqlDb,
     pub posthog_client: Arc<PosthogClient>,
     pub user_id: String,
     pub llm_broker: Arc<LLMBroker>,
@@ -76,11 +73,9 @@ impl Application {
         debug!(?config, "configuration after loading");
         let repo_pool = config.state_source.initialize_pool()?;
         let config = Arc::new(config);
-        let sql_db = Arc::new(sqlite::init(config.clone()).await?);
         let language_parsing = Arc::new(TSLanguageParsing::init());
         let posthog_client = posthog_client(&config.user_id);
-        let llm_broker =
-            Arc::new(LLMBroker::new(LLMBrokerConfiguration::new(config.index_dir.clone())).await?);
+        let llm_broker = Arc::new(LLMBroker::new().await?);
         let llm_tokenizer = Arc::new(LLMTokenizer::new()?);
         let chat_broker = Arc::new(LLMChatModelBroker::init());
         let reranker = Arc::new(ReRankBroker::new());
@@ -128,7 +123,6 @@ impl Application {
             config: config.clone(),
             repo_pool: repo_pool.clone(),
             language_parsing,
-            sql: sql_db,
             posthog_client: Arc::new(posthog_client),
             user_id: config.user_id.clone(),
             llm_broker,

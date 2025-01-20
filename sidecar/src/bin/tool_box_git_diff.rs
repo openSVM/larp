@@ -1,9 +1,8 @@
-use std::{path::PathBuf, sync::Arc};
+use std::sync::Arc;
 
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
-    config::LLMBrokerConfiguration,
     provider::{GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys},
 };
 use sidecar::{
@@ -18,13 +17,6 @@ use sidecar::{
     inline_completion::symbols_tracker::SymbolTrackerInline,
 };
 
-fn default_index_dir() -> PathBuf {
-    match directories::ProjectDirs::from("ai", "codestory", "sidecar") {
-        Some(dirs) => dirs.data_dir().to_owned(),
-        None => "codestory_sidecar".into(),
-    }
-}
-
 #[tokio::main]
 async fn main() {
     // we want to grab the implementations of the symbols over here which we are
@@ -32,11 +24,7 @@ async fn main() {
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
     let tool_broker = Arc::new(ToolBroker::new(
-        Arc::new(
-            LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
-                .await
-                .expect("to initialize properly"),
-        ),
+        Arc::new(LLMBroker::new().await.expect("to initialize properly")),
         Arc::new(CodeEditBroker::new()),
         symbol_broker.clone(),
         Arc::new(TSLanguageParsing::init()),

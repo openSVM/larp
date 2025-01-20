@@ -2,7 +2,6 @@ use clap::Parser;
 use llm_client::{
     broker::LLMBroker,
     clients::types::LLMType,
-    config::LLMBrokerConfiguration,
     provider::{
         AnthropicAPIKey, GoogleAIStudioKey, LLMProvider, LLMProviderAPIKeys, OpenRouterAPIKey,
     },
@@ -107,13 +106,6 @@ struct InputParts {
     instance: SWEbenchInstance,
 }
 
-fn default_index_dir() -> PathBuf {
-    match directories::ProjectDirs::from("ai", "codestory", "sidecar") {
-        Some(dirs) => dirs.data_dir().to_owned(),
-        None => "codestory_sidecar".into(),
-    }
-}
-
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Parse command-line arguments
@@ -121,11 +113,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
-    let llm_broker = Arc::new(
-        LLMBroker::new(LLMBrokerConfiguration::new(default_index_dir()))
-            .await
-            .expect("to initialize properly"),
-    );
+    let llm_broker = Arc::new(LLMBroker::new().await.expect("to initialize properly"));
     let tool_broker = Arc::new(ToolBroker::new(
         llm_broker.clone(),
         Arc::new(CodeEditBroker::new()),

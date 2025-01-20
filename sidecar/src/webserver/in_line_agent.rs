@@ -1,34 +1,15 @@
-use std::time::Duration;
-
-use axum::{response::sse, Extension, Json};
 use llm_client::{
     clients::types::LLMType,
     provider::{LLMProvider, LLMProviderAPIKeys},
 };
-use rand::seq::SliceRandom;
 use regex::Regex;
-use serde_json::json;
-use tracing::info;
 
-use super::{
-    in_line_agent_stream::generate_in_line_agent_stream, model_selection::LLMClientConfig,
-    types::Result,
-};
+use super::model_selection::LLMClientConfig;
 use crate::{
-    application::application::Application,
-    chunking::{
-        editor_parsing::EditorParsing,
-        text_document::{Position, Range},
-    },
-    in_line_agent::{
-        self,
-        types::{InLineAgent, InLineAgentMessage},
-    },
+    chunking::text_document::{Position, Range},
     repo::types::RepoRef,
-    reporting::posthog::client::PosthogEvent,
     user_context::types::UserContext,
 };
-use axum::response::IntoResponse;
 
 /// This module contains all the helper structs which we need to enable in-editor experience
 
@@ -199,96 +180,6 @@ impl ProcessInEditorRequest {
     pub fn using_openai_models(&self) -> bool {
         self.model_config.fast_model.is_openai()
     }
-}
-
-pub async fn reply_to_user(
-    Extension(app): Extension<Application>,
-    Json(ProcessInEditorRequest {
-        query,
-        language,
-        repo_ref,
-        mut snippet_information,
-        user_context,
-        thread_id,
-        text_document_web,
-        diagnostics_information,
-        model_config,
-    }): Json<ProcessInEditorRequest>,
-) -> Result<impl IntoResponse> {
-    dbg!("reply_to_user");
-    info!(event_name = "in_editor_request", model_config = ?model_config);
-    let mut event = PosthogEvent::new("model_config");
-    let _ = event.insert_prop("user_id", app.user_id.clone());
-    let _ = event.insert_prop("config", model_config.logging_config());
-    let _ = app.posthog_client.capture(event).await;
-
-    let editor_parsing: EditorParsing = Default::default();
-    let llm_broker = app.llm_broker.clone();
-    let chat_broker = app.chat_broker.clone();
-    let inline_edit_prompt = app.inline_prompt_edit.clone();
-    // Now we want to handle this and send the data to a prompt which will generate
-    // the proper things
-    // Here we will handle how the in-line agent will handle the work
-    let sql_db = app.sql.clone();
-    let (sender, receiver) = tokio::sync::mpsc::channel(100);
-    let inline_agent_message = InLineAgentMessage::start_message(thread_id, query.to_owned());
-    snippet_information =
-        fix_snippet_information(snippet_information, text_document_web.utf8_array.as_slice());
-    // we have to fix the snippet information which is coming over the wire
-    let inline_agent = InLineAgent::new(
-        app,
-        repo_ref.clone(),
-        sql_db,
-        llm_broker,
-        inline_edit_prompt,
-        editor_parsing,
-        ProcessInEditorRequest {
-            query: query.to_owned(),
-            language,
-            repo_ref,
-            snippet_information,
-            text_document_web,
-            thread_id,
-            diagnostics_information,
-            model_config,
-            user_context,
-        },
-        vec![inline_agent_message],
-        sender,
-        chat_broker,
-    );
-    let result = generate_in_line_agent_stream(
-        inline_agent,
-        // Since we are always starting with deciding the action, lets send that
-        // as the first action
-        in_line_agent::types::InLineAgentAction::DecideAction { query },
-        receiver,
-    )
-    .await?;
-    Ok(result.keep_alive(
-        sse::KeepAlive::new()
-            .interval(Duration::from_secs(1))
-            .event(
-                sse::Event::default()
-                    .json_data(json!(
-                        {"keep_alive": get_keep_alive_message(),
-                        "session_id": thread_id,
-                    }))
-                    .expect("json to not fail on keep alive"),
-            ),
-    ))
-}
-
-fn get_keep_alive_message() -> String {
-    [
-        "Fetching response... please wait",
-        "Aide is hard at work, any moment now...",
-        "Code snippets incoming...",
-        "Processing code snippets...",
-    ]
-    .choose(&mut rand::thread_rng())
-    .map(|value| value.to_string())
-    .unwrap_or("Working on your request...".to_owned())
 }
 
 fn line_column_to_byte_offset(
