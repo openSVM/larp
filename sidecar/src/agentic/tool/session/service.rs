@@ -639,7 +639,19 @@ impl SessionService {
                 if let Err(_) = session {
                     break;
                 }
+
                 let mut session = session.expect("if let Err to hold");
+                println!(
+                    "session::action_nodes_len({})",
+                    session.action_nodes().len()
+                );
+
+                // if there are more than 200 action nodes, stop
+                if session.action_nodes().len() >= 200 {
+                    println!("exceeded_action_nodes");
+                    break;
+                }
+
                 // grab the reasoning instruction
                 let reasoning_instruction = session
                     .clone()
@@ -659,7 +671,7 @@ impl SessionService {
                 let reasoning_instruction = reasoning_instruction.expect("is_err to hold");
 
                 // when we have no instrucions we should break
-                if reasoning_instruction.instruction().is_empty() {
+                if reasoning_instruction.instruction().trim().is_empty() {
                     break;
                 }
 

@@ -318,6 +318,7 @@ Keep refining the plan and giving out tasks to the junior engineer until the git
 - After making the changes in the codebase you should run the reproduction script again to make sure that the issue has been resolved.
 - You cannot access any file outside the repository directory.
 - You are not allowed to install any new packages as the developer environment has been already setup in the repository directory.
+- Once you have solved the Github Issue, finish by not returning any instruction to the junior eningeer.
 
 ## How to leverage the junior engineer
 
@@ -606,7 +607,11 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         )
     }
 
-    fn system_message_for_swe_bench(&self, context: &ToolUseAgentInput, repo_name: &str) -> String {
+    fn _system_message_for_swe_bench(
+        &self,
+        context: &ToolUseAgentInput,
+        repo_name: &str,
+    ) -> String {
         let tool_descriptions = context.tool_descriptions.join("\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
