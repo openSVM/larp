@@ -18,7 +18,8 @@ pub async fn init(config: Arc<Configuration>) -> Result<SqlitePool> {
         Err(e) => {
             debug!("failed to connect to db: {:#}", e);
             debug!("resetting db");
-            reset(&data_dir)?;
+            // do not let reset fail the whole thing
+            let _ = reset(&data_dir);
             connect(&data_dir).await
         }
     }

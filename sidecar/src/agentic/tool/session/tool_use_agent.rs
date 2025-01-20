@@ -8,31 +8,34 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics},
+        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType},
     },
 };
 
-use crate::agentic::{
-    symbol::{
-        errors::SymbolError, events::message_event::SymbolEventMessageProperties,
-        ui_event::UIEventWithID,
-    },
-    tool::{
-        code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
-        errors::ToolError,
-        file::semantic_search::SemanticSearchParametersPartial,
-        helpers::cancellation_future::run_with_cancellation,
-        input::ToolInputPartial,
-        lsp::{
-            file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInput,
-            open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial,
+use crate::{
+    agentic::{
+        symbol::{
+            errors::SymbolError, events::message_event::SymbolEventMessageProperties,
+            ui_event::UIEventWithID,
         },
-        r#type::ToolType,
-        repo_map::generator::RepoMapGeneratorRequestPartial,
-        session::chat::SessionChatRole,
-        terminal::terminal::TerminalInputPartial,
-        test_runner::runner::TestRunnerRequestPartial,
+        tool::{
+            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
+            errors::ToolError,
+            file::semantic_search::SemanticSearchParametersPartial,
+            helpers::cancellation_future::run_with_cancellation,
+            input::ToolInputPartial,
+            lsp::{
+                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInput,
+                open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial,
+            },
+            r#type::ToolType,
+            repo_map::generator::RepoMapGeneratorRequestPartial,
+            session::chat::SessionChatRole,
+            terminal::terminal::TerminalInputPartial,
+            test_runner::runner::TestRunnerRequestPartial,
+        },
     },
+    mcts::action_node::ActionNode,
 };
 
 use super::{
@@ -62,6 +65,51 @@ impl ToolUseAgentInputOnlyTools {
             tools,
             problem_statement,
             is_midwit_mode,
+            symbol_event_message_properties,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ToolUseAgentReasoningParams {
+    plan: String,
+    instruction: String,
+    notes: String,
+    action_nodes: Vec<ActionNode>,
+}
+
+impl ToolUseAgentReasoningParams {
+    pub fn new(
+        plan: String,
+        instruction: String,
+        notes: String,
+        action_nodes: Vec<ActionNode>,
+    ) -> Self {
+        Self {
+            plan,
+            instruction,
+            notes,
+            action_nodes,
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ToolUseAgentReasoningInput {
+    user_instruction: String,
+    params: Option<ToolUseAgentReasoningParams>,
+    symbol_event_message_properties: SymbolEventMessageProperties,
+}
+
+impl ToolUseAgentReasoningInput {
+    pub fn new(
+        user_instruction: String,
+        params: Option<ToolUseAgentReasoningParams>,
+        symbol_event_message_properties: SymbolEventMessageProperties,
+    ) -> Self {
+        Self {
+            user_instruction,
+            params,
             symbol_event_message_properties,
         }
     }
@@ -189,6 +237,179 @@ impl ToolUseAgent {
     pub fn set_temperature(mut self, temperature: f32) -> Self {
         self.temperature = temperature;
         self
+    }
+
+    /// o1 message for reasoning
+    fn system_message_for_o1(&self, repo_name: &str) -> String {
+        let working_directory = self.working_directory.to_owned();
+        format!(
+            r#"You have to assign tasks to a junior engineer to solve a Github Issue.
+You will keep a high level plan and give out tasks to the junior engineer.
+After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
+Keep refining the plan and giving out tasks to the junior engineer until the github issue is resolved.
+
+## Rules to follow:
+- You can not edit any test files nor are you allowed to edit the existing tests
+- You can not create a new branch on the repository or change the commit of the repository.
+- You are not allowed to run any tests.
+- You should have a script which reproduces the reported issue. You might have to explore the repository to generate a really good script to recreate the issue.
+- The reproduce script should always be called `reproduce_error.py`
+- After making the changes in the codebase you should run the reproduction script again to make sure that the issue has been resolved.
+- You cannot access any file outside the repository directory.
+- You are not allowed to install any new packages as the developer environment has been already setup in the repository directory.
+
+## How to leverage the junior engineer
+
+### Junior Engineer Visibility
+You are not supposed to solve the github issue yourself. Instead, you will provide instructions to a junior engineer who will do the actual work.
+The junior engineer does not see the original github issue. They only work on the task you give them.
+You are not supposed to write any code or work in the repository, use the junior engineer to perform the task instead.
+
+### Junior engineer Instruction Content
+Be explicit in what files to edit or create, what changes to make, and commands the junior engineer should run.
+Include sample code snippets or test code for clarity and to avoid ambiguity.
+Provide context and justification for each task so the junior engineer understands why they are doing it.
+Consider any edge cases or complexities in your instructions.
+
+## Plan generation
+
+### Plan specifics
+You maintain a high-level plan consisting of sequential instructions.
+For each instruction, you will provide a clear task to the junior engineer.
+You can refine the plan as the engineer reports back with progress or any discoveries.
+
+## Workflow
+
+- **Reproduce the Problem**: First reproduce the reported github issue a standalone python script to confirm the issue.
+- **Identify the Problem**: Describe the github issue in your own words (since the junior engineer won’t see it).
+- **Break Down the Task**: Outline the tasks needed to address the problem.
+- **Assign Tasks**: Provide instructions with enough detail that the junior engineer can carry them out without additional context.
+- **Track Progress**: After the engineer executes a task, use the generated artifacts (opened files, code changes, terminal output) to update or refine your plan.
+- **Iterate**: Continue until the github issue is resolved.
+- **Completion**: Confirm that the reproduction script solves the github issue and complete the task.
+
+## Notes and Reminders
+- Keep any additional insights or references in <notes> sections so they’re easy to refer back to later.
+- You can use the <notes> along with the steps the junior engineer has taken for your instruction to plan out the next instruction for the junior engineer.
+
+## Output Format Requirements
+
+When you produce an output in response to the junior engineer's progress, include the following sections in this order:
+
+### Plan Section
+
+<plan>
+<instruction>
+{{High-level step-by-step plan}}
+</instruction>
+</plan>
+This is the updated plan, reflecting the overall strategy and steps to address the user problem.
+
+### Notes Section (if needed)
+
+<notes>
+{{Any helpful references, code snippets, or insights for future steps}}
+</notes>
+This can contain extra details or code for future use.
+
+### Current Task Section
+
+<current_task>
+<instruction>
+{{The specific instruction the engineer should execute next}}
+</instruction>
+</current_task>
+
+Direct, specific standalone task instructions for the junior engineer to execute immediately.
+
+### Junior Engineer's Tools
+They have access to:
+
+- Bash commands (Terminal)
+- A local editor to modify or create files
+- Python installed on the terminal to run standalone scripts
+
+### Repository Information
+
+Repository Name: {repo_name}
+Working Directory: {working_directory}
+
+The junior engineer will communicate their progress after completing the instruction in the following format:
+
+<current_instruction>
+{{the instruction they are working on}}
+</current_instruction>
+And the steps they took to work on the instruction:
+<steps>
+<step>
+<tool_input>
+{{commands or code they ran}}
+</tool_input>
+<tool_output>
+{{results, errors, or logs}}
+</tool_output>
+</step>
+</steps>"#
+        )
+    }
+
+    /// Generates the user message for o1
+    fn user_message_for_o1(&self, input: ToolUseAgentReasoningInput) -> String {
+        let problem_statement = input.user_instruction.to_owned();
+        if let Some(params) = input.params.clone() {
+            let steps = params
+                .action_nodes
+                .iter()
+                .filter_map(|action_node| {
+                    let action_input = action_node.action();
+                    let observation = action_node.observation();
+                    match (action_input, observation) {
+                        (Some(input), Some(output)) => Some(format!(
+                            r#"<step>
+<tool_input>
+{}
+</tool_input>
+<tool_output>
+{}
+</tool_output>
+</step>"#,
+                            input.to_string(),
+                            output.message()
+                        )),
+                        _ => None,
+                    }
+                })
+                .collect::<Vec<_>>()
+                .join("\n");
+            let previous_instruction = params.instruction.clone();
+            let previous_plan = params.plan.clone();
+            let previous_notes = params.notes.clone();
+            format!(
+                r#"<user_query>
+{}
+</user_query>
+<plan>
+{}
+</plan>
+<notes>
+{}
+</notes>
+<current_instruction>
+{}
+</current_instruction>
+<steps>
+{}
+</steps>"#,
+                problem_statement, previous_plan, previous_notes, previous_instruction, steps
+            )
+        } else {
+            format!(
+                r#"<user_query>
+{}
+</user_query>"#,
+                problem_statement
+            )
+        }
     }
 
     fn system_message_midwit_json_mode(&self, repo_name: &str, problem_statement: &str) -> String {
@@ -590,7 +811,52 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         )
     }
 
-    /// TODO(skcd): This is a special call we are using only for anthropic and nothing
+    /// Passes the previous plan if any and the steps the agent has taken to generate
+    /// the next instruction for the agent to work on
+    pub async fn reasoning_output(
+        &self,
+        input: ToolUseAgentReasoningInput,
+    ) -> Result<(), SymbolError> {
+        let repo_name = self.properties.repo_name.clone().expect("to be present");
+        let message_properties = input.symbol_event_message_properties.clone();
+        let system_message = LLMClientMessage::system(self.system_message_for_o1(&repo_name));
+        let user_message = LLMClientMessage::user(self.user_message_for_o1(input));
+        let llm_properties = message_properties
+            .llm_properties()
+            .clone()
+            .set_llm(LLMType::O1);
+        let request = LLMClientCompletionRequest::new(
+            llm_properties.llm().clone(),
+            vec![system_message, user_message],
+            0.2,
+            None,
+        );
+
+        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        // Parse out the output from here
+        let _response = self
+            .llm_client
+            .stream_completion(
+                llm_properties.api_key().clone(),
+                request,
+                llm_properties.provider().clone(),
+                vec![
+                    ("event_type".to_owned(), "o1_orchestrator".to_owned()),
+                    (
+                        "root_id".to_owned(),
+                        message_properties.root_request_id().to_owned(),
+                    ),
+                ]
+                .into_iter()
+                .collect(),
+                sender,
+            )
+            .await;
+        // parse out the response from here somehow
+        todo!()
+    }
+
+    /// This is a special call we are using only for anthropic and nothing
     /// else right now
     pub async fn invoke_json_tool_swe_bench(
         &self,
