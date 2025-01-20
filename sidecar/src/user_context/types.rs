@@ -1,3 +1,7 @@
+use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
+use caesium::{compress_in_memory, parameters::CSParameters};
+use image::{load_from_memory, GenericImageView};
 use std::collections::HashSet;
 
 use crate::chunking::{
@@ -15,6 +19,10 @@ use super::helpers::{guess_content, ProbableFileKind};
 pub enum UserContextError {
     #[error("Unable to read from path: {0}")]
     UnableToReadFromPath(String),
+    #[error("Image compression error: {0}")]
+    ImageCompressionError(String),
+    #[error("Base64 decode error: {0}")]
+    Base64DecodeError(String),
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize, serde::Serialize)]
@@ -68,6 +76,52 @@ pub struct ImageInformation {
 }
 
 impl ImageInformation {
+    fn compress_base64_image(self) -> Result<Self, UserContextError> {
+        // Decode base64
+        let bytes = BASE64
+            .decode(&self.data)
+            .map_err(|e| UserContextError::Base64DecodeError(e.to_string()))?;
+        let original_size = bytes.len();
+
+        // Read image dimensions using the image crate
+        let img = load_from_memory(&bytes)
+            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+        let (width, height) = img.dimensions();
+
+        // Calculate new dimensions if width > 1080
+        let (new_width, new_height) = if width > 1080 {
+            let aspect_ratio = height as f32 / width as f32;
+            let new_height = (1080.0 * aspect_ratio).round() as u32;
+            (1080, new_height)
+        } else {
+            (width, height)
+        };
+
+        // Compress using caesium
+        let mut params = CSParameters::default();
+        params.height = new_height;
+        params.width = new_width;
+        let compressed = compress_in_memory(bytes, &params)
+            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+
+        // Calculate compression ratio
+        let compression_ratio = (1.0 - (compressed.len() as f64 / original_size as f64)) * 100.0;
+        println!("Compression ratio: {:.2}%", compression_ratio);
+
+        // Re-encode as base64
+        let result = BASE64.encode(compressed);
+
+        Ok(Self::new(self.r#type, self.media_type, result))
+    }
+
+    pub fn new(r#type: String, media_type: String, data: String) -> Self {
+        Self {
+            r#type,
+            media_type,
+            data,
+        }
+    }
+
     pub fn r#type(&self) -> &str {
         &self.r#type
     }
@@ -420,8 +474,20 @@ impl UserContext {
         }
     }
 
-    pub fn images(&self) -> &[ImageInformation] {
-        self.images.as_slice()
+    pub fn images(&self) -> Vec<ImageInformation> {
+        let mut processed_images = Vec::new();
+        for image in self.images.iter() {
+            if let Ok(compressed_image) = ImageInformation::new(
+                image.r#type().to_owned(),
+                image.media_type().to_owned(),
+                image.data().to_owned(),
+            )
+            .compress_base64_image()
+            {
+                processed_images.push(compressed_image);
+            }
+        }
+        processed_images
     }
 
     pub fn copy_at_instance(mut self) -> Self {
@@ -706,6 +772,19 @@ impl UserContext {
                 })
             })
             .collect::<Vec<_>>();
+
+        // Process and compress any new images before merging
+        let mut processed_new_images = Vec::new();
+        for image in new_user_context.images {
+            let compressed_image = ImageInformation::new(
+                image.r#type().to_owned(),
+                image.media_type().to_owned(),
+                image.data().to_owned(),
+            );
+            processed_new_images.push(compressed_image);
+        }
+        new_user_context.images = processed_new_images;
+
         let images_to_extend = self
             .images
             .into_iter()

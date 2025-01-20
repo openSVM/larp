@@ -1474,7 +1474,6 @@ pub async fn agent_tool_use(
         "webserver::agent_session::tool_use::session_id({})",
         &session_id
     );
-    println!("user_context::({:?})", &user_context);
     let cancellation_token = tokio_util::sync::CancellationToken::new();
     let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
     let message_properties = SymbolEventMessageProperties::new(
