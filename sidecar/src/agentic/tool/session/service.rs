@@ -545,6 +545,7 @@ impl SessionService {
         running_in_editor: bool,
         semantic_search: bool,
         mcts_log_directory: Option<String>,
+        repo_name: Option<String>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -608,7 +609,7 @@ impl SessionService {
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, None, aide_rules),
+            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
         );
 
         session = session
