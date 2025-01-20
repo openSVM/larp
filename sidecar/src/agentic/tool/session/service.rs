@@ -709,10 +709,8 @@ impl SessionService {
                     )
                     .await;
 
-                // save to storage layer
-                let _ = self
-                    .save_to_storage(&session, mcts_log_directory.clone())
-                    .await;
+                // do not save the session here since we update the session
+                // on the disk in the agent_loop by itself
             }
             Ok(())
         } else {
