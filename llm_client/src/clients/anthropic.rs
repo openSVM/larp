@@ -697,7 +697,7 @@ impl LLMClient for AnthropicClient {
             .duration_since(std::time::UNIX_EPOCH)
             .unwrap()
             .as_millis();
-        let response_stream = self
+        let response_stream = dbg!(self
             .client
             .post(endpoint)
             .header(
@@ -714,7 +714,7 @@ impl LLMClient for AnthropicClient {
             )
             .json(&anthropic_request)
             .send()
-            .await
+            .await)
             .map_err(|e| {
                 println!("sidecar.anthropic.error: {:?}", &e);
                 e
