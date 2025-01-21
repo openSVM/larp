@@ -55,7 +55,7 @@ use super::{
         gotoreferences::GoToReferencesRequest,
         grep_symbol::LSPGrepSymbolInCodebaseRequest,
         inlay_hints::InlayHintsRequest,
-        list_files::ListFilesInput,
+        list_files::{ListFilesInput, ListFilesInputPartial},
         open_file::{OpenFileRequest, OpenFileRequestPartial},
         quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest},
         search_file::{SearchFileContentInput, SearchFileContentInputPartial},
@@ -86,7 +86,7 @@ use super::{
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum ToolInputPartial {
     CodeEditing(CodeEditingPartialRequest),
-    ListFiles(ListFilesInput),
+    ListFiles(ListFilesInputPartial),
     SearchFileContentWithRegex(SearchFileContentInputPartial),
     OpenFile(OpenFileRequestPartial),
     LSPDiagnostics(WorkspaceDiagnosticsPartial),
@@ -178,7 +178,7 @@ impl ToolInputPartial {
     pub fn to_json(tool_type: ToolType) -> Option<serde_json::Value> {
         match tool_type {
             ToolType::CodeEditing => None,
-            ToolType::ListFiles => Some(ListFilesInput::to_json()),
+            ToolType::ListFiles => Some(ListFilesInputPartial::to_json()),
             ToolType::SearchFileContentWithRegex => Some(SearchFileContentInputPartial::to_json()),
             ToolType::OpenFile => Some(OpenFileRequestPartial::to_json()),
             ToolType::LSPDiagnostics => None,
