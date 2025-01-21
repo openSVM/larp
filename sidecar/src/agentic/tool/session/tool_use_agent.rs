@@ -87,6 +87,22 @@ impl ToolUseAgentReasoningParams {
         }
     }
 
+    pub fn add_previous_notes(&mut self, notes: &str) {
+        if self.notes.is_empty() {
+            self.notes = notes.to_owned();
+        } else {
+            self.notes = format!(
+                r#"{notes}
+{}"#,
+                self.notes
+            );
+        }
+    }
+
+    pub fn notes(&self) -> &str {
+        &self.notes
+    }
+
     pub fn instruction(&self) -> &str {
         &self.instruction
     }
@@ -340,6 +356,7 @@ Do not reference any information from the Github Issue in your instruction to th
 You maintain a high-level plan consisting of sequential instructions.
 For each instruction, you will provide a clear task to the junior engineer.
 You can refine the plan as the engineer reports back with progress or any discoveries.
+**Always keep track in the `<plan>` section of the tasks that have already been completed. Mark any finished steps as done or indicate the outcome so there is no confusion about what remains to be done.**
 
 ## Workflow
 
@@ -353,6 +370,7 @@ You can refine the plan as the engineer reports back with progress or any discov
 
 ## Notes and Reminders
 - Keep any additional insights or references in <notes> sections so they’re easy to refer back to later.
+- The <notes> also help you keep track of the progress the junior engineer has done. This will help you plan out what has already been accomplished and insights you have learnt from the junior engineer.
 - You can use the <notes> along with the steps the junior engineer has taken for your instruction to plan out the next instruction for the junior engineer.
 
 ## Output Format Requirements
@@ -366,14 +384,15 @@ When you produce an output in response to the junior engineer's progress, includ
 {{High-level step-by-step plan}}
 </instruction>
 </plan>
-This is the updated plan, reflecting the overall strategy and steps to address the user problem.
+- This is the updated plan, reflecting the overall strategy and steps to address the user problem. 
+- Include a brief acknowledgment of completed tasks from previous instructions so they are not repeated.
 
 ### Notes Section (if needed)
 
 <notes>
-{{Any helpful references, code snippets, or insights for future steps}}
+{{Any helpful references, code snippets and insights for future steps}}
 </notes>
-This can contain extra details or code for future use.
+This can contain extra details, insights and code for future use.
 
 ### Current Task Section (if needed)
 
@@ -400,7 +419,7 @@ Working Directory: {working_directory}
 The junior engineer will communicate their progress after completing the instruction in the following format:
 
 <current_instruction>
-{{the instruction they are working on}}
+{{the instruction junior engineer is working on}}
 </current_instruction>
 And the steps they took to work on the instruction:
 <steps>
@@ -412,7 +431,9 @@ And the steps they took to work on the instruction:
 {{results, errors, or logs}}
 </tool_output>
 </step>
-</steps>"#
+</steps>
+
+This ensures you can refine your plan in <plan> and keep track of exactly which tasks have been completed and what insights have been discovered."#
         )
     }
 
