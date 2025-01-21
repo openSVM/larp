@@ -665,13 +665,16 @@ impl SessionService {
                     .await;
 
                 if reasoning_instruction.is_err() {
+                    println!("reasoning_instruction::is_err::{:?}", reasoning_instruction);
                     break;
                 }
 
                 let mut reasoning_instruction = reasoning_instruction.expect("is_err to hold");
+                println!("reasoning_instruction::{:?}", &reasoning_instruction);
 
                 // when we have no instrucions we should break
                 if reasoning_instruction.instruction().trim().is_empty() {
+                    println!("reasoning_instruction::empty_instruction::break");
                     break;
                 }
 
