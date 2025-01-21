@@ -175,12 +175,12 @@ pub fn list_files(dir_path: &Path, recursive: bool, limit: usize) -> (Vec<PathBu
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct ListFilesInput {
+pub struct ListFilesInputPartial {
     directory_path: String,
     recursive: bool,
 }
 
-impl ListFilesInput {
+impl ListFilesInputPartial {
     pub fn new(directory_path: String, recursive: bool) -> Self {
         Self {
             directory_path,
@@ -235,9 +235,35 @@ Do not use this tool to confirm the existence of files you may have created, as 
     }
 }
 
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ListFilesInput {
+    directory_path: String,
+    recursive: bool,
+    editor_url: String,
+}
+
+impl ListFilesInput {
+    pub fn new(directory_path: String, recursive: bool, editor_url: String) -> Self {
+        Self {
+            directory_path,
+            recursive,
+            editor_url,
+        }
+    }
+
+    pub fn editor_url(&self) -> &str {
+        &self.editor_url
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct ListFilesOutput {
     files: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+struct ListFilesEndpointOutput {
+    files: Vec<String>,
 }
 
 impl ListFilesOutput {
@@ -246,11 +272,40 @@ impl ListFilesOutput {
     }
 }
 
-pub struct ListFilesClient {}
+pub struct ListFilesClient {
+    client: reqwest::Client,
+}
 
 impl ListFilesClient {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            client: reqwest::Client::new(),
+        }
+    }
+
+    async fn list_files_from_editor(
+        &self,
+        context: ListFilesInput,
+    ) -> Result<ToolOutput, ToolError> {
+        let editor_endpoint = context.editor_url.to_owned() + "/list_files";
+        let response = self
+            .client
+            .post(editor_endpoint)
+            .body(serde_json::to_string(&context).map_err(|_e| ToolError::SerdeConversionFailed)?)
+            .send()
+            .await
+            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+        let response: ListFilesEndpointOutput = response
+            .json()
+            .await
+            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+        Ok(ToolOutput::ListFiles(ListFilesOutput {
+            files: response
+                .files
+                .into_iter()
+                .map(|file_path| PathBuf::from(file_path))
+                .collect(),
+        }))
     }
 }
 
@@ -258,9 +313,15 @@ impl ListFilesClient {
 impl Tool for ListFilesClient {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.is_list_files()?;
-        let directory = context.directory_path;
+        let directory = context.directory_path.to_owned();
         let is_recursive = context.recursive;
         let output = list_files(Path::new(&directory), is_recursive, FILES_LIMIT);
+        if output.0.is_empty() {
+            let files_from_editor = self.list_files_from_editor(context).await;
+            if files_from_editor.is_ok() {
+                return files_from_editor;
+            }
+        }
         Ok(ToolOutput::ListFiles(ListFilesOutput { files: output.0 }))
     }
 

@@ -14,7 +14,10 @@ use crate::{
         },
         tool::{
             input::{ToolInput, ToolInputPartial},
-            lsp::{open_file::OpenFileRequest, search_file::SearchFileContentInput},
+            lsp::{
+                list_files::ListFilesInput, open_file::OpenFileRequest,
+                search_file::SearchFileContentInput,
+            },
             r#type::Tool,
             repo_map::generator::RepoMapGeneratorRequest,
             session::{
@@ -576,7 +579,12 @@ Always include the <thinking></thinking> section before using the tool."#
             }
             ToolInputPartial::ListFiles(list_files) => {
                 let directory_path = list_files.directory_path().to_owned();
-                let input = ToolInput::ListFiles(list_files);
+                let list_files_input = ListFilesInput::new(
+                    list_files.directory_path().to_owned(),
+                    list_files.recursive(),
+                    message_properties.editor_url(),
+                );
+                let input = ToolInput::ListFiles(list_files_input);
                 let response = tool_box
                     .tools()
                     .invoke(input)

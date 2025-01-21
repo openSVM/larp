@@ -26,7 +26,7 @@ use crate::{
             helpers::cancellation_future::run_with_cancellation,
             input::ToolInputPartial,
             lsp::{
-                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInput,
+                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInputPartial,
                 open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial,
             },
             r#type::ToolType,
@@ -1067,9 +1067,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 let tool_input = tool_input.1;
                 let tool_input = match tool_type.as_ref() {
                     "list_files" => ToolInputPartial::ListFiles(
-                        serde_json::from_str::<ListFilesInput>(&tool_input).map_err(|_e| {
-                            SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                        })?,
+                        serde_json::from_str::<ListFilesInputPartial>(&tool_input).map_err(
+                            |_e| SymbolError::ToolError(ToolError::SerdeConversionFailed),
+                        )?,
                     ),
                     "search_files" => ToolInputPartial::SearchFileContentWithRegex(
                         serde_json::from_str::<SearchFileContentInputPartial>(&tool_input)
@@ -1794,7 +1794,7 @@ impl ToolUseGenerator {
                         match (self.directory_path.clone(), self.recursive.clone()) {
                             (Some(directory_path), Some(recursive)) => {
                                 self.tool_input_partial = Some(ToolInputPartial::ListFiles(
-                                    ListFilesInput::new(directory_path, recursive),
+                                    ListFilesInputPartial::new(directory_path, recursive),
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }

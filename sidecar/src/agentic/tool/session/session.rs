@@ -32,8 +32,8 @@ use crate::{
             helpers::diff_recent_changes::DiffFileContent,
             input::{ToolInput, ToolInputPartial},
             lsp::{
-                file_diagnostics::DiagnosticMap, open_file::OpenFileRequest,
-                search_file::SearchFileContentInput,
+                file_diagnostics::DiagnosticMap, list_files::ListFilesInput,
+                open_file::OpenFileRequest, search_file::SearchFileContentInput,
             },
             plan::{
                 generator::{Step, StepSenderEvent},
@@ -2516,7 +2516,12 @@ impl Session {
             }
             ToolInputPartial::ListFiles(list_files) => {
                 println!("list files: {}", list_files.directory_path());
-                let input = ToolInput::ListFiles(list_files);
+                let list_files_input = ListFilesInput::new(
+                    list_files.directory_path().to_owned(),
+                    list_files.recursive(),
+                    message_properties.editor_url(),
+                );
+                let input = ToolInput::ListFiles(list_files_input);
                 let response = tool_box
                     .tools()
                     .invoke(input)
