@@ -741,7 +741,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 
 ====
 
-Additional guildelines the user has provided which must be followed:
+Additional guildelines and rules the user has provided which must be followed:
 {aide_rules}
 
 ===="
