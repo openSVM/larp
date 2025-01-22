@@ -60,7 +60,7 @@ pest_derive = "2.7.4"
 fuzzy-matcher = "0.3.7"
 uuid = {version = "1.4.1", features = ["serde"] }
 compact_str = "0.7.1"
-async-openai = "0.14.3"
+async-openai = "0.27.1"
 reqwest = "0.11.22"
 chrono = { version = "0.4.31", features = ["serde"] }
 tiktoken-rs = "0.5.4"

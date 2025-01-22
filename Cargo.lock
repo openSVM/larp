@@ -148,38 +148,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "96d30a06541fbafbc7f82ed10c06164cfbd2c401138f6addd8404629c4b16711"
 
 [[package]]
-name = "async-convert"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d416feee97712e43152cd42874de162b8f9b77295b1c85e5d92725cc8310bae"
-dependencies = [
- "async-trait",
-]
-
-[[package]]
-name = "async-openai"
-version = "0.14.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7e1df052c2bd7b241fc828bc2fda74ce9a7ef05e0a593c37275aaaba52caf49d"
-dependencies = [
- "async-convert",
- "backoff",
- "base64 0.21.5",
- "derive_builder 0.12.0",
- "futures",
- "rand",
- "reqwest 0.11.23",
- "reqwest-eventsource 0.4.0",
- "serde",
- "serde_json",
- "thiserror 1.0.56",
- "tokio",
- "tokio-stream",
- "tokio-util",
- "tracing",
-]
-
-[[package]]
 name = "async-openai"
 version = "0.27.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -193,7 +161,7 @@ dependencies = [
  "futures",
  "rand",
  "reqwest 0.12.12",
- "reqwest-eventsource 0.6.0",
+ "reqwest-eventsource",
  "secrecy",
  "serde",
  "serde_json",
@@ -2596,20 +2564,6 @@ dependencies = [
 
 [[package]]
 name = "hyper-rustls"
-version = "0.24.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ec3efd23720e2049821a693cbc7e65ea87c72f1c58ff2f9522ff332b1491e590"
-dependencies = [
- "futures-util",
- "http 0.2.11",
- "hyper 0.14.27",
- "rustls 0.21.8",
- "tokio",
- "tokio-rustls 0.24.1",
-]
-
-[[package]]
-name = "hyper-rustls"
 version = "0.27.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2d191583f3da1305256f22463b9bb0471acad48a4e534a5218b9963e9c1f59b2"
@@ -2619,10 +2573,10 @@ dependencies = [
  "hyper 1.5.2",
  "hyper-util",
  "rustls 0.23.21",
- "rustls-native-certs 0.8.1",
+ "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.1",
+ "tokio-rustls",
  "tower-service",
 ]
 
@@ -3051,7 +3005,7 @@ name = "llm_client"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "async-openai 0.27.1",
+ "async-openai",
  "async-trait",
  "chrono",
  "either",
@@ -4269,27 +4223,21 @@ dependencies = [
  "http 0.2.11",
  "http-body 0.4.5",
  "hyper 0.14.27",
- "hyper-rustls 0.24.2",
  "hyper-tls",
  "ipnet",
  "js-sys",
  "log",
  "mime",
- "mime_guess",
  "native-tls",
  "once_cell",
  "percent-encoding",
  "pin-project-lite",
- "rustls 0.21.8",
- "rustls-native-certs 0.6.3",
- "rustls-pemfile 1.0.4",
  "serde",
  "serde_json",
  "serde_urlencoded",
  "system-configuration",
  "tokio",
  "tokio-native-tls",
- "tokio-rustls 0.24.1",
  "tokio-util",
  "tower-service",
  "url",
@@ -4314,7 +4262,7 @@ dependencies = [
  "http-body 1.0.0",
  "http-body-util",
  "hyper 1.5.2",
- "hyper-rustls 0.27.5",
+ "hyper-rustls",
  "hyper-util",
  "ipnet",
  "js-sys",
@@ -4326,7 +4274,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls 0.23.21",
- "rustls-native-certs 0.8.1",
+ "rustls-native-certs",
  "rustls-pemfile 2.1.2",
  "rustls-pki-types",
  "serde",
@@ -4334,7 +4282,7 @@ dependencies = [
  "serde_urlencoded",
  "sync_wrapper 1.0.2",
  "tokio",
- "tokio-rustls 0.26.1",
+ "tokio-rustls",
  "tokio-util",
  "tower 0.5.2",
  "tower-service",
@@ -4344,22 +4292,6 @@ dependencies = [
  "wasm-streams 0.4.0",
  "web-sys",
  "windows-registry",
-]
-
-[[package]]
-name = "reqwest-eventsource"
-version = "0.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f03f570355882dd8d15acc3a313841e6e90eddbc76a93c748fd82cc13ba9f51"
-dependencies = [
- "eventsource-stream",
- "futures-core",
- "futures-timer",
- "mime",
- "nom",
- "pin-project-lite",
- "reqwest 0.11.23",
- "thiserror 1.0.56",
 ]
 
 [[package]]
@@ -4467,7 +4399,6 @@ version = "0.21.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "446e14c5cda4f3f30fe71863c34ec70f5ac79d6087097ad0bb433e1be5edf04c"
 dependencies = [
- "log",
  "ring",
  "rustls-webpki 0.101.7",
  "sct",
@@ -4485,18 +4416,6 @@ dependencies = [
  "rustls-webpki 0.102.8",
  "subtle",
  "zeroize",
-]
-
-[[package]]
-name = "rustls-native-certs"
-version = "0.6.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
-dependencies = [
- "openssl-probe",
- "rustls-pemfile 1.0.4",
- "schannel",
- "security-framework 2.9.2",
 ]
 
 [[package]]
@@ -4799,7 +4718,7 @@ name = "sidecar"
 version = "0.1.20"
 dependencies = [
  "anyhow",
- "async-openai 0.14.3",
+ "async-openai",
  "async-recursion",
  "async-stream",
  "async-trait",
@@ -5620,16 +5539,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bbae76ab933c85776efabc971569dd6119c580d8f5d448769dec1764bf796ef2"
 dependencies = [
  "native-tls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-rustls"
-version = "0.24.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c28327cf380ac148141087fbfb9de9d7bd4e84ab5d2c28fbc911d753de8a7081"
-dependencies = [
- "rustls 0.21.8",
  "tokio",
 ]
 
