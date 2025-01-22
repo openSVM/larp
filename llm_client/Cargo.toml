@@ -28,3 +28,4 @@ uuid = { version = "1.4.1", features = ["v4"] }
 chrono = { version = "0.4.38", features = ["serde"] }
 
 logging = { path = "../logging" }
+reqwest-middleware = { version = "0.4.0", features = ["json"] }

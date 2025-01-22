@@ -3013,6 +3013,7 @@ dependencies = [
  "futures",
  "logging",
  "reqwest 0.11.23",
+ "reqwest-middleware",
  "serde",
  "serde_json",
  "sqlx",
