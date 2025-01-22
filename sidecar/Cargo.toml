@@ -99,6 +99,7 @@ globset = "0.4.15"
 dirs = "5.0.1"
 diffy = "0.4.0"
 colored = "2.1.0"
+reqwest-middleware = "0.4.0"
 
 [target.'cfg(unix)'.dependencies]
 nix = { version = "0.26.2", default-features = false, features = [ "resource" ] }
