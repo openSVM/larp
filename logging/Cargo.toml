@@ -15,3 +15,4 @@ serde = { version = "1.0.188", features = ["derive"] }
 chrono = "0.4.38"
 tokio = "1.32.0"
 reqwest-middleware = { version = "0.4.0", features = ["json"] }
+http = "1.2.0"
