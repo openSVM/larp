@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
+use logging::new_client;
 
 use super::types::{
     LLMClient, LLMClientCompletionRequest, LLMClientCompletionResponse,
@@ -14,13 +15,13 @@ use super::types::{
 };
 
 pub struct GeminiProClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl GeminiProClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 

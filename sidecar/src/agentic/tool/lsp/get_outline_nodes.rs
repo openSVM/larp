@@ -5,6 +5,7 @@
 //! that we should see how well it works for the languages we are interested in
 
 use async_trait::async_trait;
+use logging::new_client;
 
 use crate::{
     agentic::tool::{
@@ -409,13 +410,13 @@ impl OutlineNodesUsingEditorRequest {
 }
 
 pub struct OutlineNodesUsingEditorClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl OutlineNodesUsingEditorClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

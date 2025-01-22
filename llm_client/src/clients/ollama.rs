@@ -1,6 +1,7 @@
 //! Ollama client here so we can send requests to it
 
 use async_trait::async_trait;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::provider::LLMProviderAPIKeys;
@@ -13,7 +14,7 @@ use super::types::LLMClientError;
 use super::types::LLMType;
 
 pub struct OllamaClient {
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub base_url: String,
 }
 
@@ -99,7 +100,7 @@ impl OllamaClient {
         // ollama always runs on the following url:
         // http://localhost:11434/
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
             base_url: "http://localhost:11434".to_owned(),
         }
     }

@@ -6,19 +6,20 @@ use crate::agentic::tool::{
     r#type::{Tool, ToolRewardScale},
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 use super::gotodefintion::GoToDefinitionResponse;
 
 /// We are resuing the types from go to definition since the response and the request
 /// are the one and the same
 pub struct LSPGoToTypeDefinition {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPGoToTypeDefinition {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

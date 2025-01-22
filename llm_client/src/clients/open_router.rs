@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
 use futures::StreamExt;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
 
 use super::types::{
@@ -153,7 +154,7 @@ impl OpenRouterRequestMessageToolUse {
 * State is persistent across command calls and discussions with the user
 * If `path` is a file, `view` displays the result of applying `cat -n`. If `path` is a directory, `view` lists non-hidden files and directories up to 2 levels deep
 * The `create` command cannot be used if the specified `path` already exists as a file
-* If a `command` generates a long output, it will be truncated and marked with `<response clipped>` 
+* If a `command` generates a long output, it will be truncated and marked with `<response clipped>`
 * The `undo_edit` command will revert the last edit made to the file at `path`
 
 Notes for using the `str_replace` command:
@@ -353,13 +354,13 @@ impl OpenRouterRequest {
 }
 
 pub struct OpenRouterClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl OpenRouterClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 

@@ -9,6 +9,7 @@ use crate::agentic::tool::{
     r#type::{Tool, ToolRewardScale},
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize)]
 pub struct EditedFilesRequest {
@@ -63,13 +64,13 @@ impl EditedFilesResponse {
 }
 
 pub struct EditedFiles {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl EditedFiles {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

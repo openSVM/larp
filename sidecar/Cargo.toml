@@ -8,6 +8,7 @@ build = "build.rs"
 
 [features]
 ee = []
+tee_requests = []
 
 [dependencies]
 libcaesium = { version = "0.17.1", default-features = false, features = ["jpg", "png"] }

@@ -7,6 +7,7 @@ use crate::agentic::tool::{
     r#type::{Tool, ToolRewardScale},
 };
 use async_trait::async_trait;
+use logging::new_client;
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -45,13 +46,13 @@ impl CreateFileResponse {
 }
 
 pub struct LSPCreateFile {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPCreateFile {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }
