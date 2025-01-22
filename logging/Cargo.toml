@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 async-trait = "0.1.77"
 anyhow = "1.0.75"
-reqwest = "0.11.23"
+reqwest = "0.12.12"
 thiserror = "1.0.49"
 serde_json = "1.0.117"
 serde = { version = "1.0.188", features = ["derive"] }
