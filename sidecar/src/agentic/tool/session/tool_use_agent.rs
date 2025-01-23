@@ -469,9 +469,9 @@ This ensures you can refine your plan in <plan> and keep track of exactly which 
             let previous_plan = params.plan.clone();
             let previous_notes = params.notes.clone();
             format!(
-                r#"<github_issue>
+                r#"<user_instruction>
 {}
-</github_issue>
+</user_instruction>
 
 <plan>
 {}
@@ -492,9 +492,9 @@ This ensures you can refine your plan in <plan> and keep track of exactly which 
             )
         } else {
             format!(
-                r#"<github_issue>
+                r#"<user_instruction>
 {}
-</github_issue>"#,
+</user_instruction>"#,
                 problem_statement
             )
         }
