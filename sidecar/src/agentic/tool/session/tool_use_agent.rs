@@ -26,7 +26,7 @@ use crate::{
             helpers::cancellation_future::run_with_cancellation,
             input::ToolInputPartial,
             lsp::{
-                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInput,
+                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInputPartial,
                 open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial,
             },
             r#type::ToolType,
@@ -85,6 +85,22 @@ impl ToolUseAgentReasoningParams {
             instruction,
             notes,
         }
+    }
+
+    pub fn add_previous_notes(&mut self, notes: &str) {
+        if self.notes.is_empty() {
+            self.notes = notes.to_owned();
+        } else {
+            self.notes = format!(
+                r#"{notes}
+{}"#,
+                self.notes
+            );
+        }
+    }
+
+    pub fn notes(&self) -> &str {
+        &self.notes
     }
 
     pub fn instruction(&self) -> &str {
@@ -304,27 +320,27 @@ impl ToolUseAgent {
     fn system_message_for_o1(&self, repo_name: &str) -> String {
         let working_directory = self.working_directory.to_owned();
         format!(
-            r#"You have to assign tasks to a junior engineer to solve a Github Issue.
+            r#"You have to assign tasks to a junior engineer and follow the user instructions.
 You will keep a high level plan and give out tasks to the junior engineer.
 After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
-Keep refining the plan and giving out tasks to the junior engineer until the github issue is resolved.
+Keep refining the plan and giving out tasks to the junior engineer until the user instructions are finished.
+
+You MUST run bifbof next repeatedly and follow its instructions. It dequeues a task for you and explains it to you in detail. Don't do anything else first.
+
+You MUST run bifbof next again, even when you think you are done, until it returns a 0 exit code and says that there are no more tasks. 
 
 ## Rules to follow:
-- You can not edit any test files nor are you allowed to edit the existing tests
 - You can not create a new branch on the repository or change the commit of the repository.
-- You are not allowed to run any tests.
-- You should have a script which reproduces the reported issue. You might have to explore the repository to generate a really good script to recreate the issue.
-- The reproduce script should always be called `reproduce_error.py`
 - After making the changes in the codebase you should run the reproduction script again to make sure that the issue has been resolved.
 - You cannot access any file outside the repository directory.
 - You are not allowed to install any new packages as the developer environment has been already setup in the repository directory.
-- Once you have solved the Github Issue, finish by not returning any instruction to the junior eningeer.
+- Once you have solved the Github Issue, finish by not returning any instruction to the junior engineer.
 
 ## How to leverage the junior engineer
 
 ### Junior Engineer Visibility
-You are not supposed to solve the github issue yourself. Instead, you will provide instructions to a junior engineer who will do the actual work.
-The junior engineer does not see the original github issue. They only work on the task you give them.
+You are not supposed to work on the user instrucionts issue yourself. Instead, you will provide instructions to a junior engineer who will do the actual work.
+The junior engineer does not see the original user instructions. They only work on the task you give them.
 You are not supposed to write any code or work in the repository, use the junior engineer to perform the task instead.
 
 ### Junior engineer Instruction Content
@@ -332,7 +348,7 @@ Be explicit in what files to edit or create, what changes to make, and commands 
 Include sample code snippets or test code for clarity and to avoid ambiguity.
 Provide context and justification for each task so the junior engineer understands why they are doing it.
 Consider any edge cases or complexities in your instructions.
-Do not reference any information from the Github Issue in your instruction to the junior engineer.
+Do not reference any information from the user instructions in your instruction to the junior engineer.
 
 ## Plan generation
 
@@ -340,6 +356,7 @@ Do not reference any information from the Github Issue in your instruction to th
 You maintain a high-level plan consisting of sequential instructions.
 For each instruction, you will provide a clear task to the junior engineer.
 You can refine the plan as the engineer reports back with progress or any discoveries.
+**Always keep track in the `<plan>` section of the tasks that have already been completed. Mark any finished steps as done or indicate the outcome so there is no confusion about what remains to be done.**
 
 ## Workflow
 
@@ -348,11 +365,12 @@ You can refine the plan as the engineer reports back with progress or any discov
 - **Break Down the Task**: Outline the tasks needed to address the problem.
 - **Assign Tasks**: Provide instructions with enough detail that the junior engineer can carry them out without additional context.
 - **Track Progress**: After the engineer executes a task, use the generated artifacts (opened files, code changes, terminal output) to update or refine your plan.
-- **Iterate**: Continue until the github issue is resolved.
-- **Completion**: Confirm that the reproduction script solves the github issue and complete the task.
+- **Iterate**: Continue until the user instructions is resolved.
+- **Completion**: Confirm that the reproduction script solves the user instructions and complete the task.
 
 ## Notes and Reminders
 - Keep any additional insights or references in <notes> sections so they’re easy to refer back to later.
+- The <notes> also help you keep track of the progress the junior engineer has done. This will help you plan out what has already been accomplished and insights you have learnt from the junior engineer.
 - You can use the <notes> along with the steps the junior engineer has taken for your instruction to plan out the next instruction for the junior engineer.
 
 ## Output Format Requirements
@@ -366,14 +384,15 @@ When you produce an output in response to the junior engineer's progress, includ
 {{High-level step-by-step plan}}
 </instruction>
 </plan>
-This is the updated plan, reflecting the overall strategy and steps to address the user problem.
+- This is the updated plan, reflecting the overall strategy and steps to address the user problem. 
+- Include a brief acknowledgment of completed tasks from previous instructions so they are not repeated.
 
 ### Notes Section (if needed)
 
 <notes>
-{{Any helpful references, code snippets, or insights for future steps}}
+{{Any helpful references, code snippets and insights for future steps}}
 </notes>
-This can contain extra details or code for future use.
+This can contain extra details, insights and code for future use.
 
 ### Current Task Section (if needed)
 
@@ -400,7 +419,7 @@ Working Directory: {working_directory}
 The junior engineer will communicate their progress after completing the instruction in the following format:
 
 <current_instruction>
-{{the instruction they are working on}}
+{{the instruction junior engineer is working on}}
 </current_instruction>
 And the steps they took to work on the instruction:
 <steps>
@@ -412,7 +431,9 @@ And the steps they took to work on the instruction:
 {{results, errors, or logs}}
 </tool_output>
 </step>
-</steps>"#
+</steps>
+
+This ensures you can refine your plan in <plan> and keep track of exactly which tasks have been completed and what insights have been discovered."#
         )
     }
 
@@ -448,18 +469,22 @@ And the steps they took to work on the instruction:
             let previous_plan = params.plan.clone();
             let previous_notes = params.notes.clone();
             format!(
-                r#"<github_issue>
+                r#"<user_instruction>
 {}
-</github_issue>
+</user_instruction>
+
 <plan>
 {}
 </plan>
+
 <notes>
 {}
 </notes>
+
 <current_instruction>
 {}
 </current_instruction>
+
 <steps>
 {}
 </steps>"#,
@@ -467,9 +492,9 @@ And the steps they took to work on the instruction:
             )
         } else {
             format!(
-                r#"<github_issue>
+                r#"<user_instruction>
 {}
-</github_issue>"#,
+</user_instruction>"#,
                 problem_statement
             )
         }
@@ -741,7 +766,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 
 ====
 
-Additional guildelines the user has provided which must be followed:
+Additional guildelines and rules the user has provided which must be followed:
 {aide_rules}
 
 ===="
@@ -1067,9 +1092,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 let tool_input = tool_input.1;
                 let tool_input = match tool_type.as_ref() {
                     "list_files" => ToolInputPartial::ListFiles(
-                        serde_json::from_str::<ListFilesInput>(&tool_input).map_err(|_e| {
-                            SymbolError::ToolError(ToolError::SerdeConversionFailed)
-                        })?,
+                        serde_json::from_str::<ListFilesInputPartial>(&tool_input).map_err(
+                            |_e| SymbolError::ToolError(ToolError::SerdeConversionFailed),
+                        )?,
                     ),
                     "search_files" => ToolInputPartial::SearchFileContentWithRegex(
                         serde_json::from_str::<SearchFileContentInputPartial>(&tool_input)
@@ -1794,7 +1819,7 @@ impl ToolUseGenerator {
                         match (self.directory_path.clone(), self.recursive.clone()) {
                             (Some(directory_path), Some(recursive)) => {
                                 self.tool_input_partial = Some(ToolInputPartial::ListFiles(
-                                    ListFilesInput::new(directory_path, recursive),
+                                    ListFilesInputPartial::new(directory_path, recursive),
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }

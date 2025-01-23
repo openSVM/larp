@@ -665,13 +665,16 @@ impl SessionService {
                     .await;
 
                 if reasoning_instruction.is_err() {
+                    println!("reasoning_instruction::is_err::{:?}", reasoning_instruction);
                     break;
                 }
 
-                let reasoning_instruction = reasoning_instruction.expect("is_err to hold");
+                let mut reasoning_instruction = reasoning_instruction.expect("is_err to hold");
+                println!("reasoning_instruction::{:?}", &reasoning_instruction);
 
                 // when we have no instrucions we should break
                 if reasoning_instruction.instruction().trim().is_empty() {
+                    println!("reasoning_instruction::empty_instruction::break");
                     break;
                 }
 
@@ -689,6 +692,11 @@ impl SessionService {
 
                 // keep track of where we are last starting from
                 action_nodes_from = session.action_nodes().len();
+
+                if let Some(tool_use_reasoning_input) = tool_use_reasoning_input {
+                    // add previous notes from the previous invocation
+                    reasoning_instruction.add_previous_notes(tool_use_reasoning_input.notes());
+                }
 
                 tool_use_reasoning_input = Some(reasoning_instruction.clone());
 
