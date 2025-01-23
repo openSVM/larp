@@ -14,21 +14,30 @@ pub struct TerminalTool {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TerminalInputPartial {
     command: String,
+    wait_for_exit: bool,
 }
 
 impl TerminalInputPartial {
-    pub fn new(command: String) -> Self {
-        Self { command }
+    pub fn new(command: String, wait_for_exit: bool) -> Self {
+        Self {
+            command,
+            wait_for_exit,
+        }
     }
 
     pub fn command(&self) -> &str {
         &self.command
     }
 
+    pub fn wait_for_exit(&self) -> &bool {
+        &self.wait_for_exit
+    }
+
     pub fn sanitise_for_repro_script(self) -> Self {
         if self.command.contains("reproduce_error.py") && self.command.contains("python") {
             Self {
                 command: "python reproduce_error.py".to_owned(),
+                wait_for_exit: self.wait_for_exit,
             }
         } else {
             self
@@ -41,8 +50,12 @@ impl TerminalInputPartial {
 <command>
 {}
 </command>
+<wait_for_exit>
+{}
+</wait_for_exit>
 </execute_command>"#,
-            self.command
+            self.command,
+            self.wait_for_exit
         )
     }
 
@@ -56,6 +69,10 @@ impl TerminalInputPartial {
                     "command": {
                         "type": "string",
                         "description": "(required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.",
+                    },
+                    "wait_for_exit": {
+                        "type": "boolean",
+                        "description": "(optional) Whether to wait for the command to exit before proceeding. Set to false for long-running commands like servers. Defaults to true.",
                     }
                 },
                 "required": ["command"],
@@ -68,13 +85,15 @@ impl TerminalInputPartial {
 pub struct TerminalInput {
     command: String,
     editor_url: String,
+    wait_for_exit: bool,
 }
 
 impl TerminalInput {
-    pub fn new(command: String, editor_url: String) -> Self {
+    pub fn new(command: String, editor_url: String, wait_for_exit: bool) -> Self {
         Self {
             command,
             editor_url,
+            wait_for_exit,
         }
     }
 }
@@ -130,6 +149,10 @@ Use this when you need to perform system operations or run specific commands to 
 You must tailor your command to the user's system and provide a clear explanation of what the command does.
 Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run.
 Commands will be executed in the current working directory.
+
+For long-running commands like servers (e.g., 'npm run dev', 'python -m http.server'), set wait_for_exit to false.
+This allows the command to continue running while proceeding with subsequent steps.
+
 Note: You MUST append a `sleep 0.05` to the end of the command for commands that will complete in under 50ms, as this will circumvent a known issue with the terminal tool where it will sometimes not return the output when the command completes too quickly."#
         )
     }
@@ -138,12 +161,16 @@ Note: You MUST append a `sleep 0.05` to the end of the command for commands that
         format!(
             r#"Parameters:
 - command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
+- wait_for_exit: (optional) Set to false for long-running commands like servers that shouldn't block execution. Defaults to true.
 
 Usage:
 <execute_command>
 <command>
 Your command here
 </command>
+<wait_for_exit>
+true
+</wait_for_exit>
 </execute_command>"#
         )
     }
