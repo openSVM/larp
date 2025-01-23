@@ -1389,6 +1389,7 @@ enum ToolBlockStatus {
     QuestionFound,
     ResultFound,
     FilePathsFound,
+    WaitForExitFound,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1438,6 +1439,7 @@ struct ToolUseGenerator {
     command: Option<String>,
     question: Option<String>,
     result: Option<String>,
+    wait_for_exit: Option<bool>,
     tool_input_partial: Option<ToolInputPartial>,
     sender: tokio::sync::mpsc::UnboundedSender<ToolBlockEvent>,
 }
@@ -1460,6 +1462,7 @@ impl ToolUseGenerator {
             command: None,
             question: None,
             result: None,
+            wait_for_exit: None,
             tool_input_partial: None,
             sender,
         }
@@ -1845,12 +1848,30 @@ impl ToolUseGenerator {
                         ));
                         let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                         self.tool_type_possible = None;
+                    } else if answer_line_at_index == "<wait_for_exit>" {
+                        self.tool_block_status = ToolBlockStatus::WaitForExitFound;
+                    } else if answer_line_at_index.starts_with("<wait_for_exit>")
+                        && answer_line_at_index.ends_with("</wait_for_exit>")
+                    {
+                        // Parse inline wait_for_exit value
+                        if let Some(prefix_removed) = answer_line_at_index.strip_prefix("<wait_for_exit>") {
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</wait_for_exit>") {
+                                self.wait_for_exit = Some(suffix_removed.parse::<bool>().unwrap_or(true));
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters {
+                                        field_name: "wait_for_exit".to_owned(),
+                                        field_content_up_until_now: suffix_removed.to_owned(),
+                                        field_content_delta: suffix_removed.to_owned(),
+                                    },
+                                ));
+                            }
+                        }
                     } else if answer_line_at_index == "</execute_command>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         match self.command.clone() {
                             Some(command) => {
                                 self.tool_input_partial = Some(ToolInputPartial::TerminalCommand(
-                                    TerminalInputPartial::new(command.to_owned()),
+                                    TerminalInputPartial::new(command.to_owned(), self.wait_for_exit.unwrap_or(true))
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }
@@ -2121,6 +2142,20 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
+                    }
+                }
+                ToolBlockStatus::WaitForExitFound => {
+                    if answer_line_at_index == "</wait_for_exit>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                    } else {
+                        self.wait_for_exit = Some(answer_line_at_index.parse::<bool>().unwrap_or(true));
+                        let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                            ToolParameters {
+                                field_name: "wait_for_exit".to_owned(),
+                                field_content_up_until_now: answer_line_at_index.to_owned(),
+                                field_content_delta: answer_line_at_index.to_owned(),
+                            },
+                        ));
                     }
                 }
             }

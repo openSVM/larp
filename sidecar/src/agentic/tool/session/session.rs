@@ -2723,7 +2723,8 @@ reason: {}"#,
             ToolInputPartial::TerminalCommand(terminal_command) => {
                 println!("terminal command: {}", terminal_command.command());
                 let command = terminal_command.command().to_owned();
-                let request = TerminalInput::new(command, message_properties.editor_url());
+                let wait_for_exit = terminal_command.wait_for_exit().to_owned();
+                let request = TerminalInput::new(command, message_properties.editor_url(), wait_for_exit);
                 let input = ToolInput::TerminalCommand(request);
                 let tool_output = tool_box
                     .tools()
