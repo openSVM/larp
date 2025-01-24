@@ -704,6 +704,7 @@ CAPABILITIES
 - You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
 - The code_edit tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
 - You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
+- To search for files, use execute_command to run a command like `find . -name '*.rs' | grep -i 'pattern'`
 
 ====
 
@@ -857,10 +858,11 @@ By waiting for and carefully considering the user's response after each tool use
 
 CAPABILITIES
 
-- You have access to tools that let you execute CLI commands on the user's computer, list files, view source code definitions, regex search, read and write files, and ask follow-up questions. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, performing system operations, and much more.
+- You have access to tools that let you execute CLI or shell commands on the user's computer, list files, view source code definitions, regex search, read and write files, and ask follow-up questions. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, performing system operations, and much more.
 - To further explore directories such as outside the current working directory, you can use the list_files tool. If you pass 'true' for the recursive parameter, it will list files recursively. Otherwise, it will list files at the top level, which is better suited for generic directories where you don't necessarily need the nested structure, like the Desktop.
 - You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
 - You can use the execute_command tool to run commands on the user's computer whenever you feel it can help accomplish the user's task. When you need to execute a CLI command, you must provide a clear explanation of what the command does. Prefer to execute complex CLI commands over creating executable scripts, since they are more flexible and easier to run. Interactive and long-running commands are allowed, since the commands are run in the user's VSCode terminal. The user may keep commands running in the background and you will be kept updated on their status along the way. Each command you execute is run in a new terminal instance.
+- To search for files, use execute_command to run a command like `find . -name '*.rs' | grep -i 'pattern'`
 
 ====
 
@@ -1534,7 +1536,7 @@ impl ToolUseGenerator {
                         let _ = self
                             .sender
                             .send(ToolBlockEvent::ToolFound(ToolType::SemanticSearch));
-                    } else if answer_line_at_index == "<search_files>" {
+                    } else if answer_line_at_index == "<grep_string>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SearchFileContentWithRegex);
                         let _ = self.sender.send(ToolBlockEvent::ToolFound(
@@ -1773,7 +1775,7 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::ResultFound;
                     } else if answer_line_at_index == "<fs_file_paths>" {
                         self.tool_block_status = ToolBlockStatus::FilePathsFound;
-                    } else if answer_line_at_index == "</search_files>" {
+                    } else if answer_line_at_index == "</grep_string>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         match (
                             self.directory_path.clone(),
@@ -2222,7 +2224,7 @@ if __name__ == "__main__":
 I need to first locate and read the Tool trait definition. Based on the context, it's likely in one of the Rust source files. Let me search for it.
 </thinking>
 
-<search_files>
+<grep_string>
 <directory_path>
 /Users/skcd/test_repo/sidecar
 </directory_path>
@@ -2232,7 +2234,7 @@ trait\s+Tool\s*\{
 <file_pattern>
 *.rs
 </file_pattern>
-</search_files>"#;
+</grep_string>"#;
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let mut tool_use_generator = ToolUseGenerator::new(sender);
         tool_use_generator.add_delta(&input);
@@ -2248,11 +2250,11 @@ trait\s+Tool\s*\{
 I need to first locate and read the Tool trait definition. Based on the context, it's likely in one of the Rust source files. Let me search for it.
 </thinking>
 
-<search_files>
+<grep_string>
 <directory_path>/Users/skcd/test_repo/sidecar</directory_path>
 <regex_pattern>trait\s+Tool\s*\{</regex_pattern>
 <file_pattern>*.rs</file_pattern>
-</search_files>"#;
+</grep_string>"#;
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let mut tool_use_generator = ToolUseGenerator::new(sender);
         tool_use_generator.add_delta(&input);
