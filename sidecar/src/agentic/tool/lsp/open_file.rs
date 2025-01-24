@@ -349,10 +349,18 @@ impl Tool for LSPOpenFile {
     fn tool_description(&self) -> String {
         format!(
             r#"### read_file
-Request to read the contents of a file at the specified path.
-Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
+Request to read the contents of a file at the specified path, optionally within a line range.
+Use this when you need to examine specific portions of an existing file, for example to analyze code sections, review specific parts of text files, or extract information from configuration files.
 This always takes ABSOLUTE paths as input.
-May not be suitable for other types of binary files, as it returns the raw content as a string."#
+May not be suitable for other types of binary files, as it returns the raw content as a string.
+
+Parameters:
+- path: The absolute path to the file to read (required)
+- start_line: The starting line number to read from (optional, 1-based indexing)
+- end_line: The ending line number to read to, inclusive (optional, 1-based indexing)
+
+If start_line and end_line are not specified, reads the entire file.
+Line numbers use 1-based indexing."#
         )
     }
 
@@ -360,12 +368,20 @@ May not be suitable for other types of binary files, as it returns the raw conte
         format!(
             r#"Parameters:
 - fs_file_path: (required) The ABSOLUTE path of the file to read.
+- start_line: (optional) The starting line number (1-based indexing).
+- end_line: (optional) The ending line number (1-based indexing, inclusive).
 
 Usage:
 <read_file>
 <fs_file_path>
 File path here
 </fs_file_path>
+<start_line>
+1
+</start_line>
+<end_line>
+100
+</end_line>
 </read_file>"#
         )
     }
