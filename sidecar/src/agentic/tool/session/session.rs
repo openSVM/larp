@@ -2561,7 +2561,6 @@ impl Session {
                 );
             }
             ToolInputPartial::OpenFile(open_file) => {
-                println!("open file: {:?}", open_file);
                 let open_file_path = open_file.fs_file_path().to_owned();
                 let request = OpenFileRequest::new(
                     open_file_path,
