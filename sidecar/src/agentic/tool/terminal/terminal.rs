@@ -144,10 +144,10 @@ impl Tool for TerminalTool {
     fn tool_description(&self) -> String {
         format!(
             r#"### execute_command
-Request to execute a CLI command on the system.
+Request to execute a shell or CLI command on the system.
 Use this when you need to perform system operations or run specific commands to accomplish any step in the user's task.
 You must tailor your command to the user's system and provide a clear explanation of what the command does.
-Prefer to execute complex CLI commands over creating executable scripts, as they are more flexible and easier to run.
+Prefer to execute complex shell commands over creating executable scripts, as they are more flexible and easier to run.
 Commands will be executed in the current working directory.
 
 For long-running commands like servers (e.g., 'npm run dev', 'python -m http.server'), set wait_for_exit to false.
@@ -160,7 +160,7 @@ Note: You MUST append a `sleep 0.05` to the end of the command for commands that
     fn tool_input_format(&self) -> String {
         format!(
             r#"Parameters:
-- command: (required) The CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
+- command: (required) The shell or CLI command to execute. This should be valid for the current operating system. Ensure the command is properly formatted and does not contain any harmful instructions.
 - wait_for_exit: (optional) Set to false for long-running commands like servers that shouldn't block execution. Defaults to true.
 
 Usage:

@@ -100,7 +100,11 @@ impl SearchResult {
                     .chain(result.after_context.iter());
 
                 for line in all_lines {
-                    output.push_str(&format!("│{}\n", line.trim_end()));
+                    // truncate the string which we are passing to the output, so we do not blow up
+                    // the context window
+                    let mut output_string = format!("│{}\n", line.trim_end());
+                    output_string.truncate(400);
+                    output.push_str(&output_string);
                 }
 
                 if index < file_results.len() - 1 {
@@ -160,7 +164,7 @@ impl SearchFileContentInputPartial {
 
     pub fn to_string(&self) -> String {
         format!(
-            r#"<search_files>
+            r#"<grep_string>
 <directory_path>
 {}
 </directory_path>
@@ -170,7 +174,7 @@ impl SearchFileContentInputPartial {
 <file_pattern>
 {}
 </file_pattern>
-</search_files>"#,
+</grep_string>"#,
             self.directory_path,
             self.regex_pattern,
             self.file_pattern
@@ -181,7 +185,7 @@ impl SearchFileContentInputPartial {
 
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
-            "name": "search_files",
+            "name": "grep_string",
             "description": "Request to perform a regex search across files in a specified directory, providing context-rich results.\nThis tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.",
             "input_schema": {
                 "type": "object",
@@ -383,9 +387,10 @@ impl Tool for SearchFileContentClient {
 
     fn tool_description(&self) -> String {
         format!(
-            r#"### search_files
-Request to perform a regex search across files in a specified directory, providing context-rich results.
-This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context."#
+            r#"### grep_string
+Fast text-based search that finds exact pattern matches within files or directories, utilizing the ripgrep command for efficient searching.
+Results will be formatted in the style of ripgrep and can be configured to include line numbers and content.
+To avoid overwhelming output, the results are capped at 50 matches."#
         )
     }
 
@@ -393,11 +398,11 @@ This tool searches for patterns or specific content across multiple files, displ
         format!(
             r#"Parameters:
 - directory_path: (required) The absolute path of the directory to search in. This directory will be recursively searched.
-- regex_pattern: (required) The regular expression pattern to search for. Uses Rust regex syntax.
+- regex_pattern: (required) The regular expression pattern to search for in the file content. Uses Rust regex syntax.
 - file_pattern: (optional) Glob pattern to filter files (e.g., '*.ts' for TypeScript files). If not provided, it will search all files (*).
 
 Usage:
-<search_files>
+<grep_string>
 <directory_path>
 Directory path here
 </directory_path>
@@ -407,7 +412,7 @@ Your regex pattern here
 <file_pattern>
 file pattern here (optional)
 </file_pattern>
-</search_files>"#
+</grep_string>"#
         )
     }
 
