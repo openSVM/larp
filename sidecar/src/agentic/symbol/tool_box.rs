@@ -5927,7 +5927,7 @@ FILEPATH: {fs_file_path}
         let input = ToolInput::TerminalCommand(TerminalInput::new(
             command.to_owned(),
             message_properties.editor_url().to_owned(),
-            wait_for_exit.to_owned()
+            wait_for_exit.to_owned(),
         ));
         self.tools
             .invoke(input)
@@ -6569,6 +6569,8 @@ FILEPATH: {fs_file_path}
         let request = ToolInput::OpenFile(OpenFileRequest::new(
             fs_file_path.to_owned(),
             message_properties.editor_url().to_owned(),
+            None,
+            None,
         ));
         let _ = message_properties
             .ui_sender()
