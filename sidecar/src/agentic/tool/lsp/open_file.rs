@@ -302,15 +302,15 @@ impl Tool for LSPOpenFile {
         let response = self
             .client
             .post(editor_endpoint)
-            .body(serde_json::to_string(&context).map_err(|e| ToolError::SerdeConversionFailed)?)
+            .body(serde_json::to_string(&context).map_err(|_e| ToolError::SerdeConversionFailed)?)
             .send()
             .await
-            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
+            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
 
         let response: OpenFileResponse = response
             .json()
             .await
-            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
+            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
 
         Ok(ToolOutput::FileOpen(response))
     }
