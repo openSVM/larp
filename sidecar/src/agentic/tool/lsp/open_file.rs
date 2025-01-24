@@ -30,6 +30,14 @@ impl OpenFileRequestPartial {
         &self.fs_file_path
     }
 
+    pub fn start_line(&self) -> Option<usize> {
+        self.start_line
+    }
+
+    pub fn end_line(&self) -> Option<usize> {
+        self.end_line
+    }
+
     pub fn to_string(&self) -> String {
         let range_str = match (self.start_line, self.end_line) {
             (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
@@ -356,8 +364,8 @@ May not be suitable for other types of binary files, as it returns the raw conte
 
 Parameters:
 - path: The absolute path to the file to read (required)
-- start_line: The starting line number to read from (optional, 1-based indexing)
-- end_line: The ending line number to read to, inclusive (optional, 1-based indexing)
+- start_line: The starting line number to read from (required, 1-based indexing)
+- end_line: The ending line number to read to, inclusive (required, 1-based indexing)
 
 If start_line and end_line are not specified, reads the entire file.
 Line numbers use 1-based indexing."#
@@ -368,8 +376,8 @@ Line numbers use 1-based indexing."#
         format!(
             r#"Parameters:
 - fs_file_path: (required) The ABSOLUTE path of the file to read.
-- start_line: (optional) The starting line number (1-based indexing).
-- end_line: (optional) The ending line number (1-based indexing, inclusive).
+- start_line: (required) The starting line number (1-based indexing).
+- end_line: (required) The ending line number (1-based indexing, inclusive).
 
 Usage:
 <read_file>
