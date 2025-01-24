@@ -675,6 +675,12 @@ I want to read the content of bin/main.rs
 <fs_file_path>
 bin/main.rs
 </fs_file_path>
+<start_line>
+1
+</start_line>
+<end_line>
+250
+</end_line>
 </read_file>
 
 Always adhere to this format for the tool use to ensure proper parsing and execution from the tool use.
@@ -814,6 +820,12 @@ As an example:
 <fs_file_path>
 bin/main.rs
 </fs_file_path>
+<start_line>
+1
+</start_line>
+<end_line>
+250
+</end_line>
 </read_file>
 
 Another example:
@@ -1443,10 +1455,10 @@ struct ToolUseGenerator {
     question: Option<String>,
     result: Option<String>,
     wait_for_exit: Option<bool>,
-    tool_input_partial: Option<ToolInputPartial>,
-    sender: tokio::sync::mpsc::UnboundedSender<ToolBlockEvent>,
     start_line: Option<usize>,
     end_line: Option<usize>,
+    tool_input_partial: Option<ToolInputPartial>,
+    sender: tokio::sync::mpsc::UnboundedSender<ToolBlockEvent>,
 }
 
 impl ToolUseGenerator {
@@ -1468,10 +1480,10 @@ impl ToolUseGenerator {
             question: None,
             result: None,
             wait_for_exit: None,
-            tool_input_partial: None,
-            sender,
             start_line: None,
             end_line: None,
+            tool_input_partial: None,
+            sender,
         }
     }
 
@@ -1760,6 +1772,45 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
+                    } else if answer_line_at_index.starts_with("<start_line>")
+                        && answer_line_at_index.ends_with("</start_line>")
+                    {
+                        if let Some(prefix_removed) =
+                            answer_line_at_index.strip_prefix("<start_line>")
+                        {
+                            if let Some(suffix_removed) =
+                                prefix_removed.strip_suffix("</start_line>")
+                            {
+                                let parsed = suffix_removed.parse::<usize>().ok();
+                                self.start_line = parsed;
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters::new(
+                                        "start_line".to_owned(),
+                                        suffix_removed.to_owned(),
+                                        suffix_removed.to_owned(),
+                                    ),
+                                ));
+                            }
+                        }
+                    } else if answer_line_at_index.starts_with("<end_line>")
+                        && answer_line_at_index.ends_with("</end_line>")
+                    {
+                        if let Some(prefix_removed) =
+                            answer_line_at_index.strip_prefix("<end_line>")
+                        {
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</end_line>")
+                            {
+                                let parsed = suffix_removed.parse::<usize>().ok();
+                                self.end_line = parsed;
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters::new(
+                                        "end_line".to_owned(),
+                                        suffix_removed.to_owned(),
+                                        suffix_removed.to_owned(),
+                                    ),
+                                ));
+                            }
+                        }
                     } else if answer_line_at_index == "<fs_file_path>" {
                         self.tool_block_status = ToolBlockStatus::FilePathFound;
                     } else if answer_line_at_index == "<instruction>" {
@@ -1837,28 +1888,24 @@ impl ToolUseGenerator {
                         }
                         self.tool_type_possible = None;
                     } else if answer_line_at_index == "</read_file>" {
+                        // The big one: read_file
                         self.tool_block_status = ToolBlockStatus::NoBlock;
-                        match self.fs_file_path.clone() {
-                            Some(fs_file_path) => {
-                                println!(
-                                    "Creating OpenFileRequestPartial for path: {}",
-                                    &fs_file_path
-                                );
-                                // Parse line ranges from the input if they exist
-                                let start_line = self.start_line;
-                                let end_line = self.end_line;
-                                println!(
-                                    "Line range specified: start={:?}, end={:?}",
-                                    start_line, end_line
-                                );
-                                self.tool_input_partial = Some(ToolInputPartial::OpenFile(
-                                    OpenFileRequestPartial::new(fs_file_path, start_line, end_line),
-                                ));
-                                let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
-                            }
-                            _ => {}
+                        if let Some(fs_file_path) = self.fs_file_path.clone() {
+                            let start_line = self.start_line;
+                            let end_line = self.end_line;
+                            let request =
+                                OpenFileRequestPartial::new(fs_file_path, start_line, end_line);
+                            self.tool_input_partial = Some(ToolInputPartial::OpenFile(request));
+                            let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
+                        } else {
+                            println!("Warning: fs_file_path was None, skipping OpenFile request creation");
                         }
+
+                        // Reset any temporary state so it doesn't leak across tool calls
                         self.tool_type_possible = None;
+                        self.fs_file_path = None;
+                        self.start_line = None;
+                        self.end_line = None;
                     } else if answer_line_at_index == "</get_diagnostics>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         self.tool_input_partial = Some(ToolInputPartial::LSPDiagnostics(
@@ -1962,47 +2009,6 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::StartLineFound;
                     } else if answer_line_at_index == "<end_line>" {
                         self.tool_block_status = ToolBlockStatus::EndLineFound;
-                    } else if answer_line_at_index.starts_with("<start_line>")
-                        && answer_line_at_index.ends_with("</start_line>")
-                    {
-                        if let Some(prefix_removed) =
-                            answer_line_at_index.strip_prefix("<start_line>")
-                        {
-                            if let Some(suffix_removed) =
-                                prefix_removed.strip_suffix("</start_line>")
-                            {
-                                if let Ok(line_num) = suffix_removed.parse::<usize>() {
-                                    self.start_line = Some(line_num);
-                                    let _ = self.sender.send(ToolBlockEvent::ToolParameters(
-                                        ToolParameters {
-                                            field_name: "start_line".to_owned(),
-                                            field_content_up_until_now: suffix_removed.to_owned(),
-                                            field_content_delta: suffix_removed.to_owned(),
-                                        },
-                                    ));
-                                }
-                            }
-                        }
-                    } else if answer_line_at_index.starts_with("<end_line>")
-                        && answer_line_at_index.ends_with("</end_line>")
-                    {
-                        if let Some(prefix_removed) =
-                            answer_line_at_index.strip_prefix("<end_line>")
-                        {
-                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</end_line>")
-                            {
-                                if let Ok(line_num) = suffix_removed.parse::<usize>() {
-                                    self.end_line = Some(line_num);
-                                    let _ = self.sender.send(ToolBlockEvent::ToolParameters(
-                                        ToolParameters {
-                                            field_name: "end_line".to_owned(),
-                                            field_content_up_until_now: suffix_removed.to_owned(),
-                                            field_content_delta: suffix_removed.to_owned(),
-                                        },
-                                    ));
-                                }
-                            }
-                        }
                     }
                 }
                 ToolBlockStatus::FilePathFound => {
@@ -2233,29 +2239,31 @@ impl ToolUseGenerator {
                 ToolBlockStatus::StartLineFound => {
                     if answer_line_at_index == "</start_line>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
-                    } else if let Ok(line_num) = answer_line_at_index.parse::<usize>() {
-                        self.start_line = Some(line_num);
-                        let _ = self
-                            .sender
-                            .send(ToolBlockEvent::ToolParameters(ToolParameters {
-                                field_name: "start_line".to_owned(),
-                                field_content_up_until_now: answer_line_at_index.to_owned(),
-                                field_content_delta: answer_line_at_index.to_owned(),
-                            }));
+                    } else {
+                        let parsed = answer_line_at_index.parse::<usize>().ok();
+                        self.start_line = parsed;
+                        let _ =
+                            self.sender
+                                .send(ToolBlockEvent::ToolParameters(ToolParameters::new(
+                                    "start_line".to_owned(),
+                                    answer_line_at_index.to_owned(),
+                                    answer_line_at_index.to_owned(),
+                                )));
                     }
                 }
                 ToolBlockStatus::EndLineFound => {
                     if answer_line_at_index == "</end_line>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
-                    } else if let Ok(line_num) = answer_line_at_index.parse::<usize>() {
-                        self.end_line = Some(line_num);
-                        let _ = self
-                            .sender
-                            .send(ToolBlockEvent::ToolParameters(ToolParameters {
-                                field_name: "end_line".to_owned(),
-                                field_content_up_until_now: answer_line_at_index.to_owned(),
-                                field_content_delta: answer_line_at_index.to_owned(),
-                            }));
+                    } else {
+                        let parsed = answer_line_at_index.parse::<usize>().ok();
+                        self.end_line = parsed;
+                        let _ =
+                            self.sender
+                                .send(ToolBlockEvent::ToolParameters(ToolParameters::new(
+                                    "end_line".to_owned(),
+                                    answer_line_at_index.to_owned(),
+                                    answer_line_at_index.to_owned(),
+                                )));
                     }
                 }
             }
