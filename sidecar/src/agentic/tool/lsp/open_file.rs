@@ -138,13 +138,9 @@ impl OpenFileResponse {
         let fs_file_path = &self.fs_file_path;
         let content = &self.file_contents;
         let language = &self.language;
-        let range_info = match (self.start_line, self.end_line) {
-            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
-            _ => String::new(),
-        };
         format!(
             r#"<fs_file_path>
-{fs_file_path}{range_info}
+{fs_file_path}
 </fs_file_path>
 <content>
 ```{language}
