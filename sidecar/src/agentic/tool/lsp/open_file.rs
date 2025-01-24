@@ -13,11 +13,17 @@ use gix::bstr::ByteSlice;
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct OpenFileRequestPartial {
     fs_file_path: String,
+    start_line: Option<usize>,
+    end_line: Option<usize>,
 }
 
 impl OpenFileRequestPartial {
-    pub fn new(fs_file_path: String) -> Self {
-        Self { fs_file_path }
+    pub fn new(fs_file_path: String, start_line: Option<usize>, end_line: Option<usize>) -> Self {
+        Self {
+            fs_file_path,
+            start_line,
+            end_line,
+        }
     }
 
     pub fn fs_file_path(&self) -> &str {
@@ -25,10 +31,14 @@ impl OpenFileRequestPartial {
     }
 
     pub fn to_string(&self) -> String {
+        let range_str = match (self.start_line, self.end_line) {
+            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
+            _ => String::new(),
+        };
         format!(
             r#"<read_file>
 <fs_file_path>
-{}
+{}{range_str}
 </fs_file_path>
 </read_file>"#,
             &self.fs_file_path
@@ -38,8 +48,8 @@ impl OpenFileRequestPartial {
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
             "name": "read_file",
-            "description": r#"Request to read the full contents of a file at the specified path.
-Use this when you need to examine the full content of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
+            "description": r#"Request to read the contents of a file at the specified path, optionally within a line range.
+Use this when you need to examine the content of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
 May not be suitable for other types of binary files, as it returns the raw content as a string"#,
             "input_schema": {
                 "type": "object",
@@ -47,6 +57,14 @@ May not be suitable for other types of binary files, as it returns the raw conte
                     "fs_file_path": {
                         "type": "string",
                         "description": "(required) The relative path of the file to read.",
+                    },
+                    "start_line": {
+                        "type": "integer",
+                        "description": "(optional) The starting line number (1-based indexing)",
+                    },
+                    "end_line": {
+                        "type": "integer",
+                        "description": "(optional) The ending line number (1-based indexing)",
                     },
                 },
                 "required": ["fs_file_path"],
@@ -59,13 +77,22 @@ May not be suitable for other types of binary files, as it returns the raw conte
 pub struct OpenFileRequest {
     fs_file_path: String,
     editor_url: String,
+    start_line: Option<usize>,
+    end_line: Option<usize>,
 }
 
 impl OpenFileRequest {
-    pub fn new(fs_file_path: String, editor_url: String) -> Self {
+    pub fn new(
+        fs_file_path: String,
+        editor_url: String,
+        start_line: Option<usize>,
+        end_line: Option<usize>,
+    ) -> Self {
         Self {
             fs_file_path,
             editor_url,
+            start_line,
+            end_line,
         }
     }
 }
@@ -75,8 +102,9 @@ pub struct OpenFileResponse {
     fs_file_path: String,
     file_contents: String,
     exists: bool,
-    // TODO(skcd): This might break
     language: String,
+    start_line: Option<usize>,
+    end_line: Option<usize>,
 }
 
 impl OpenFileResponse {
@@ -84,9 +112,13 @@ impl OpenFileResponse {
         let fs_file_path = &self.fs_file_path;
         let content = &self.file_contents;
         let language = &self.language;
+        let range_info = match (self.start_line, self.end_line) {
+            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
+            _ => String::new(),
+        };
         format!(
             r#"<fs_file_path>
-{fs_file_path}
+{fs_file_path}{range_info}
 </fs_file_path>
 <content>
 ```{language}
@@ -98,20 +130,26 @@ impl OpenFileResponse {
     pub fn to_content(&self) -> String {
         self.file_contents.to_owned()
     }
-}
 
-impl OpenFileResponse {
     pub fn new(
         fs_file_path: String,
         file_contents: String,
         exists: bool,
         language: String,
+        start_line: Option<usize>,
+        end_line: Option<usize>,
     ) -> Self {
+        println!(
+            "Creating OpenFileResponse with line range: {:?}-{:?}",
+            start_line, end_line
+        );
         Self {
             fs_file_path,
             file_contents,
             exists,
             language,
+            start_line,
+            end_line,
         }
     }
 
@@ -192,6 +230,52 @@ impl OpenFileResponse {
             Position::new(file_content_len, 0, 0),
         )
     }
+
+    // Helper method to extract content within line range
+    pub fn extract_line_range(
+        content: &str,
+        start_line: Option<usize>,
+        end_line: Option<usize>,
+    ) -> String {
+        println!(
+            "Extracting content for line range: {:?}-{:?}",
+            start_line, end_line
+        );
+
+        match (start_line, end_line) {
+            (Some(start), Some(end)) => {
+                let lines: Vec<&str> = content.lines().collect();
+                let total_lines = lines.len();
+                println!("Total lines in file: {}", total_lines);
+
+                if start == 0 || end == 0 {
+                    println!("Warning: Line numbers are 1-based, received 0");
+                    return content.to_string();
+                }
+
+                let start_idx = start.saturating_sub(1);
+                let end_idx = end.min(total_lines);
+
+                if start_idx >= total_lines {
+                    println!(
+                        "Warning: Start line {} exceeds file length {}",
+                        start, total_lines
+                    );
+                    return String::new();
+                }
+
+                println!(
+                    "Extracting lines {}-{} (indices {}-{})",
+                    start, end, start_idx, end_idx
+                );
+                lines[start_idx..end_idx].join("\n")
+            }
+            _ => {
+                println!("No line range specified, returning full content");
+                content.to_string()
+            }
+        }
+    }
 }
 
 pub struct LSPOpenFile {
@@ -209,21 +293,56 @@ impl LSPOpenFile {
 #[async_trait]
 impl Tool for LSPOpenFile {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
-        // we want to create a new file open request over here
         let context = input.is_file_open()?;
+        println!(
+            "LSPOpenFile::invoke - Processing request for file: {}",
+            context.fs_file_path
+        );
+
         // now we send it over to the editor
         let editor_endpoint = context.editor_url.to_owned() + "/file_open";
+        println!(
+            "LSPOpenFile::invoke - Sending request to editor at: {}",
+            editor_endpoint
+        );
+
         let response = self
             .client
             .post(editor_endpoint)
-            .body(serde_json::to_string(&context).map_err(|_e| ToolError::SerdeConversionFailed)?)
+            .body(serde_json::to_string(&context).map_err(|e| {
+                println!("LSPOpenFile::invoke - Serialization error: {:?}", e);
+                ToolError::SerdeConversionFailed
+            })?)
             .send()
             .await
-            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
-        let response: OpenFileResponse = response
-            .json()
-            .await
-            .map_err(|_e| ToolError::ErrorCommunicatingWithEditor)?;
+            .map_err(|e| {
+                println!("LSPOpenFile::invoke - Editor communication error: {:?}", e);
+                ToolError::ErrorCommunicatingWithEditor
+            })?;
+
+        println!("LSPOpenFile::invoke - Received response from editor");
+
+        let mut response: OpenFileResponse = response.json().await.map_err(|e| {
+            println!("LSPOpenFile::invoke - Response parsing error: {:?}", e);
+            ToolError::ErrorCommunicatingWithEditor
+        })?;
+
+        // Apply line range filtering if specified
+        if response.exists {
+            let filtered_content = OpenFileResponse::extract_line_range(
+                &response.file_contents,
+                context.start_line,
+                context.end_line,
+            );
+            response.file_contents = filtered_content;
+            response.start_line = context.start_line;
+            response.end_line = context.end_line;
+        }
+
+        println!(
+            "LSPOpenFile::invoke - Successfully processed file with {} characters",
+            response.file_contents.len()
+        );
         Ok(ToolOutput::FileOpen(response))
     }
 

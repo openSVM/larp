@@ -160,7 +160,7 @@ impl SearchFileContentInputPartial {
 
     pub fn to_string(&self) -> String {
         format!(
-            r#"<search_files>
+            r#"<regex_search>
 <directory_path>
 {}
 </directory_path>
@@ -170,7 +170,7 @@ impl SearchFileContentInputPartial {
 <file_pattern>
 {}
 </file_pattern>
-</search_files>"#,
+</regex_search>"#,
             self.directory_path,
             self.regex_pattern,
             self.file_pattern
@@ -181,7 +181,7 @@ impl SearchFileContentInputPartial {
 
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
-            "name": "search_files",
+            "name": "regex_search",
             "description": "Request to perform a regex search across files in a specified directory, providing context-rich results.\nThis tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context.",
             "input_schema": {
                 "type": "object",
@@ -278,10 +278,13 @@ impl Tool for SearchFileContentClient {
 
         // only add the glob pattern if we get any from the LLM
         if let Some(ref file_pattern) = file_pattern.as_ref() {
-            args = args.into_iter().chain(vec!["--glob", file_pattern].into_iter()).collect::<Vec<_>>();
+            args = args
+                .into_iter()
+                .chain(vec!["--glob", file_pattern].into_iter())
+                .collect::<Vec<_>>();
         }
 
-        println!("search_files::args::({:?})", args);
+        println!("regex_search::args::({:?})", args);
 
         let mut child = Command::new(binary_path)
             .args(&args)
@@ -383,9 +386,10 @@ impl Tool for SearchFileContentClient {
 
     fn tool_description(&self) -> String {
         format!(
-            r#"### search_files
-Request to perform a regex search across files in a specified directory, providing context-rich results.
-This tool searches for patterns or specific content across multiple files, displaying each match with encapsulating context."#
+            r#"### regex_search
+DO NOT USE THIS TO SEARCH FOR FILES, USE execute_command TO RUN A COMMAND LIKE \`find . -name '*.rs' | grep -i 'pattern'\`
+Request to perform a regex search`
+"#
         )
     }
 
@@ -397,7 +401,7 @@ This tool searches for patterns or specific content across multiple files, displ
 - file_pattern: (optional) Glob pattern to filter files (e.g., '*.ts' for TypeScript files). If not provided, it will search all files (*).
 
 Usage:
-<search_files>
+<regex_search>
 <directory_path>
 Directory path here
 </directory_path>
@@ -407,7 +411,7 @@ Your regex pattern here
 <file_pattern>
 file pattern here (optional)
 </file_pattern>
-</search_files>"#
+</regex_search>"#
         )
     }
 
