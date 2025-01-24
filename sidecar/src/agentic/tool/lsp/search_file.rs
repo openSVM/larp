@@ -265,23 +265,21 @@ impl Tool for SearchFileContentClient {
 
         let binary_path = response.rip_grep_path;
         let regex_pattern = &context.regex_pattern;
-        let file_pattern = &context.file_pattern.unwrap_or("*".to_owned());
-        let args = vec![
+        let file_pattern = context.file_pattern.clone();
+        let mut args = vec![
             "--json",
             // enables lookaround
             "--pcre2",
             "-e",
             regex_pattern,
-            "--glob",
-            file_pattern,
             "--context",
             "1",
-            // do not enable multiline over here, from the docs:
-            // https://gist.github.com/theskcd/a6369001b3ea3c0212bbc88d8a74211f from
-            // rg --help | grep multiline
-            // "--multiline",
-            &context.directory_path,
         ];
+
+        // only add the glob pattern if we get any from the LLM
+        if let Some(ref file_pattern) = file_pattern.as_ref() {
+            args = args.into_iter().chain(vec!["--glob", file_pattern].into_iter()).collect::<Vec<_>>();
+        }
 
         println!("search_files::args::({:?})", args);
 
