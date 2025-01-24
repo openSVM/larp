@@ -121,6 +121,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
     eprintln!("run_id::{}", &args.run_id);
 
+    // Ensure OpenAI API key is present early
+    let _openai_key =
+        std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY environment variable must be set");
+
     let mut configuration = Configuration::default();
     // we apply the edits directly over here
     configuration.apply_directly = true;
