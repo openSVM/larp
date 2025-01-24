@@ -6,6 +6,7 @@ use super::types::json as json_result;
 use axum::response::{sse, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
+use tracing::error;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
     CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
@@ -1046,21 +1047,47 @@ pub async fn agent_session_chat(
 
     let session_service = app.session_service.clone();
     let cloned_session_id = session_id.to_string();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .human_message(
-                cloned_session_id,
-                session_storage_path,
-                exchange_id,
-                query,
-                user_context,
-                project_labels,
-                repo_ref,
-                agent_mode,
-                aide_rules,
-                message_properties,
-            )
+
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .human_message(
+                        cloned_session_id,
+                        session_storage_path,
+                        exchange_id,
+                        query,
+                        user_context,
+                        project_labels,
+                        repo_ref,
+                        agent_mode,
+                        aide_rules,
+                        message_properties.clone(),
+                    )
+                    .await
+            })
             .await;
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_chat: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     // TODO(skcd): Over here depending on the exchange reply mode we want to send over the
