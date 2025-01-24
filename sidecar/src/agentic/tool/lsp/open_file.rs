@@ -39,24 +39,42 @@ impl OpenFileRequestPartial {
     }
 
     pub fn to_string(&self) -> String {
-        let range_str = match (self.start_line, self.end_line) {
-            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
-            _ => String::new(),
-        };
-        format!(
+        let mut output = format!(
             r#"<read_file>
 <fs_file_path>
-{}{range_str}
-</fs_file_path>
-</read_file>"#,
+{}
+</fs_file_path>"#,
             &self.fs_file_path
-        )
+        );
+
+        if let Some(start) = self.start_line {
+            output.push_str(&format!(
+                r#"
+<start_line>
+{}
+</start_line>"#,
+                start
+            ));
+        }
+
+        if let Some(end) = self.end_line {
+            output.push_str(&format!(
+                r#"
+<end_line>
+{}
+</end_line>"#,
+                end
+            ));
+        }
+
+        output.push_str("\n</read_file>");
+        output
     }
 
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
             "name": "read_file",
-            "description": r#"Request to read the contents of a file at the specified path, optionally within a line range.
+            "description": r#"Request to read the contents of a file at the specified path.
 Use this when you need to examine the content of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
 May not be suitable for other types of binary files, as it returns the raw content as a string"#,
             "input_schema": {
@@ -302,17 +320,9 @@ impl LSPOpenFile {
 impl Tool for LSPOpenFile {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.is_file_open()?;
-        println!(
-            "LSPOpenFile::invoke - Processing request for file: {}",
-            context.fs_file_path
-        );
 
         // now we send it over to the editor
         let editor_endpoint = context.editor_url.to_owned() + "/file_open";
-        println!(
-            "LSPOpenFile::invoke - Sending request to editor at: {}",
-            editor_endpoint
-        );
 
         let response = self
             .client
@@ -330,27 +340,11 @@ impl Tool for LSPOpenFile {
 
         println!("LSPOpenFile::invoke - Received response from editor");
 
-        let mut response: OpenFileResponse = response.json().await.map_err(|e| {
+        let response: OpenFileResponse = response.json().await.map_err(|e| {
             println!("LSPOpenFile::invoke - Response parsing error: {:?}", e);
             ToolError::ErrorCommunicatingWithEditor
         })?;
 
-        // Apply line range filtering if specified
-        if response.exists {
-            let filtered_content = OpenFileResponse::extract_line_range(
-                &response.file_contents,
-                context.start_line,
-                context.end_line,
-            );
-            response.file_contents = filtered_content;
-            response.start_line = context.start_line;
-            response.end_line = context.end_line;
-        }
-
-        println!(
-            "LSPOpenFile::invoke - Successfully processed file with {} characters",
-            response.file_contents.len()
-        );
         Ok(ToolOutput::FileOpen(response))
     }
 

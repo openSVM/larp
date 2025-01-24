@@ -1895,6 +1895,7 @@ impl ToolUseGenerator {
                             let end_line = self.end_line;
                             let request =
                                 OpenFileRequestPartial::new(fs_file_path, start_line, end_line);
+                            println!("read_file request: {:?}", request);
                             self.tool_input_partial = Some(ToolInputPartial::OpenFile(request));
                             let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                         } else {
@@ -2006,8 +2007,10 @@ impl ToolUseGenerator {
                             _ => {}
                         }
                     } else if answer_line_at_index == "<start_line>" {
+                        println!("toolfound::start_line found: {:?}", answer_line_at_index);
                         self.tool_block_status = ToolBlockStatus::StartLineFound;
                     } else if answer_line_at_index == "<end_line>" {
+                        println!("toolfound::end_line found: {:?}", answer_line_at_index);
                         self.tool_block_status = ToolBlockStatus::EndLineFound;
                     }
                 }
@@ -2241,6 +2244,7 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                     } else {
                         let parsed = answer_line_at_index.parse::<usize>().ok();
+                        println!("parsed: {:?}", parsed);
                         self.start_line = parsed;
                         let _ =
                             self.sender
