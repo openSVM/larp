@@ -138,15 +138,44 @@ impl OpenFileResponse {
         let fs_file_path = &self.fs_file_path;
         let content = &self.file_contents;
         let language = &self.language;
-        format!(
-            r#"<fs_file_path>
-{fs_file_path}
-</fs_file_path>
+        let mut output = format!(
+            r#"<read_file>
+<fs_file_path>
+{}
+</fs_file_path>"#,
+            fs_file_path
+        );
+
+        if let Some(start) = self.start_line {
+            output.push_str(&format!(
+                r#"
+<start_line>
+{}
+</start_line>"#,
+                start
+            ));
+        }
+
+        if let Some(end) = self.end_line {
+            output.push_str(&format!(
+                r#"
+<end_line>
+{}
+</end_line>"#,
+                end
+            ));
+        }
+
+        output.push_str(&format!(
+            r#"
 <content>
 ```{language}
 {content}
 </content>"#
-        )
+        ));
+
+        output.push_str("\n</read_file>");
+        output
     }
 
     pub fn to_content(&self) -> String {
