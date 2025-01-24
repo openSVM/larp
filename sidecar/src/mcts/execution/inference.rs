@@ -616,8 +616,8 @@ Always include the <thinking></thinking> section before using the tool."#
                 let request = OpenFileRequest::new(
                     open_file_path.to_owned(),
                     message_properties.editor_url(),
-                    None, // debt
-                    None,
+                    open_file.start_line(),
+                    open_file.end_line(),
                 );
                 let input = ToolInput::OpenFile(request);
                 let response = tool_box
