@@ -86,7 +86,12 @@ jobs:
 
     - name: Build binary
       shell: bash
-      run: $BUILD_CMD build --locked --release --target=${{ matrix.job.target }} --bin webserver
+      run: |
+        FEATURES=""
+        if [[ "${{ matrix.job.target }}" != "aarch64-pc-windows-msvc" ]]; then
+          FEATURES="--features image_compression"
+        fi
+        $BUILD_CMD build --locked --release --target=${{ matrix.job.target }} --bin webserver $FEATURES
 
     - name: Set binary name & path
       id: bin

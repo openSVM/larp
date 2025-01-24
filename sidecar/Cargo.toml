@@ -8,10 +8,11 @@ build = "build.rs"
 
 [features]
 ee = []
+image_compression = ["libcaesium", "image"]
 
 [dependencies]
-libcaesium = { version = "0.17.1", default-features = false, features = ["jpg", "png"] }
-image = { version = "0.25.1", default-features = false }
+libcaesium = { version = "0.17.1", default-features = false, features = ["jpg", "png"], optional = true }
+image = { version = "0.25.1", default-features = false, optional = true }
 base64 = "0.21.5"
 async-trait = "0.1.77"
 ndarray = "0.15.6"

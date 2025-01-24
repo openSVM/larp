@@ -78,5 +78,5 @@
     "string": "cpp",
     "__availability": "cpp"
   },
-  "aide.deepReasoning": true
+  "rust-analyzer.cargo.features": "all"
 }
