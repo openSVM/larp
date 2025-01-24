@@ -5921,11 +5921,13 @@ FILEPATH: {fs_file_path}
     pub async fn use_terminal_command(
         &self,
         command: &str,
+        wait_for_exit: bool,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<TerminalOutput, SymbolError> {
         let input = ToolInput::TerminalCommand(TerminalInput::new(
             command.to_owned(),
             message_properties.editor_url().to_owned(),
+            wait_for_exit.to_owned()
         ));
         self.tools
             .invoke(input)

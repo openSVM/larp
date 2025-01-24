@@ -21,25 +21,23 @@ struct CliArgs {
 async fn main() {
     let args = CliArgs::parse();
     let regex_pattern = &args.regex_pattern;
-    let file_pattern = "*".to_owned();
+    // let file_pattern = "*".to_owned();
     let rg_args = vec![
         "--json",
         // enables lookaround
         "--pcre2",
         "-e",
         regex_pattern,
-        "--glob",
-        &file_pattern,
+        // "--glob",
+        // &file_pattern,
         "--context",
         "1",
         // do not enable multiline over here, from the docs:
         // https://gist.github.com/theskcd/a6369001b3ea3c0212bbc88d8a74211f from
         // rg --help | grep multiline
-        "--multiline",
-        &args.directory_path,
+        // "--multiline",
+        // &args.directory_path,
     ];
-
-    println!("search_files::args::({:?})", rg_args);
 
     let mut child = Command::new("rg")
         .args(&rg_args)
@@ -77,4 +75,8 @@ async fn main() {
     }
 
     println!("{:?}", &output);
+
+    // rip grep args
+
+    println!("search_files::args::({:?})", rg_args);
 }
