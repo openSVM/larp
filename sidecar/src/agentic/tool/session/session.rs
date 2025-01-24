@@ -2561,9 +2561,14 @@ impl Session {
                 );
             }
             ToolInputPartial::OpenFile(open_file) => {
-                println!("open file: {}", open_file.fs_file_path());
+                println!("open file: {:?}", open_file);
                 let open_file_path = open_file.fs_file_path().to_owned();
-                let request = OpenFileRequest::new(open_file_path, message_properties.editor_url());
+                let request = OpenFileRequest::new(
+                    open_file_path,
+                    message_properties.editor_url(),
+                    open_file.start_line(),
+                    open_file.end_line(),
+                );
                 let input = ToolInput::OpenFile(request);
                 let response = tool_box
                     .tools()
@@ -2724,7 +2729,8 @@ reason: {}"#,
                 println!("terminal command: {}", terminal_command.command());
                 let command = terminal_command.command().to_owned();
                 let wait_for_exit = terminal_command.wait_for_exit().to_owned();
-                let request = TerminalInput::new(command, message_properties.editor_url(), wait_for_exit);
+                let request =
+                    TerminalInput::new(command, message_properties.editor_url(), wait_for_exit);
                 let input = ToolInput::TerminalCommand(request);
                 let tool_output = tool_box
                     .tools()
