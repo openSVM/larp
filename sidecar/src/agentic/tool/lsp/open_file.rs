@@ -190,10 +190,6 @@ impl OpenFileResponse {
         start_line: Option<usize>,
         end_line: Option<usize>,
     ) -> Self {
-        println!(
-            "Creating OpenFileResponse with line range: {:?}-{:?}",
-            start_line, end_line
-        );
         Self {
             fs_file_path,
             file_contents,
@@ -280,52 +276,6 @@ impl OpenFileResponse {
             Position::new(0, 0, 0),
             Position::new(file_content_len, 0, 0),
         )
-    }
-
-    // Helper method to extract content within line range
-    pub fn extract_line_range(
-        content: &str,
-        start_line: Option<usize>,
-        end_line: Option<usize>,
-    ) -> String {
-        println!(
-            "Extracting content for line range: {:?}-{:?}",
-            start_line, end_line
-        );
-
-        match (start_line, end_line) {
-            (Some(start), Some(end)) => {
-                let lines: Vec<&str> = content.lines().collect();
-                let total_lines = lines.len();
-                println!("Total lines in file: {}", total_lines);
-
-                if start == 0 || end == 0 {
-                    println!("Warning: Line numbers are 1-based, received 0");
-                    return content.to_string();
-                }
-
-                let start_idx = start.saturating_sub(1);
-                let end_idx = end.min(total_lines);
-
-                if start_idx >= total_lines {
-                    println!(
-                        "Warning: Start line {} exceeds file length {}",
-                        start, total_lines
-                    );
-                    return String::new();
-                }
-
-                println!(
-                    "Extracting lines {}-{} (indices {}-{})",
-                    start, end, start_idx, end_idx
-                );
-                lines[start_idx..end_idx].join("\n")
-            }
-            _ => {
-                println!("No line range specified, returning full content");
-                content.to_string()
-            }
-        }
     }
 }
 
