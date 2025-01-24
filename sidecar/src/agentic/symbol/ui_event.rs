@@ -704,6 +704,16 @@ impl UIEventWithID {
         }
     }
 
+    pub fn error(session_id: String, error_message: String) -> Self {
+        Self {
+            request_id: session_id.to_owned(),
+            exchange_id: session_id,
+            event: UIEvent::Error(ErrorEvent {
+                message: error_message,
+            }),
+        }
+    }
+
     pub fn tool_found(session_id: String, exchange_id: String, tool_type: ToolType) -> Self {
         Self {
             request_id: session_id.to_owned(),
@@ -750,6 +760,11 @@ impl UIEventWithID {
 }
 
 #[derive(Debug, serde::Serialize)]
+pub struct ErrorEvent {
+    message: String,
+}
+
+#[derive(Debug, serde::Serialize)]
 pub enum UIEvent {
     SymbolEvent(SymbolEventRequest),
     SymbolLoctationUpdate(SymbolLocation),
@@ -760,6 +775,7 @@ pub enum UIEvent {
     ChatEvent(ChatMessageEvent),
     ExchangeEvent(ExchangeMessageEvent),
     PlanEvent(PlanMessageEvent),
+    Error(ErrorEvent),
 }
 
 impl From<SymbolEventRequest> for UIEvent {

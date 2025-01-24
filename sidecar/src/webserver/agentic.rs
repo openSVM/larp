@@ -6,6 +6,7 @@ use super::types::json as json_result;
 use axum::response::{sse, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
+use tracing::error;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
     CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
@@ -37,6 +38,7 @@ use crate::repo::types::RepoRef;
 use crate::webserver::plan::{
     check_plan_storage_path, check_scratch_pad_path, plan_storage_directory,
 };
+use crate::webserver::safe_stream::create_safe_stream;
 use crate::{application::application::Application, user_context::types::UserContext};
 
 use super::types::ApiResponse;
@@ -1046,22 +1048,48 @@ pub async fn agent_session_chat(
 
     let session_service = app.session_service.clone();
     let cloned_session_id = session_id.to_string();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .human_message(
-                cloned_session_id,
-                session_storage_path,
-                exchange_id,
-                query,
-                user_context,
-                project_labels,
-                repo_ref,
-                agent_mode,
-                aide_rules,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .human_message(
+                        cloned_session_id,
+                        session_storage_path,
+                        exchange_id,
+                        query,
+                        user_context,
+                        project_labels,
+                        repo_ref,
+                        agent_mode,
+                        aide_rules,
+                        message_properties.clone(),
+                    )
+                    .await
+            })
             .await;
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_chat: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
+
 
     // TODO(skcd): Over here depending on the exchange reply mode we want to send over the
     // response using ui_sender with the correct exchange_id and the thread_id
@@ -1069,42 +1097,15 @@ pub async fn agent_session_chat(
     // to the editor via http or streaming or whatever (keep an active conneciton always?)
     // how do we notify when the streaming is really completed
 
-    let ui_event_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
-    let cloned_session_id = session_id.to_string();
-    let init_stream = futures::stream::once(async move {
-        Ok(sse::Event::default()
-            .json_data(json!({
-                "session_id": cloned_session_id,
-                "started": true,
-            }))
-            // This should never happen, so we force an unwrap.
-            .expect("failed to serialize initialization object"))
-    });
-
-    // We know the stream is unwind safe as it doesn't use synchronization primitives like locks.
-    let answer_stream = ui_event_stream.map(|ui_event: UIEventWithID| {
-        sse::Event::default()
-            .json_data(ui_event)
-            .map_err(anyhow::Error::new)
-    });
-
-    // TODO(skcd): Re-introduce this again when we have a better way to manage
-    // server side events on the client side
-
-    // this will never get sent cause the sender is never dropped in a way, it will be
-    // dropped once we have completed the tokio::spawn above
-    let done_stream = futures::stream::once(async move {
-        Ok(sse::Event::default()
-            .json_data(json!(
-                {"done": "[CODESTORY_DONE]".to_owned(),
-                "session_id": session_id.to_string(),
-            }))
-            .expect("failed to send done object"))
-    });
-
-    let stream = init_stream.chain(answer_stream).chain(done_stream);
-
-    Ok(Sse::new(Box::pin(stream)))
+    let safe_stream = create_safe_stream(
+        json!({
+            "session_id": session_id.clone(),
+            "started": true,
+        }),
+        receiver,
+        session_id.clone(),
+    );
+    Ok(Sse::new(Box::pin(safe_stream)))
 }
 
 pub async fn agent_session_edit_anchored(

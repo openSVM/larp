@@ -2,23 +2,23 @@
 // locally
 
 use anyhow::Result;
-use axum::extract::DefaultBodyLimit;
-use axum::routing::get;
-use axum::Extension;
+use axum::{
+    extract::DefaultBodyLimit,
+    http::{header::AUTHORIZATION, Request, StatusCode},
+    middleware::{from_fn, Next},
+    response::{IntoResponse, Response},
+    routing::get,
+    Extension,
+};
 use clap::Parser;
 use sidecar::application::{application::Application, config::configuration::Configuration};
 use std::net::SocketAddr;
 use tokio::signal;
 use tokio::sync::oneshot;
+use tower::ServiceBuilder;
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer};
 use tracing::{debug, error, info};
 
-use axum::http::header::AUTHORIZATION;
-use axum::{
-    http::{Request, StatusCode},
-    middleware::Next,
-    response::Response,
-};
 pub type Router<S = Application> = axum::Router<S>;
 
 #[tokio::main]
@@ -132,6 +132,26 @@ async fn _validate_workos_token(token: &str) -> Result<bool> {
     Ok(response.status().is_success())
 }
 
+
+async fn error_handling_middleware<B>(request: Request<B>, next: Next<B>) -> Response {
+    let path = request.uri().path().to_owned();
+    let method = request.method().clone();
+
+    let response = next.run(request).await;
+
+    // Log errors for both regular responses and streaming responses
+    if response.status().is_server_error() || response.status().is_client_error() {
+        error!(
+            "API error - Method: {}, Path: {}, Status: {}",
+            method,
+            path,
+            response.status()
+        );
+    }
+
+    response
+}
+
 // TODO(skcd): Add routes here which can do the following:
 // - when a file changes, it should still be logged and tracked
 // - when a file is opened, it should be tracked over here too
@@ -163,11 +183,19 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
     api = api.route("/health", get(sidecar::webserver::health::health));
 
     let api = api
+        .layer(
+            ServiceBuilder::new()
+                .layer(from_fn(error_handling_middleware))
+                .layer(CatchPanicLayer::custom(|err| {
+                    error!("Panic in service: {:?}", err);
+                    (StatusCode::INTERNAL_SERVER_ERROR, "Internal Server Error").into_response()
+                }))
+                .into_inner(),
+        )
         .layer(Extension(app.clone()))
         .with_state(app.clone())
         .with_state(app.clone())
         .layer(CorsLayer::permissive())
-        .layer(CatchPanicLayer::new())
         // I want to set the bytes limit here to 20 MB
         .layer(DefaultBodyLimit::max(20 * 1024 * 1024));
 

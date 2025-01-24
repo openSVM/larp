@@ -10,5 +10,6 @@ pub mod in_line_agent_stream;
 pub mod inline_completion;
 pub mod model_selection;
 pub(crate) mod plan;
+pub mod safe_stream;
 pub mod tree_sitter;
 pub mod types;
