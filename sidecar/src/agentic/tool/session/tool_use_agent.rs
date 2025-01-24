@@ -361,7 +361,7 @@ You can refine the plan as the engineer reports back with progress or any discov
 ## Workflow
 
 - **Reproduce the Problem**: First reproduce the reported github issue a standalone python script to confirm the issue.
-- **Identify the Problem**: Describe the github issue in your own words (since the junior engineer won’t see it).
+- **Identify the Problem**: Describe the github issue in your own words (since the junior engineer won't see it).
 - **Break Down the Task**: Outline the tasks needed to address the problem.
 - **Assign Tasks**: Provide instructions with enough detail that the junior engineer can carry them out without additional context.
 - **Track Progress**: After the engineer executes a task, use the generated artifacts (opened files, code changes, terminal output) to update or refine your plan.
@@ -369,7 +369,7 @@ You can refine the plan as the engineer reports back with progress or any discov
 - **Completion**: Confirm that the reproduction script solves the user instructions and complete the task.
 
 ## Notes and Reminders
-- Keep any additional insights or references in <notes> sections so they’re easy to refer back to later.
+- Keep any additional insights or references in <notes> sections so they're easy to refer back to later.
 - The <notes> also help you keep track of the progress the junior engineer has done. This will help you plan out what has already been accomplished and insights you have learnt from the junior engineer.
 - You can use the <notes> along with the steps the junior engineer has taken for your instruction to plan out the next instruction for the junior engineer.
 
@@ -1391,6 +1391,8 @@ enum ToolBlockStatus {
     ResultFound,
     FilePathsFound,
     WaitForExitFound,
+    StartLineFound,
+    EndLineFound,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1443,6 +1445,8 @@ struct ToolUseGenerator {
     wait_for_exit: Option<bool>,
     tool_input_partial: Option<ToolInputPartial>,
     sender: tokio::sync::mpsc::UnboundedSender<ToolBlockEvent>,
+    start_line: Option<usize>,
+    end_line: Option<usize>,
 }
 
 impl ToolUseGenerator {
@@ -1466,6 +1470,8 @@ impl ToolUseGenerator {
             wait_for_exit: None,
             tool_input_partial: None,
             sender,
+            start_line: None,
+            end_line: None,
         }
     }
 
@@ -1834,8 +1840,19 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         match self.fs_file_path.clone() {
                             Some(fs_file_path) => {
+                                println!(
+                                    "Creating OpenFileRequestPartial for path: {}",
+                                    &fs_file_path
+                                );
+                                // Parse line ranges from the input if they exist
+                                let start_line = self.start_line;
+                                let end_line = self.end_line;
+                                println!(
+                                    "Line range specified: start={:?}, end={:?}",
+                                    start_line, end_line
+                                );
                                 self.tool_input_partial = Some(ToolInputPartial::OpenFile(
-                                    OpenFileRequestPartial::new(fs_file_path),
+                                    OpenFileRequestPartial::new(fs_file_path, start_line, end_line),
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }
@@ -1940,6 +1957,51 @@ impl ToolUseGenerator {
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }
                             _ => {}
+                        }
+                    } else if answer_line_at_index == "<start_line>" {
+                        self.tool_block_status = ToolBlockStatus::StartLineFound;
+                    } else if answer_line_at_index == "<end_line>" {
+                        self.tool_block_status = ToolBlockStatus::EndLineFound;
+                    } else if answer_line_at_index.starts_with("<start_line>")
+                        && answer_line_at_index.ends_with("</start_line>")
+                    {
+                        if let Some(prefix_removed) =
+                            answer_line_at_index.strip_prefix("<start_line>")
+                        {
+                            if let Some(suffix_removed) =
+                                prefix_removed.strip_suffix("</start_line>")
+                            {
+                                if let Ok(line_num) = suffix_removed.parse::<usize>() {
+                                    self.start_line = Some(line_num);
+                                    let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                        ToolParameters {
+                                            field_name: "start_line".to_owned(),
+                                            field_content_up_until_now: suffix_removed.to_owned(),
+                                            field_content_delta: suffix_removed.to_owned(),
+                                        },
+                                    ));
+                                }
+                            }
+                        }
+                    } else if answer_line_at_index.starts_with("<end_line>")
+                        && answer_line_at_index.ends_with("</end_line>")
+                    {
+                        if let Some(prefix_removed) =
+                            answer_line_at_index.strip_prefix("<end_line>")
+                        {
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</end_line>")
+                            {
+                                if let Ok(line_num) = suffix_removed.parse::<usize>() {
+                                    self.end_line = Some(line_num);
+                                    let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                        ToolParameters {
+                                            field_name: "end_line".to_owned(),
+                                            field_content_up_until_now: suffix_removed.to_owned(),
+                                            field_content_delta: suffix_removed.to_owned(),
+                                        },
+                                    ));
+                                }
+                            }
                         }
                     }
                 }
@@ -2168,6 +2230,34 @@ impl ToolUseGenerator {
                             }));
                     }
                 }
+                ToolBlockStatus::StartLineFound => {
+                    if answer_line_at_index == "</start_line>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                    } else if let Ok(line_num) = answer_line_at_index.parse::<usize>() {
+                        self.start_line = Some(line_num);
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolParameters(ToolParameters {
+                                field_name: "start_line".to_owned(),
+                                field_content_up_until_now: answer_line_at_index.to_owned(),
+                                field_content_delta: answer_line_at_index.to_owned(),
+                            }));
+                    }
+                }
+                ToolBlockStatus::EndLineFound => {
+                    if answer_line_at_index == "</end_line>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                    } else if let Ok(line_num) = answer_line_at_index.parse::<usize>() {
+                        self.end_line = Some(line_num);
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolParameters(ToolParameters {
+                                field_name: "end_line".to_owned(),
+                                field_content_up_until_now: answer_line_at_index.to_owned(),
+                                field_content_delta: answer_line_at_index.to_owned(),
+                            }));
+                    }
+                }
             }
         }
     }
@@ -2199,8 +2289,8 @@ mod tests {
 
 <current_task>
 <instruction>
-1) In the root directory of the “astropy” repository, create a file named “reproduce_separability_issue.py”.  
-2) In that file, reproduce the user’s example code demonstrating the nested compound models and how separability_matrix is returning unexpected results:
+1) In the root directory of the "astropy" repository, create a file named "reproduce_separability_issue.py".  
+2) In that file, reproduce the user's example code demonstrating the nested compound models and how separability_matrix is returning unexpected results:
 --------------------------------------------------------------------------------
 from astropy.modeling import models as m
 from astropy.modeling.separable import separability_matrix
@@ -2218,7 +2308,7 @@ if __name__ == "__main__":
     main()
 --------------------------------------------------------------------------------
 3) Save your changes.  
-4) Run the script (e.g., “python reproduce_separability_issue.py”) in the same directory and capture the output for our reference.
+4) Run the script (e.g., "python reproduce_separability_issue.py") in the same directory and capture the output for our reference.
 </instruction>
 </current_task>"#;
         let parsed_response = ToolUseAgentReasoningParams::from_response(&response);
