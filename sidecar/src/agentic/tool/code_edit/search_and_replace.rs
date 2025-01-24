@@ -210,7 +210,10 @@ impl SearchAndReplaceEditing {
         apply_directly: bool,
         lsp_open_file: Arc<Box<dyn Tool + Send + Sync>>,
     ) -> Self {
-        println!("search_and_reaplce_editing::apply_directly({})", apply_directly);
+        println!(
+            "search_and_reaplce_editing::apply_directly({})",
+            apply_directly
+        );
         Self {
             llm_client,
             lsp_open_file,
@@ -770,6 +773,8 @@ impl Tool for SearchAndReplaceEditing {
                             .invoke(ToolInput::OpenFile(OpenFileRequest::new(
                                 fs_file_path.to_owned(),
                                 editor_url.to_owned(),
+                                None,
+                                None,
                             )))
                             .await
                             .map(|output| output.get_file_open_response())
@@ -929,12 +934,15 @@ impl Tool for SearchAndReplaceEditing {
                 // if the self apply tag is enabled this implies that the sidecar
                 // is responsible for updating the contents of the file and not the
                 // external system
-                println!("search_and_replace_accumulator::apply_directly({})", &self.apply_directly);
+                println!(
+                    "search_and_replace_accumulator::apply_directly({})",
+                    &self.apply_directly
+                );
                 if self.apply_directly {
                     // update the file directly over here
                     if let Some(parent) = Path::new(&fs_file_path).parent() {
                         tokio::fs::create_dir_all(parent).await?;
-                    }                
+                    }
                     let mut file = tokio::fs::File::create(fs_file_path)
                         .await
                         .map_err(|e| ToolError::IOError(e))?;
@@ -1380,7 +1388,10 @@ fn get_range_for_search_block(
     search_block: &str,
 ) -> Option<Range> {
     if search_block.is_empty() {
-        return Some(Range::new(Position::new(start_line, 0, 0), Position::new(start_line, 0, 0)));
+        return Some(Range::new(
+            Position::new(start_line, 0, 0),
+            Position::new(start_line, 0, 0),
+        ));
     }
 
     let code_to_look_at_lines = code_to_look_at

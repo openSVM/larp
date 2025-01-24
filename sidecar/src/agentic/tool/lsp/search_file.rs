@@ -288,8 +288,6 @@ impl Tool for SearchFileContentClient {
                 .collect::<Vec<_>>();
         }
 
-        println!("regex_search::args::({:?})", args);
-
         let mut child = Command::new(binary_path)
             .args(&args)
             .stdout(Stdio::piped())

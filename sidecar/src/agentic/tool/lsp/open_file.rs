@@ -30,25 +30,51 @@ impl OpenFileRequestPartial {
         &self.fs_file_path
     }
 
+    pub fn start_line(&self) -> Option<usize> {
+        self.start_line
+    }
+
+    pub fn end_line(&self) -> Option<usize> {
+        self.end_line
+    }
+
     pub fn to_string(&self) -> String {
-        let range_str = match (self.start_line, self.end_line) {
-            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
-            _ => String::new(),
-        };
-        format!(
+        let mut output = format!(
             r#"<read_file>
 <fs_file_path>
-{}{range_str}
-</fs_file_path>
-</read_file>"#,
+{}
+</fs_file_path>"#,
             &self.fs_file_path
-        )
+        );
+
+        if let Some(start) = self.start_line {
+            output.push_str(&format!(
+                r#"
+<start_line>
+{}
+</start_line>"#,
+                start
+            ));
+        }
+
+        if let Some(end) = self.end_line {
+            output.push_str(&format!(
+                r#"
+<end_line>
+{}
+</end_line>"#,
+                end
+            ));
+        }
+
+        output.push_str("\n</read_file>");
+        output
     }
 
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
             "name": "read_file",
-            "description": r#"Request to read the contents of a file at the specified path, optionally within a line range.
+            "description": r#"Request to read the contents of a file at the specified path.
 Use this when you need to examine the content of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
 May not be suitable for other types of binary files, as it returns the raw content as a string"#,
             "input_schema": {
@@ -112,19 +138,44 @@ impl OpenFileResponse {
         let fs_file_path = &self.fs_file_path;
         let content = &self.file_contents;
         let language = &self.language;
-        let range_info = match (self.start_line, self.end_line) {
-            (Some(start), Some(end)) => format!(" (lines {}-{})", start, end),
-            _ => String::new(),
-        };
-        format!(
-            r#"<fs_file_path>
-{fs_file_path}{range_info}
-</fs_file_path>
+        let mut output = format!(
+            r#"<read_file>
+<fs_file_path>
+{}
+</fs_file_path>"#,
+            fs_file_path
+        );
+
+        if let Some(start) = self.start_line {
+            output.push_str(&format!(
+                r#"
+<start_line>
+{}
+</start_line>"#,
+                start
+            ));
+        }
+
+        if let Some(end) = self.end_line {
+            output.push_str(&format!(
+                r#"
+<end_line>
+{}
+</end_line>"#,
+                end
+            ));
+        }
+
+        output.push_str(&format!(
+            r#"
 <content>
 ```{language}
 {content}
 </content>"#
-        )
+        ));
+
+        output.push_str("\n</read_file>");
+        output
     }
 
     pub fn to_content(&self) -> String {
@@ -139,10 +190,6 @@ impl OpenFileResponse {
         start_line: Option<usize>,
         end_line: Option<usize>,
     ) -> Self {
-        println!(
-            "Creating OpenFileResponse with line range: {:?}-{:?}",
-            start_line, end_line
-        );
         Self {
             fs_file_path,
             file_contents,
@@ -230,52 +277,6 @@ impl OpenFileResponse {
             Position::new(file_content_len, 0, 0),
         )
     }
-
-    // Helper method to extract content within line range
-    pub fn extract_line_range(
-        content: &str,
-        start_line: Option<usize>,
-        end_line: Option<usize>,
-    ) -> String {
-        println!(
-            "Extracting content for line range: {:?}-{:?}",
-            start_line, end_line
-        );
-
-        match (start_line, end_line) {
-            (Some(start), Some(end)) => {
-                let lines: Vec<&str> = content.lines().collect();
-                let total_lines = lines.len();
-                println!("Total lines in file: {}", total_lines);
-
-                if start == 0 || end == 0 {
-                    println!("Warning: Line numbers are 1-based, received 0");
-                    return content.to_string();
-                }
-
-                let start_idx = start.saturating_sub(1);
-                let end_idx = end.min(total_lines);
-
-                if start_idx >= total_lines {
-                    println!(
-                        "Warning: Start line {} exceeds file length {}",
-                        start, total_lines
-                    );
-                    return String::new();
-                }
-
-                println!(
-                    "Extracting lines {}-{} (indices {}-{})",
-                    start, end, start_idx, end_idx
-                );
-                lines[start_idx..end_idx].join("\n")
-            }
-            _ => {
-                println!("No line range specified, returning full content");
-                content.to_string()
-            }
-        }
-    }
 }
 
 pub struct LSPOpenFile {
@@ -294,65 +295,41 @@ impl LSPOpenFile {
 impl Tool for LSPOpenFile {
     async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
         let context = input.is_file_open()?;
-        println!(
-            "LSPOpenFile::invoke - Processing request for file: {}",
-            context.fs_file_path
-        );
 
         // now we send it over to the editor
         let editor_endpoint = context.editor_url.to_owned() + "/file_open";
-        println!(
-            "LSPOpenFile::invoke - Sending request to editor at: {}",
-            editor_endpoint
-        );
 
         let response = self
             .client
             .post(editor_endpoint)
-            .body(serde_json::to_string(&context).map_err(|e| {
-                println!("LSPOpenFile::invoke - Serialization error: {:?}", e);
-                ToolError::SerdeConversionFailed
-            })?)
+            .body(serde_json::to_string(&context).map_err(|e| ToolError::SerdeConversionFailed)?)
             .send()
             .await
-            .map_err(|e| {
-                println!("LSPOpenFile::invoke - Editor communication error: {:?}", e);
-                ToolError::ErrorCommunicatingWithEditor
-            })?;
+            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
 
-        println!("LSPOpenFile::invoke - Received response from editor");
+        let response: OpenFileResponse = response
+            .json()
+            .await
+            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
 
-        let mut response: OpenFileResponse = response.json().await.map_err(|e| {
-            println!("LSPOpenFile::invoke - Response parsing error: {:?}", e);
-            ToolError::ErrorCommunicatingWithEditor
-        })?;
-
-        // Apply line range filtering if specified
-        if response.exists {
-            let filtered_content = OpenFileResponse::extract_line_range(
-                &response.file_contents,
-                context.start_line,
-                context.end_line,
-            );
-            response.file_contents = filtered_content;
-            response.start_line = context.start_line;
-            response.end_line = context.end_line;
-        }
-
-        println!(
-            "LSPOpenFile::invoke - Successfully processed file with {} characters",
-            response.file_contents.len()
-        );
         Ok(ToolOutput::FileOpen(response))
     }
 
     fn tool_description(&self) -> String {
         format!(
             r#"### read_file
-Request to read the contents of a file at the specified path.
-Use this when you need to examine the contents of an existing file you do not know the contents of, for example to analyze code, review text files, or extract information from configuration files.
+Request to read the contents of a file at the specified path, optionally within a line range.
+Use this when you need to examine specific portions of an existing file, for example to analyze code sections, review specific parts of text files, or extract information from configuration files.
 This always takes ABSOLUTE paths as input.
-May not be suitable for other types of binary files, as it returns the raw content as a string."#
+May not be suitable for other types of binary files, as it returns the raw content as a string.
+
+Parameters:
+- path: The absolute path to the file to read (required)
+- start_line: The starting line number to read from (required, 1-based indexing)
+- end_line: The ending line number to read to, inclusive (required, 1-based indexing)
+
+If start_line and end_line are not specified, reads the entire file.
+Line numbers use 1-based indexing."#
         )
     }
 
@@ -360,12 +337,20 @@ May not be suitable for other types of binary files, as it returns the raw conte
         format!(
             r#"Parameters:
 - fs_file_path: (required) The ABSOLUTE path of the file to read.
+- start_line: (required) The starting line number (1-based indexing).
+- end_line: (required) The ending line number (1-based indexing, inclusive).
 
 Usage:
 <read_file>
 <fs_file_path>
 File path here
 </fs_file_path>
+<start_line>
+1
+</start_line>
+<end_line>
+100
+</end_line>
 </read_file>"#
         )
     }

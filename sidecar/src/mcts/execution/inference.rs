@@ -616,6 +616,8 @@ Always include the <thinking></thinking> section before using the tool."#
                 let request = OpenFileRequest::new(
                     open_file_path.to_owned(),
                     message_properties.editor_url(),
+                    open_file.start_line(),
+                    open_file.end_line(),
                 );
                 let input = ToolInput::OpenFile(request);
                 let response = tool_box
@@ -696,8 +698,11 @@ Always include the <thinking></thinking> section before using the tool."#
             ToolInputPartial::TerminalCommand(terminal_command) => {
                 let command = terminal_command.command().to_owned();
                 let wait_for_exit = terminal_command.wait_for_exit().to_owned();
-                let request =
-                    TerminalInput::new(command.to_owned(), message_properties.editor_url(), wait_for_exit.to_owned());
+                let request = TerminalInput::new(
+                    command.to_owned(),
+                    message_properties.editor_url(),
+                    wait_for_exit.to_owned(),
+                );
                 let input = ToolInput::TerminalCommand(request);
                 let tool_output = tool_box
                     .tools()
