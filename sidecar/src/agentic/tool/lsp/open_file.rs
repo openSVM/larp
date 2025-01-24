@@ -302,23 +302,15 @@ impl Tool for LSPOpenFile {
         let response = self
             .client
             .post(editor_endpoint)
-            .body(serde_json::to_string(&context).map_err(|e| {
-                println!("LSPOpenFile::invoke - Serialization error: {:?}", e);
-                ToolError::SerdeConversionFailed
-            })?)
+            .body(serde_json::to_string(&context).map_err(|e| ToolError::SerdeConversionFailed)?)
             .send()
             .await
-            .map_err(|e| {
-                println!("LSPOpenFile::invoke - Editor communication error: {:?}", e);
-                ToolError::ErrorCommunicatingWithEditor
-            })?;
+            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
 
-        println!("LSPOpenFile::invoke - Received response from editor");
-
-        let response: OpenFileResponse = response.json().await.map_err(|e| {
-            println!("LSPOpenFile::invoke - Response parsing error: {:?}", e);
-            ToolError::ErrorCommunicatingWithEditor
-        })?;
+        let response: OpenFileResponse = response
+            .json()
+            .await
+            .map_err(|e| ToolError::ErrorCommunicatingWithEditor)?;
 
         Ok(ToolOutput::FileOpen(response))
     }
