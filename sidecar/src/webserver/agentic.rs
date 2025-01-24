@@ -1195,21 +1195,46 @@ pub async fn agent_session_edit_anchored(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .code_edit_anchored(
-                cloned_session_id,
-                session_storage_path,
-                scratch_pad_agent,
-                exchange_id,
-                query,
-                user_context,
-                aide_rules,
-                project_labels,
-                repo_ref,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .code_edit_anchored(
+                        cloned_session_id,
+                        session_storage_path,
+                        scratch_pad_agent,
+                        exchange_id,
+                        query,
+                        user_context,
+                        aide_rules,
+                        project_labels,
+                        repo_ref,
+                        message_properties,
+                    )
+                    .await
+            })
             .await;
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_edit_anchored: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     // TODO(skcd): Over here depending on the exchange reply mode we want to send over the
@@ -1319,24 +1344,48 @@ pub async fn agent_session_edit_agentic(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .code_edit_agentic(
-                cloned_session_id,
-                session_storage_path,
-                scratch_pad_agent,
-                exchange_id,
-                query,
-                user_context,
-                project_labels,
-                repo_ref,
-                root_directory,
-                codebase_search,
-                aide_rules,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .code_edit_agentic(
+                        cloned_session_id,
+                        session_storage_path,
+                        scratch_pad_agent,
+                        exchange_id,
+                        query,
+                        user_context,
+                        project_labels,
+                        repo_ref,
+                        root_directory,
+                        codebase_search,
+                        aide_rules,
+                        message_properties,
+                    )
+                    .await
+            })
             .await;
-        println!("tokio::spawn::code_edit_agentic::finished");
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_edit_agentic: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     // TODO(skcd): Over here depending on the exchange reply mode we want to send over the
@@ -1521,32 +1570,56 @@ pub async fn agent_tool_use(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .tool_use_agentic(
-                cloned_session_id,
-                session_storage_path,
-                query,
-                exchange_id,
-                all_files,
-                open_files,
-                shell,
-                project_labels,
-                repo_ref,
-                root_directory,
-                tool_box,
-                llm_broker,
-                user_context,
-                aide_rules,
-                reasoning,
-                true, // we are running inside the editor over here
-                semantic_search,
-                mcts_log_directory,
-                None,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .tool_use_agentic(
+                        cloned_session_id,
+                        session_storage_path,
+                        query,
+                        exchange_id,
+                        all_files,
+                        open_files,
+                        shell,
+                        project_labels,
+                        repo_ref,
+                        root_directory,
+                        tool_box,
+                        llm_broker,
+                        user_context,
+                        aide_rules,
+                        reasoning,
+                        true, // we are running inside the editor over here
+                        semantic_search,
+                        mcts_log_directory,
+                        None,
+                        message_properties,
+                    )
+                    .await
+            })
             .await;
-        println!("tokio::spawn::tool_use::iteration::finished");
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_tool_use: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     let ui_event_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
@@ -1651,26 +1724,50 @@ pub async fn agent_session_plan_iterate(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .plan_iteration(
-                cloned_session_id,
-                session_storage_path,
-                plan_storage_path,
-                plan_id,
-                plan_service,
-                exchange_id,
-                query,
-                user_context,
-                aide_rules,
-                project_labels,
-                repo_ref,
-                root_directory,
-                codebase_search,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .plan_iteration(
+                        cloned_session_id,
+                        session_storage_path,
+                        plan_storage_path,
+                        plan_id,
+                        plan_service,
+                        exchange_id,
+                        query,
+                        user_context,
+                        aide_rules,
+                        project_labels,
+                        repo_ref,
+                        root_directory,
+                        codebase_search,
+                        message_properties,
+                    )
+                    .await
+            })
             .await;
-        println!("tokio::spawn::plan::iteration::finished");
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_plan_iterate: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     let ui_event_stream = tokio_stream::wrappers::UnboundedReceiverStream::new(receiver);
@@ -1776,26 +1873,50 @@ pub async fn agent_session_plan(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
-    let _ = tokio::spawn(async move {
-        let _ = session_service
-            .plan_generation(
-                cloned_session_id,
-                session_storage_path,
-                plan_storage_path,
-                plan_id,
-                plan_service,
-                exchange_id,
-                query,
-                user_context,
-                project_labels,
-                repo_ref,
-                root_directory,
-                codebase_search,
-                aide_rules,
-                message_properties,
-            )
+    let _ = tokio::spawn({
+        let sender = sender.clone();
+        let session_id = session_id.clone();
+        async move {
+            let result = tokio::task::spawn(async move {
+                session_service
+                    .plan_generation(
+                        cloned_session_id,
+                        session_storage_path,
+                        plan_storage_path,
+                        plan_id,
+                        plan_service,
+                        exchange_id,
+                        query,
+                        user_context,
+                        project_labels,
+                        repo_ref,
+                        root_directory,
+                        codebase_search,
+                        aide_rules,
+                        message_properties,
+                    )
+                    .await
+            })
             .await;
-        println!("tokio::spawn::plan::finished");
+
+            match result {
+                Ok(Ok(_)) => (),
+                Ok(Err(e)) => {
+                    error!("Error in agent_session_plan: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+                Err(e) => {
+                    error!("Task panicked: {:?}", e);
+                    let _ = sender.send(UIEventWithID::error(
+                        session_id.clone(),
+                        format!("Internal server error: {}", e),
+                    ));
+                }
+            }
+        }
     });
 
     // TODO(skcd): Over here depending on the exchange reply mode we want to send over the
