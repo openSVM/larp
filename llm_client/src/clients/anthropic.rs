@@ -732,6 +732,7 @@ impl LLMClient for AnthropicClient {
         let mut buffered_string = "".to_owned();
         while let Some(Ok(event)) = event_source.next().await {
             // TODO: debugging this
+            println!("{:?}", &event.data);
             let event = serde_json::from_str::<AnthropicEvent>(&event.data);
             match event {
                 Ok(AnthropicEvent::ContentBlockStart { content_block, .. }) => {
@@ -794,7 +795,7 @@ impl LLMClient for AnthropicClient {
                     // break;
                 }
                 _ => {
-                    // dbg!(&event);
+                    dbg!(&event);
                 }
             }
         }
