@@ -2,6 +2,7 @@
 //! Can be used by the agent to grep for this in the repository or in a sub-directory
 
 use async_trait::async_trait;
+use logging::new_client;
 use tokio::io::AsyncBufReadExt;
 use tokio::{io::BufReader, process::Command};
 
@@ -239,13 +240,13 @@ struct EditorRipGrepPath {
 }
 
 pub struct SearchFileContentClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl SearchFileContentClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

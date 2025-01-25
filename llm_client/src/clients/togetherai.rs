@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::provider::LLMProviderAPIKeys;
@@ -13,7 +14,7 @@ use super::types::LLMClientError;
 use super::types::LLMType;
 
 pub struct TogetherAIClient {
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub base_url: String,
 }
 
@@ -124,9 +125,8 @@ impl TogetherAIRequestString {
 
 impl TogetherAIClient {
     pub fn new() -> Self {
-        let client = reqwest::Client::new();
         Self {
-            client,
+            client: new_client(),
             base_url: "https://api.together.xyz/v1".to_owned(),
         }
     }

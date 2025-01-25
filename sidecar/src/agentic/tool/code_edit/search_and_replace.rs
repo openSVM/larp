@@ -2,6 +2,7 @@
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, StreamExt};
+use logging::new_client;
 use std::path::Path;
 use std::{collections::HashMap, sync::Arc};
 use tokio::io::AsyncWriteExt;
@@ -167,15 +168,16 @@ impl SearchAndReplaceEditingRequest {
 }
 
 pub struct StreamedEditingForEditor {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl StreamedEditingForEditor {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
+
 
     pub async fn send_edit_event(
         &self,

@@ -17,6 +17,7 @@ use crate::{
         types::OutlineNode,
     },
 };
+use logging::new_client;
 
 #[derive(Debug, Clone)]
 pub struct AnchoredReference {
@@ -149,13 +150,13 @@ impl GoToReferencesRequest {
 }
 
 pub struct LSPGoToReferences {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPGoToReferences {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

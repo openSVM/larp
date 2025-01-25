@@ -2,6 +2,7 @@
 //! We have access to a session and exchange and the plan step
 
 use async_trait::async_trait;
+use logging::new_client;
 
 use crate::agentic::tool::{
     errors::ToolError,
@@ -47,13 +48,13 @@ impl UndoChangesMadeDuringExchangeRespnose {
 }
 
 pub struct UndoChangesMadeDuringExchange {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl UndoChangesMadeDuringExchange {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

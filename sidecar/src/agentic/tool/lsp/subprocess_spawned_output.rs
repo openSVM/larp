@@ -1,6 +1,7 @@
 //! This grabs all the pending output if any from the subprocess which have been spawned
 
 use async_trait::async_trait;
+use logging::new_client;
 
 use crate::agentic::tool::{
     errors::ToolError,
@@ -38,13 +39,13 @@ impl SubProcessSpanwedPendingOutputResponse {
 }
 
 pub struct SubProcessSpawnedPendingOutputClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl SubProcessSpawnedPendingOutputClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

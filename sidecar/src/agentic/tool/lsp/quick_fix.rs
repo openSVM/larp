@@ -9,6 +9,7 @@ use crate::{
     },
     chunking::text_document::Range,
 };
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GetQuickFixRequest {
@@ -57,13 +58,13 @@ impl GetQuickFixResponse {
 }
 
 pub struct LSPQuickFixClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPQuickFixClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }
@@ -140,13 +141,13 @@ impl LSPQuickFixInvocationResponse {
 }
 
 pub struct LSPQuickFixInvocationClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPQuickFixInvocationClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

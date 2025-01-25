@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
@@ -22,7 +23,7 @@ struct Choice {
 }
 
 pub struct LMStudioClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone)]
@@ -94,7 +95,7 @@ impl LMStudioRequest {
 impl LMStudioClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 

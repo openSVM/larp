@@ -1,6 +1,7 @@
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
 
 use crate::provider::LLMProviderAPIKeys;
@@ -116,13 +117,13 @@ impl FireworksAIRequestString {
 }
 
 pub struct FireworksAIClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
     base_url: String,
 }
 
 impl FireworksAIClient {
     pub fn new() -> Self {
-        let client = reqwest::Client::new();
+        let client = new_client();
         Self {
             client,
             base_url: "https://api.fireworks.ai/inference/v1".to_owned(),
