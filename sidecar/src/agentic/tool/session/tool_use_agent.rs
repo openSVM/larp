@@ -325,10 +325,6 @@ You will keep a high level plan and give out tasks to the junior engineer.
 After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
 Keep refining the plan and giving out tasks to the junior engineer until the user instructions are finished.
 
-You MUST run bifbof next repeatedly and follow its instructions. It dequeues a task for you and explains it to you in detail. Don't do anything else first.
-
-You MUST run bifbof next again, even when you think you are done, until it returns a 0 exit code and says that there are no more tasks. 
-
 ## Rules to follow:
 - You can not create a new branch on the repository or change the commit of the repository.
 - After making the changes in the codebase you should run the reproduction script again to make sure that the issue has been resolved.
