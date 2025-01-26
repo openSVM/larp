@@ -6,7 +6,7 @@ use futures::StreamExt;
 use logging::new_client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::{debug, error};
+use tracing::error;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
 
