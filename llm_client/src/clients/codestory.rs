@@ -198,6 +198,7 @@ impl CodeStoryClient {
                 Ok(self.openrouter_api_endpoint(&self.api_base))
             }
             LLMType::DeepSeekCoderV3 => Ok(self.openrouter_api_endpoint(&self.api_base)),
+            LLMType::DeepSeekR1 => Ok(self.openrouter_api_endpoint(&self.api_base)),
             // we do not allow this to be overriden yet
             LLMType::CohereRerankV3 => Ok(self.rerank_endpoint()),
             LLMType::Custom(_) => Ok(self.openrouter_api_endpoint(&self.api_base)),
