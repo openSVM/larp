@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-use logging::new_client;
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
+use std::collections::HashMap;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error, info};
 
 use crate::{
     clients::open_router::OpenRouterResponse,
@@ -232,7 +233,7 @@ impl CodeStoryClient {
     ) -> Result<(String, Vec<(String, (String, String))>), LLMClientError> {
         let model = self.model_name(request.model())?;
         let endpoint = self.model_endpoint_tool_use(request.model())?;
-        println!("endpoint::{}", &endpoint);
+        info!("endpoint::{}", endpoint);
 
         // get access token from api_key
         let access_token = self.access_token(api_key)?;
@@ -268,16 +269,19 @@ impl CodeStoryClient {
                     if &event.data == "[DONE]" {
                         continue;
                     }
-                    println!("stream_completion_with_tool:({:?})", &event.data);
+                    debug!("stream_completion_with_tool: {}", &event.data);
                     let value = serde_json::from_str::<OpenRouterResponse>(&event.data)?;
                     let first_choice = &value.choices[0];
                     if let Some(content) = first_choice.delta.content.as_ref() {
                         buffered_stream = buffered_stream + &content;
-                        sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_stream.to_owned(),
                             Some(content.to_owned()),
                             model.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
 
                     if let Some(finish_reason) = first_choice.finish_reason.as_ref() {
@@ -319,7 +323,7 @@ impl CodeStoryClient {
                     }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
@@ -377,11 +381,14 @@ impl LLMClient for CodeStoryClient {
                     let first_choice = &value.choices[0];
                     if let Some(content) = first_choice.delta.content.as_ref() {
                         buffered_stream = buffered_stream + &content;
-                        sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_stream.to_owned(),
                             Some(content.to_owned()),
                             model.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                 }
                 Err(e) => {
@@ -440,13 +447,12 @@ impl LLMClient for CodeStoryClient {
                             ))?;
                         }
                         Err(e) => {
-                            dbg!(e);
+                            error!("Failed to parse response: {:?}", e);
                         }
                     }
                 }
                 Err(e) => {
-                    eprintln!("error while streaming: {:?}", &e);
-                    dbg!(e);
+                    error!("error while streaming: {:?}", e);
                 }
             }
         }
