@@ -3,11 +3,12 @@ use std::collections::HashMap;
 
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
+use logging::new_client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error, info};
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
-use logging::new_client;
 
 use super::types::{
     LLMClient, LLMClientCompletionRequest, LLMClientCompletionResponse,
@@ -262,8 +263,8 @@ impl LLMClient for GeminiProClient {
         }
         let api_key = api_key.expect("to be present");
         let api_base = api_base.expect("to be present");
-        println!(
-            "API Endpoint: {:?}",
+        info!(
+            "API Endpoint: {}",
             &self.get_api_endpoint(&api_base, &model)
         );
 
@@ -291,28 +292,50 @@ impl LLMClient for GeminiProClient {
             .await?;
 
         if !response.status().is_success() {
-            println!("{:?}", &response.error_for_status());
+            error!(
+                "Failed to get successful response: {:?}",
+                response.error_for_status()
+            );
             return Err(LLMClientError::FailedToGetResponse);
         }
 
         let mut buffered_string = "".to_owned();
         let mut response_stream = response.bytes_stream().eventsource();
         while let Some(event) = response_stream.next().await {
-            if let Ok(event) = event {
-                println!("{:?}", &event);
-                let parsed_event =
-                    serde_json::from_slice::<GeminiProResponse>(event.data.as_bytes())?;
-                if let Some(text_part) = parsed_event.candidates[0].content.parts[0].get("text") {
-                    buffered_string = buffered_string + text_part;
-                    sender.send(LLMClientCompletionResponse::new(
-                        buffered_string.clone(),
-                        Some(text_part.to_owned()),
-                        model.to_owned(),
-                    ))?;
+            match event {
+                Ok(event) => {
+                    debug!("Received event: {:?}", &event);
+                    match serde_json::from_slice::<GeminiProResponse>(event.data.as_bytes()) {
+                        Ok(parsed_event) => {
+                            if let Some(text_part) =
+                                parsed_event.candidates[0].content.parts[0].get("text")
+                            {
+                                buffered_string = buffered_string + text_part;
+                                if let Err(e) = sender.send(LLMClientCompletionResponse::new(
+                                    buffered_string.clone(),
+                                    Some(text_part.to_owned()),
+                                    model.to_owned(),
+                                )) {
+                                    error!("Failed to send completion response: {}", e);
+                                    return Err(LLMClientError::SendError(e));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to parse response: {:?}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_string, None, model))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_string,
+            None,
+            model,
+        ))
     }
 
     async fn completion(
@@ -321,7 +344,9 @@ impl LLMClient for GeminiProClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(

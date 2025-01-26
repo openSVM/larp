@@ -6,6 +6,7 @@ use futures::StreamExt;
 use logging::new_client;
 use serde::{Deserialize, Serialize};
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::error;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
 
@@ -311,28 +312,51 @@ impl LLMClient for GoogleAIStdioClient {
             let status = response.status();
             let error_body = response.text().await?;
 
-            eprintln!("HTTP Error: {} {}", status.as_u16(), status.as_str());
-            eprintln!("Response body: {}", error_body);
+            error!(
+                "HTTP Error: {} {} - Response body: {}",
+                status.as_u16(),
+                status.as_str(),
+                error_body
+            );
             return Err(LLMClientError::FailedToGetResponse);
         }
 
         let mut buffered_string = "".to_owned();
         let mut response_stream = response.bytes_stream().eventsource();
         while let Some(event) = response_stream.next().await {
-            if let Ok(event) = event {
-                let parsed_event =
-                    serde_json::from_slice::<GeminiProResponse>(event.data.as_bytes())?;
-                if let Some(text_part) = parsed_event.candidates[0].content.parts[0].get("text") {
-                    buffered_string = buffered_string + text_part;
-                    sender.send(LLMClientCompletionResponse::new(
-                        buffered_string.clone(),
-                        Some(text_part.to_owned()),
-                        model.to_owned(),
-                    ))?;
+            match event {
+                Ok(event) => {
+                    match serde_json::from_slice::<GeminiProResponse>(event.data.as_bytes()) {
+                        Ok(parsed_event) => {
+                            if let Some(text_part) =
+                                parsed_event.candidates[0].content.parts[0].get("text")
+                            {
+                                buffered_string = buffered_string + text_part;
+                                if let Err(e) = sender.send(LLMClientCompletionResponse::new(
+                                    buffered_string.clone(),
+                                    Some(text_part.to_owned()),
+                                    model.to_owned(),
+                                )) {
+                                    error!("Failed to send completion response: {}", e);
+                                    return Err(LLMClientError::SendError(e));
+                                }
+                            }
+                        }
+                        Err(e) => {
+                            error!("Failed to parse Gemini response: {:?}", e);
+                        }
+                    }
+                }
+                Err(e) => {
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_string, None, model))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_string,
+            None,
+            model,
+        ))
     }
 
     async fn completion(
@@ -341,7 +365,9 @@ impl LLMClient for GoogleAIStdioClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(
