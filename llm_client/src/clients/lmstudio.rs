@@ -3,6 +3,7 @@ use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error};
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys};
 
@@ -127,7 +128,9 @@ impl LLMClient for LMStudioClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_completion(
@@ -157,19 +160,27 @@ impl LLMClient for LMStudioClient {
                         continue;
                     }
                     let value = serde_json::from_str::<LMStudioResponse>(&event.data)?;
+                    debug!("Received event data: {}", &event.data);
                     buffered_stream = buffered_stream + &value.choices[0].text;
-                    sender.send(LLMClientCompletionResponse::new(
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         buffered_stream.to_owned(),
                         Some(value.choices[0].text.to_owned()),
                         value.model,
-                    ))?;
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_stream, None, "not_provided".to_owned()))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_stream,
+            None,
+            "not_provided".to_owned(),
+        ))
     }
 
     async fn stream_prompt_completion(
@@ -199,15 +210,19 @@ impl LLMClient for LMStudioClient {
                         continue;
                     }
                     let value = serde_json::from_str::<LMStudioResponse>(&event.data)?;
+                    debug!("Received prompt completion data: {}", &event.data);
                     buffered_stream = buffered_stream + &value.choices[0].text;
-                    sender.send(LLMClientCompletionResponse::new(
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         buffered_stream.to_owned(),
                         Some(value.choices[0].text.to_owned()),
                         value.model,
-                    ))?;
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
