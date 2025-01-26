@@ -4,6 +4,7 @@ use crate::provider::{LLMProvider, LLMProviderAPIKeys};
 use futures::StreamExt;
 use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error};
 
 use super::types::{
     LLMClient, LLMClientCompletionRequest, LLMClientCompletionResponse,
@@ -398,7 +399,7 @@ impl OpenRouterClient {
             .ok_or(LLMClientError::WrongAPIKeyType)?;
         let auth_key = self.generate_auth_key(api_key)?;
         let request = OpenRouterRequest::from_chat_request(request, model.to_owned());
-        println!("tool_use_request::({:?})", &serde_json::to_string(&request));
+        debug!("tool_use_request: {}", serde_json::to_string(&request)?);
         let mut response_stream = self
             .client
             .post(base_url)
@@ -430,16 +431,19 @@ impl OpenRouterClient {
                     if &event.data == "[DONE]" {
                         continue;
                     }
-                    println!("stream_completion_with_tool:({:?})", &event.data);
+                    debug!("stream_completion_with_tool: {}", &event.data);
                     let value = serde_json::from_str::<OpenRouterResponse>(&event.data)?;
                     let first_choice = &value.choices[0];
                     if let Some(content) = first_choice.delta.content.as_ref() {
                         buffered_stream = buffered_stream + &content;
-                        sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_stream.to_owned(),
                             Some(content.to_owned()),
                             model.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
 
                     if let Some(finish_reason) = first_choice.finish_reason.as_ref() {
@@ -481,7 +485,7 @@ impl OpenRouterClient {
                     }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
@@ -530,19 +534,26 @@ impl LLMClient for OpenRouterClient {
                     let first_choice = &value.choices[0];
                     if let Some(content) = first_choice.delta.content.as_ref() {
                         buffered_stream = buffered_stream + &content;
-                        sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_stream.to_owned(),
                             Some(content.to_owned()),
                             model.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_stream, None, model))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_stream,
+            None,
+            model,
+        ))
     }
 
     async fn completion(
