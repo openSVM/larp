@@ -3,6 +3,7 @@ use eventsource_stream::Eventsource;
 use futures::StreamExt;
 use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error};
 
 use crate::provider::LLMProviderAPIKeys;
 
@@ -176,7 +177,9 @@ impl LLMClient for FireworksAIClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(
@@ -202,7 +205,7 @@ impl LLMClient for FireworksAIClient {
 
         let mut buffered_string = "".to_owned();
         while let Some(event) = response_stream.next().await {
-            println!("{:?}", &event);
+            debug!("Stream event received: {:?}", &event);
             match event {
                 Ok(event) => {
                     if &event.data == "[DONE]" {
@@ -210,17 +213,20 @@ impl LLMClient for FireworksAIClient {
                     }
                     let value = serde_json::from_str::<FireworksAIRequestCompletion>(&event.data)?;
                     if let Some(usage) = value.usage {
-                        println!("fireworksai::usage::({:?})", usage);
+                        debug!("fireworksai::usage: {:?}", usage);
                     }
                     buffered_string.push_str(&value.choices[0].text);
-                    sender.send(LLMClientCompletionResponse::new(
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         buffered_string.to_owned(),
                         Some(value.choices[0].text.to_owned()),
                         original_model_str.to_owned(),
-                    ))?;
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
@@ -258,23 +264,30 @@ impl LLMClient for FireworksAIClient {
                     }
                     let value = serde_json::from_str::<FireworksAIChatCompletion>(&event.data)?;
                     if let Some(usage) = value.usage {
-                        println!("fireworksai::stream_completion::usage({:?})", &usage);
+                        debug!("fireworksai::stream_completion::usage: {:?}", &usage);
                     }
                     if let Some(content) = &value.choices[0].delta.content {
                         buffered_string.push_str(content);
-                        sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_string.to_owned(),
                             Some(content.to_owned()),
                             original_model_str.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     };
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
 
-        Ok(LLMClientCompletionResponse::new(buffered_string, None, original_model_str))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_string,
+            None,
+            original_model_str,
+        ))
     }
 }
