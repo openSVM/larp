@@ -85,4 +85,7 @@ pub enum ToolError {
 
     #[error("Readline error")]
     ReadLineError,
+
+    #[error("Cancelled by user")]
+    CancelledByUser,
 }

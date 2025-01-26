@@ -484,10 +484,17 @@ impl Tool for SessionChatClient {
             answer_up_until_now
         });
 
-        // now wait for the llm response to finsih, which will resolve even if the
+        // now wait for the llm response to finish, which will resolve even if the
         // cancellation token is cancelled in between
         let response = llm_response.await;
         println!("session_chat_client::response::({:?})", &response);
+
+        // Handle the LLM response first
+        let _ = response
+            .ok_or(ToolError::CancelledByUser)? // Handle None from cancellation
+            .map_err(|_| ToolError::RetriesExhausted)? // Handle JoinError from spawn
+            .map_err(|e| ToolError::LLMClientError(e))?; // Handle LLMClientError
+
         // wait for the delta streaming to finish
         let answer_up_until_now = polling_llm_response.await;
         match answer_up_until_now {
