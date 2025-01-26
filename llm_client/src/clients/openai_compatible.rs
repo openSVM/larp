@@ -12,7 +12,7 @@ use async_openai::{
 };
 use async_trait::async_trait;
 use futures::StreamExt;
-use sqlx::types::chrono::Local;
+use tracing::error;
 
 use crate::provider::LLMProviderAPIKeys;
 
@@ -233,7 +233,7 @@ impl LLMClient for OpenAICompatibleClient {
                             }
                         }
                         Err(err) => {
-                            dbg!(err);
+                            error!("Stream error in OpenAI completion: {:?}", err);
                             break;
                         }
                     }
@@ -294,14 +294,14 @@ impl LLMClient for OpenAICompatibleClient {
                         .ok_or(LLMClientError::FailedToGetResponse)?;
                     let text = response.text.to_owned();
                     buffer.push_str(&text);
-                    dbg!("{}", &Local::now());
-                    println!("{}", &buffer);
-                    println!("========");
-                    let _ = sender.send(LLMClientCompletionResponse::new(
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         buffer.to_owned(),
                         Some(text),
                         model.to_owned(),
-                    ));
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                 }
                 Err(err) => {
                     match err {
@@ -323,21 +323,26 @@ impl LLMClient for OpenAICompatibleClient {
                                             .ok_or(LLMClientError::FailedToGetResponse)?;
                                         let text = response.text.to_owned();
                                         buffer.push_str(&text);
-                                        let _ = sender.send(LLMClientCompletionResponse::new(
-                                            buffer.to_owned(),
-                                            Some(text),
-                                            model.to_owned(),
-                                        ));
+                                        if let Err(e) =
+                                            sender.send(LLMClientCompletionResponse::new(
+                                                buffer.to_owned(),
+                                                Some(text),
+                                                model.to_owned(),
+                                            ))
+                                        {
+                                            error!("Failed to send completion response: {}", e);
+                                            return Err(LLMClientError::SendError(e));
+                                        }
                                     }
                                     Err(e) => {
-                                        dbg!(e);
+                                        error!("Failed to parse partial response: {:?}", e);
                                         break;
                                     }
                                 }
                             }
                         }
                         _ => {
-                            dbg!(err);
+                            error!("OpenAI-compatible stream error: {:?}", err);
                             break;
                         }
                     }
