@@ -1354,13 +1354,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 ))),
                 None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
             };
-            match response.await {
-                Some(Ok(Ok(response))) => Ok(ToolUseAgentOutput::new(
-                    final_output?,
-                    response.usage_statistics(),
-                )),
-                _ => Err(SymbolError::CancelledResponseStream),
-            }
+            return Ok(ToolUseAgentOutput::new(
+                final_output?,
+                Default::default(),
+            ));
         } else {
             Err(SymbolError::CancelledResponseStream)
         }
