@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
 use logging::parea::{PareaClient, PareaLogCompletion, PareaLogMessage};
 use tokio::sync::mpsc::UnboundedSender;
-use tracing::debug;
+use tracing::{debug, error, info};
 
 use crate::{
     clients::types::LLMClientUsageStatistics,
@@ -354,7 +355,7 @@ impl AnthropicRequest {
 }
 
 pub struct AnthropicClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
     base_url: String,
     chat_endpoint: String,
 }
@@ -362,7 +363,7 @@ pub struct AnthropicClient {
 impl AnthropicClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
             base_url: "https://api.anthropic.com".to_owned(),
             chat_endpoint: "/v1/messages".to_owned(),
         }
@@ -370,7 +371,7 @@ impl AnthropicClient {
 
     pub fn new_with_custom_urls(base_url: String, chat_endpoint: String) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
             base_url,
             chat_endpoint,
         }
@@ -452,7 +453,7 @@ impl AnthropicClient {
             .send()
             .await
             .map_err(|e| {
-                println!("sidecar.anthropic.error: {:?}", &e);
+                error!("sidecar.anthropic.error: {:?}", &e);
                 e
             })?;
 
@@ -484,15 +485,18 @@ impl AnthropicClient {
                         ContentBlockStart::InputToolUse { name, id } => {
                             *current_tool_use_ref = Some(name.to_owned());
                             *current_tool_use_id_ref = Some(id.to_owned());
-                            println!("anthropic::tool_use::{}", &name);
+                            info!("anthropic::tool_use::{}", &name);
                         }
                         ContentBlockStart::TextDelta { text } => {
                             buffered_string = buffered_string + &text;
-                            let _ = sender.send(LLMClientCompletionResponse::new(
+                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                                 buffered_string.to_owned(),
                                 Some(text),
                                 model_str.to_owned(),
-                            ));
+                            )) {
+                                error!("Failed to send completion response: {}", e);
+                                return Err(LLMClientError::SendError(e));
+                            }
                         }
                     }
                 }
@@ -510,11 +514,14 @@ impl AnthropicClient {
                             generated_tokens_count = &buffered_string.len(),
                             time_taken = time_diff,
                         );
-                        let _ = sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_string.to_owned(),
                             Some(text),
                             model_str.to_owned(),
-                        ));
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                     ContentBlockDeltaType::InputJsonDelta { partial_json } => {
                         *running_tool_input_ref = running_tool_input_ref.to_owned() + &partial_json;
@@ -552,7 +559,7 @@ impl AnthropicClient {
                     );
                 }
                 Err(e) => {
-                    println!("{:?}", e);
+                    error!("Error parsing event: {:?}", e);
                     // break;
                 }
                 _ => {
@@ -562,7 +569,7 @@ impl AnthropicClient {
         }
 
         if tool_use_indication.is_empty() {
-            println!("anthropic::tool_not_found");
+            info!("anthropic::tool_not_found");
         }
 
         let request_id = uuid::Uuid::new_v4();
@@ -678,7 +685,7 @@ impl LLMClient for AnthropicClient {
         request: LLMClientCompletionRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
     ) -> Result<LLMClientCompletionResponse, LLMClientError> {
-        println!("anthropic::stream_completion");
+        info!("anthropic::stream_completion");
         let endpoint = self.chat_endpoint();
         let model_str = self.get_model_string(request.model())?;
         let message_tokens = request
@@ -716,7 +723,7 @@ impl LLMClient for AnthropicClient {
             .send()
             .await
             .map_err(|e| {
-                println!("sidecar.anthropic.error: {:?}", &e);
+                error!("sidecar.anthropic.error: {:?}", &e);
                 e
             })?;
 
@@ -741,11 +748,14 @@ impl LLMClient for AnthropicClient {
                         }
                         ContentBlockStart::TextDelta { text } => {
                             buffered_string = buffered_string + &text;
-                            let _ = sender.send(LLMClientCompletionResponse::new(
+                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                                 buffered_string.to_owned(),
                                 Some(text),
                                 model_str.to_owned(),
-                            ));
+                            )) {
+                                error!("Failed to send completion response: {}", e);
+                                return Err(LLMClientError::SendError(e));
+                            }
                         }
                     }
                 }
@@ -763,14 +773,17 @@ impl LLMClient for AnthropicClient {
                             generated_tokens_count = &buffered_string.len(),
                             time_taken = time_diff,
                         );
-                        let _ = sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_string.to_owned(),
                             Some(text),
                             model_str.to_owned(),
-                        ));
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                     ContentBlockDeltaType::InputJsonDelta { partial_json } => {
-                        println!("input_json_delta::{}", &partial_json);
+                        debug!("input_json_delta::{}", &partial_json);
                     }
                 },
                 Ok(AnthropicEvent::MessageStart { message, usage }) => {
@@ -794,7 +807,7 @@ impl LLMClient for AnthropicClient {
                     // break;
                 }
                 _ => {
-                    // dbg!(&event);
+                    debug!("Received anthropic event: {:?}", &event);
                 }
             }
         }
@@ -851,11 +864,14 @@ impl LLMClient for AnthropicClient {
                         }
                         ContentBlockStart::TextDelta { text } => {
                             buffered_string = buffered_string + &text;
-                            let _ = sender.send(LLMClientCompletionResponse::new(
+                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                                 buffered_string.to_owned(),
                                 Some(text),
                                 model_str.to_owned(),
-                            ));
+                            )) {
+                                error!("Failed to send completion response: {}", e);
+                                return Err(LLMClientError::SendError(e));
+                            }
                         }
                     }
                 }
@@ -866,11 +882,14 @@ impl LLMClient for AnthropicClient {
                             .duration_since(std::time::UNIX_EPOCH)
                             .unwrap()
                             .as_millis();
-                        let _ = sender.send(LLMClientCompletionResponse::new(
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_string.to_owned(),
                             Some(text),
                             model_str.to_owned(),
-                        ));
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                     ContentBlockDeltaType::InputJsonDelta { partial_json } => {
                         println!("input_json_delta::{}", &partial_json);

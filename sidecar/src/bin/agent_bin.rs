@@ -88,6 +88,10 @@ struct CliArgs {
     /// Maximum depth for the search tree
     #[arg(long, default_value = "30")]
     max_depth: u32,
+
+    /// Model name override
+    #[arg(long)]
+    model_name: Option<String>,
 }
 
 /// Define the SWEbenchInstance struct for serialization
@@ -134,8 +138,14 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .expect("application setup should work");
     let exchange_id = "0".to_owned();
 
+    let llm_model = if let Some(model_name) = args.model_name {
+        LLMType::Custom(model_name)
+    } else {
+        LLMType::ClaudeSonnet
+    };
+
     let llm_provider = LLMProperties::new(
-        LLMType::ClaudeSonnet,
+        llm_model,
         LLMProvider::Anthropic,
         LLMProviderAPIKeys::Anthropic(AnthropicAPIKey::new(args.anthropic_api_key.to_owned())),
     );

@@ -1,7 +1,9 @@
 //! Ollama client here so we can send requests to it
 
 use async_trait::async_trait;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error};
 
 use crate::provider::LLMProviderAPIKeys;
 
@@ -13,7 +15,7 @@ use super::types::LLMClientError;
 use super::types::LLMType;
 
 pub struct OllamaClient {
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub base_url: String,
 }
 
@@ -58,7 +60,8 @@ struct OllamaClientRequest {
 
 impl OllamaClientRequest {
     pub fn from_request(request: LLMClientCompletionRequest) -> Result<Self, LLMClientError> {
-        dbg!(request.model().to_ollama_model()?);
+        let model = request.model().to_ollama_model()?;
+        debug!("Creating Ollama request with model: {}", model);
         Ok(Self {
             prompt: request
                 .messages()
@@ -99,7 +102,7 @@ impl OllamaClient {
         // ollama always runs on the following url:
         // http://localhost:11434/
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
             base_url: "http://localhost:11434".to_owned(),
         }
     }
@@ -129,21 +132,34 @@ impl LLMClient for OllamaClient {
             .send()
             .await
             .map_err(|e| {
-                dbg!(&e);
+                error!("Failed to send request to Ollama: {:?}", e);
                 e
             })?;
 
         let mut buffered_string = "".to_owned();
         while let Some(chunk) = response.chunk().await? {
-            let value = serde_json::from_slice::<OllamaResponse>(chunk.to_vec().as_slice())?;
+            let value = match serde_json::from_slice::<OllamaResponse>(chunk.to_vec().as_slice()) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to parse Ollama response: {:?}", e);
+                    return Err(LLMClientError::SerdeError(e));
+                }
+            };
             buffered_string.push_str(&value.response);
-            sender.send(LLMClientCompletionResponse::new(
+            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                 buffered_string.to_owned(),
                 Some(value.response),
                 value.model,
-            ))?;
+            )) {
+                error!("Failed to send completion response: {}", e);
+                return Err(LLMClientError::SendError(e));
+            }
         }
-        Ok(LLMClientCompletionResponse::new(buffered_string, None, ollama_request.model))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_string,
+            None,
+            ollama_request.model,
+        ))
     }
 
     async fn completion(
@@ -164,6 +180,8 @@ impl LLMClient for OllamaClient {
     ) -> Result<String, LLMClientError> {
         let prompt = request.prompt().to_owned();
         let ollama_request = OllamaClientRequest::from_string_request(request)?;
+        debug!("Sending prompt completion request: {}", prompt);
+
         let mut response = self
             .client
             .post(self.generation_endpoint())
@@ -173,15 +191,23 @@ impl LLMClient for OllamaClient {
 
         let mut buffered_string = "".to_owned();
         while let Some(chunk) = response.chunk().await? {
-            let value = serde_json::from_slice::<OllamaResponse>(chunk.to_vec().as_slice())?;
+            let value = match serde_json::from_slice::<OllamaResponse>(chunk.to_vec().as_slice()) {
+                Ok(v) => v,
+                Err(e) => {
+                    error!("Failed to parse Ollama response: {:?}", e);
+                    return Err(LLMClientError::SerdeError(e));
+                }
+            };
             buffered_string.push_str(&value.response);
-            sender.send(LLMClientCompletionResponse::new(
+            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                 buffered_string.to_owned(),
                 Some(value.response),
                 value.model,
-            ))?;
+            )) {
+                error!("Failed to send completion response: {}", e);
+                return Err(LLMClientError::SendError(e));
+            }
         }
-        println!("request\n:{}", prompt);
         Ok(buffered_string)
     }
 }

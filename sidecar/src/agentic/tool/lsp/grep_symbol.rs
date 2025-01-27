@@ -8,6 +8,7 @@ use crate::{
     chunking::text_document::Range,
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct LSPGrepSymbolInCodebaseRequest {
@@ -53,13 +54,13 @@ impl LSPGrepSymbolInCodebaseRequest {
 }
 
 pub struct GrepSymbolInCodebase {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl GrepSymbolInCodebase {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

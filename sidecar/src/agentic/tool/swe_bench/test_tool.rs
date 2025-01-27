@@ -7,6 +7,7 @@ use crate::agentic::tool::{
     r#type::{Tool, ToolRewardScale},
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct SWEBenchTestRequest {
@@ -38,13 +39,13 @@ impl SWEBenchTestRepsonse {
 }
 
 pub struct SWEBenchTestTool {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl SWEBenchTestTool {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

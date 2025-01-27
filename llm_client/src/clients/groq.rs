@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use tracing::error;
 
 use crate::provider::{LLMProvider, LLMProviderAPIKeys, OpenAICompatibleConfig};
 
@@ -40,7 +41,8 @@ impl LLMClient for GroqClient {
     ) -> Result<LLMClientCompletionResponse, LLMClientError> {
         match api_key {
             LLMProviderAPIKeys::GroqProvider(groq_api_key) => {
-                self.openai_compatible_client
+                let result = self
+                    .openai_compatible_client
                     .stream_completion(
                         LLMProviderAPIKeys::OpenAICompatible(OpenAICompatibleConfig::new(
                             groq_api_key.api_key,
@@ -49,9 +51,17 @@ impl LLMClient for GroqClient {
                         request,
                         sender,
                     )
-                    .await
+                    .await;
+
+                if let Err(ref e) = result {
+                    error!("Failed to stream completion: {:?}", e);
+                }
+                result
             }
-            _ => Err(LLMClientError::WrongAPIKeyType),
+            _ => {
+                error!("Wrong API key type provided for Groq client");
+                Err(LLMClientError::WrongAPIKeyType)
+            }
         }
     }
 
@@ -62,7 +72,8 @@ impl LLMClient for GroqClient {
     ) -> Result<String, LLMClientError> {
         match api_key {
             LLMProviderAPIKeys::GroqProvider(groq_api_key) => {
-                self.openai_compatible_client
+                let result = self
+                    .openai_compatible_client
                     .completion(
                         LLMProviderAPIKeys::OpenAICompatible(OpenAICompatibleConfig::new(
                             groq_api_key.api_key,
@@ -70,9 +81,17 @@ impl LLMClient for GroqClient {
                         )),
                         request,
                     )
-                    .await
+                    .await;
+
+                if let Err(ref e) = result {
+                    error!("Failed to get completion: {:?}", e);
+                }
+                result
             }
-            _ => Err(LLMClientError::WrongAPIKeyType),
+            _ => {
+                error!("Wrong API key type provided for Groq client");
+                Err(LLMClientError::WrongAPIKeyType)
+            }
         }
     }
 
@@ -84,7 +103,8 @@ impl LLMClient for GroqClient {
     ) -> Result<String, LLMClientError> {
         match api_key {
             LLMProviderAPIKeys::GroqProvider(groq_api_key) => {
-                self.openai_compatible_client
+                let result = self
+                    .openai_compatible_client
                     .stream_prompt_completion(
                         LLMProviderAPIKeys::OpenAICompatible(OpenAICompatibleConfig::new(
                             groq_api_key.api_key,
@@ -93,9 +113,17 @@ impl LLMClient for GroqClient {
                         request,
                         sender,
                     )
-                    .await
+                    .await;
+
+                if let Err(ref e) = result {
+                    error!("Failed to stream prompt completion: {:?}", e);
+                }
+                result
             }
-            _ => Err(LLMClientError::WrongAPIKeyType),
+            _ => {
+                error!("Wrong API key type provided for Groq client");
+                Err(LLMClientError::WrongAPIKeyType)
+            }
         }
     }
 }

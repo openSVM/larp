@@ -12,6 +12,7 @@ use async_openai::{
 };
 use async_trait::async_trait;
 use futures::StreamExt;
+use tracing::{debug, error};
 
 use crate::provider::LLMProviderAPIKeys;
 
@@ -260,7 +261,7 @@ impl LLMClient for OpenAIClient {
                 if stream_maybe.is_err() {
                     return Err(LLMClientError::OpenAPIError(stream_maybe.err().unwrap()));
                 } else {
-                    dbg!("no error here");
+                    debug!("Stream created successfully");
                 }
                 let mut stream = stream_maybe.unwrap();
                 while let Some(response) = stream.next().await {
@@ -278,14 +279,17 @@ impl LLMClient for OpenAIClient {
                                 .map(|choice| choice.delta.content.as_ref())
                                 .flatten();
                             buffer.push_str(&delta);
-                            let _ = sender.send(LLMClientCompletionResponse::new(
+                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                                 buffer.to_owned(),
                                 Some(delta),
                                 model.to_owned(),
-                            ));
+                            )) {
+                                error!("Failed to send completion response: {}", e);
+                                return Err(LLMClientError::SendError(e));
+                            }
                         }
                         Err(err) => {
-                            dbg!(err);
+                            error!("Azure stream error: {:?}", err);
                             break;
                         }
                     }
@@ -303,16 +307,19 @@ impl LLMClient for OpenAIClient {
                         .content
                         .as_ref()
                         .ok_or(LLMClientError::FailedToGetResponse)?;
-                    let _ = sender.send(LLMClientCompletionResponse::new(
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         content.to_owned(),
                         Some(content.to_owned()),
                         model.to_owned(),
-                    ));
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                     buffer = content.to_owned();
                 } else {
                     let mut stream = client.chat().create_stream(request).await?;
                     while let Some(response) = stream.next().await {
-                        println!("{:?}", &response);
+                        debug!("OpenAI stream response: {:?}", &response);
                         match response {
                             Ok(response) => {
                                 let response = response
@@ -322,15 +329,18 @@ impl LLMClient for OpenAIClient {
                                 let text = response.delta.content.to_owned();
                                 if let Some(text) = text {
                                     buffer.push_str(&text);
-                                    let _ = sender.send(LLMClientCompletionResponse::new(
+                                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                                         buffer.to_owned(),
                                         Some(text),
                                         model.to_owned(),
-                                    ));
+                                    )) {
+                                        error!("Failed to send completion response: {}", e);
+                                        return Err(LLMClientError::SendError(e));
+                                    }
                                 }
                             }
                             Err(err) => {
-                                dbg!(err);
+                                error!("OpenAI stream error: {:?}", err);
                                 break;
                             }
                         }

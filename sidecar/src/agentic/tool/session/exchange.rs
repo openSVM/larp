@@ -2,6 +2,7 @@
 //! agent to send replies, followings etc
 
 use async_trait::async_trait;
+use logging::new_client;
 
 use crate::agentic::tool::{
     errors::ToolError,
@@ -37,13 +38,13 @@ impl SessionExchangeNewResponse {
 }
 
 pub struct SessionExchangeClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl SessionExchangeClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

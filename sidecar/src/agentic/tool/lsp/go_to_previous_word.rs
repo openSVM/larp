@@ -10,6 +10,7 @@ use crate::{
     chunking::text_document::{Position, Range},
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GoToPreviousWordRequest {
@@ -41,13 +42,13 @@ impl GoToPreviousWordResponse {
 }
 
 pub struct GoToPreviousWordClient {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl GoToPreviousWordClient {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

@@ -935,6 +935,9 @@ pub enum LLMClientError {
     #[error("Reqwest error: {0}")]
     ReqwestError(#[from] reqwest::Error),
 
+    #[error("ReqwestMiddlewareError error: {0}")]
+    ReqwestMiddlewareError(#[from] reqwest_middleware::Error),
+
     #[error("serde failed: {0}")]
     SerdeError(#[from] serde_json::Error),
 

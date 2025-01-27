@@ -8,6 +8,7 @@ use crate::{
     chunking::text_document::{Position, Range},
 };
 use async_trait::async_trait;
+use logging::new_client;
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct GoToDefinitionRequest {
@@ -62,13 +63,13 @@ impl DefinitionPathAndRange {
 }
 
 pub struct LSPGoToDefinition {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
 }
 
 impl LSPGoToDefinition {
     pub fn new() -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
         }
     }
 }

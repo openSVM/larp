@@ -1,4 +1,5 @@
 use async_trait::async_trait;
+use logging::new_client;
 
 use crate::{
     agentic::tool::{
@@ -11,14 +12,14 @@ use crate::{
 };
 
 pub struct EditorApply {
-    client: reqwest::Client,
+    client: reqwest_middleware::ClientWithMiddleware,
     apply_edits_directly: bool,
 }
 
 impl EditorApply {
     pub fn new(apply_edits_directly: bool) -> Self {
         Self {
-            client: reqwest::Client::new(),
+            client: new_client(),
             apply_edits_directly,
         }
     }

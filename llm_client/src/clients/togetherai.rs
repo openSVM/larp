@@ -1,7 +1,9 @@
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
 use futures::StreamExt;
+use logging::new_client;
 use tokio::sync::mpsc::UnboundedSender;
+use tracing::{debug, error};
 
 use crate::provider::LLMProviderAPIKeys;
 
@@ -13,7 +15,7 @@ use super::types::LLMClientError;
 use super::types::LLMType;
 
 pub struct TogetherAIClient {
-    pub client: reqwest::Client,
+    pub client: reqwest_middleware::ClientWithMiddleware,
     pub base_url: String,
 }
 
@@ -124,9 +126,8 @@ impl TogetherAIRequestString {
 
 impl TogetherAIClient {
     pub fn new() -> Self {
-        let client = reqwest::Client::new();
         Self {
-            client,
+            client: new_client(),
             base_url: "https://api.together.xyz/v1".to_owned(),
         }
     }
@@ -179,7 +180,9 @@ impl LLMClient for TogetherAIClient {
         request: LLMClientCompletionRequest,
     ) -> Result<String, LLMClientError> {
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
-        self.stream_completion(api_key, request, sender).await.map(|answer| answer.answer_up_until_now().to_owned())
+        self.stream_completion(api_key, request, sender)
+            .await
+            .map(|answer| answer.answer_up_until_now().to_owned())
     }
 
     async fn stream_prompt_completion(
@@ -194,7 +197,7 @@ impl LLMClient for TogetherAIClient {
             return Err(LLMClientError::FailedToGetResponse);
         }
         let together_ai_request = TogetherAIRequestString::from_string_request(request);
-        dbg!("sidecar.togetherai.request", &together_ai_request);
+        debug!("sidecar.togetherai.request: {:?}", &together_ai_request);
         let mut response_stream = self
             .client
             .post(self.inference_endpoint())
@@ -214,15 +217,18 @@ impl LLMClient for TogetherAIClient {
                     }
                     let value = serde_json::from_str::<TogetherAIRequestCompletion>(&event.data)?;
                     buffered_string = buffered_string + &value.choices[0].text;
-                    dbg!("sidecar.togetherai", &buffered_string);
-                    sender.send(LLMClientCompletionResponse::new(
+                    debug!("sidecar.togetherai: {}", &buffered_string);
+                    if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                         buffered_string.to_owned(),
                         Some(value.choices[0].text.to_owned()),
                         original_model_name.to_owned(),
-                    ))?;
+                    )) {
+                        error!("Failed to send completion response: {}", e);
+                        return Err(LLMClientError::SendError(e));
+                    }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
@@ -262,20 +268,27 @@ impl LLMClient for TogetherAIClient {
                     let value = serde_json::from_str::<TogetherAIResponse>(&event.data);
                     if let Ok(value) = value {
                         buffered_string = buffered_string + &value.choices[0].delta.content;
-                        println!("{}", &buffered_string);
-                        sender.send(LLMClientCompletionResponse::new(
+                        debug!("Stream content: {}", &buffered_string);
+                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
                             buffered_string.to_owned(),
                             Some(value.choices[0].delta.content.to_owned()),
                             original_model_name.to_owned(),
-                        ))?;
+                        )) {
+                            error!("Failed to send completion response: {}", e);
+                            return Err(LLMClientError::SendError(e));
+                        }
                     }
                 }
                 Err(e) => {
-                    dbg!(e);
+                    error!("Stream error encountered: {:?}", e);
                 }
             }
         }
 
-        Ok(LLMClientCompletionResponse::new(buffered_string.to_owned(), None, original_model_name))
+        Ok(LLMClientCompletionResponse::new(
+            buffered_string.to_owned(),
+            None,
+            original_model_name,
+        ))
     }
 }
