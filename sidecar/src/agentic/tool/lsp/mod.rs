@@ -17,3 +17,4 @@ pub mod quick_fix;
 pub mod search_file;
 pub(crate) mod subprocess_spawned_output;
 pub(crate) mod undo_changes;
+pub(crate) mod find_files;
