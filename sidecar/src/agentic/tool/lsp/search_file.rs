@@ -316,7 +316,6 @@ impl Tool for SearchFileContentClient {
         tokio::pin!(reader);
 
         while let Some(line) = reader.next_line().await? {
-            println!("Line: {}", line);
             if line_count >= max_lines {
                 println!("Reached max lines, breaking");
                 break;
