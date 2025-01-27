@@ -20,20 +20,9 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
-            errors::ToolError,
-            file::semantic_search::SemanticSearchParametersPartial,
-            helpers::cancellation_future::run_with_cancellation,
-            input::ToolInputPartial,
-            lsp::{
-                file_diagnostics::WorkspaceDiagnosticsPartial, list_files::ListFilesInputPartial,
-                open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial,
-            },
-            r#type::ToolType,
-            repo_map::generator::RepoMapGeneratorRequestPartial,
-            session::chat::SessionChatRole,
-            terminal::terminal::TerminalInputPartial,
-            test_runner::runner::TestRunnerRequestPartial,
+            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
+                file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial, list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial
+            }, repo_map::generator::RepoMapGeneratorRequestPartial, session::chat::SessionChatRole, terminal::terminal::TerminalInputPartial, test_runner::runner::TestRunnerRequestPartial, r#type::ToolType
         },
     },
     mcts::action_node::ActionNode,
@@ -1402,6 +1391,7 @@ enum ToolBlockStatus {
     WaitForExitFound,
     StartLineFound,
     EndLineFound,
+    GlobPatternFound,
 }
 
 #[derive(Debug, Clone, serde::Serialize)]
@@ -1442,6 +1432,7 @@ struct ToolUseGenerator {
     thinking: String,
     tool_type_possible: Option<ToolType>,
     fs_file_path: Option<String>,
+    pattern: Option<String>,
     fs_file_paths: Option<Vec<String>>,
     instruction: Option<String>,
     directory_path: Option<String>,
@@ -1466,6 +1457,7 @@ impl ToolUseGenerator {
             tool_block_status: ToolBlockStatus::NoBlock,
             thinking: "".to_owned(),
             tool_type_possible: None,
+            pattern: None,
             fs_file_path: None,
             fs_file_paths: None,
             instruction: None,
@@ -1550,6 +1542,10 @@ impl ToolUseGenerator {
                         let _ = self
                             .sender
                             .send(ToolBlockEvent::ToolFound(ToolType::SemanticSearch));
+                    } else if answer_line_at_index == "<find_file>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                        self.tool_type_possible = Some(ToolType::FindFiles);
+                        let _ = self.sender.send(ToolBlockEvent::ToolFound(ToolType::FindFiles));
                     } else if answer_line_at_index == "<grep_string>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SearchFileContentWithRegex);
@@ -1617,7 +1613,26 @@ impl ToolUseGenerator {
                 ToolBlockStatus::ToolFound => {
                     // there are cases where the llm does not put the \n properly
                     // we still want to parse it out properly
-                    if answer_line_at_index.starts_with("<fs_file_path>")
+                    if answer_line_at_index.starts_with("<pattern>") && answer_line_at_index.ends_with("</pattern>") {
+                        // record that we found a file path over here
+                        if let Some(prefix_removed) =
+                            answer_line_at_index.strip_prefix("<pattern>")
+                        {
+                            if let Some(suffix_removed) =
+                                prefix_removed.strip_suffix("</pattern>")
+                            {
+                                self.pattern = Some(suffix_removed.to_owned());
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters {
+                                        field_name: "pattern".to_owned(),
+                                        field_content_up_until_now: suffix_removed.to_owned(),
+                                        field_content_delta: suffix_removed.to_owned(),
+                                    },
+                                ));
+                            }
+                        }
+                    }
+                    else if answer_line_at_index.starts_with("<fs_file_path>")
                         && answer_line_at_index.ends_with("</fs_file_path>")
                     {
                         // record that we found a file path over here
@@ -1808,6 +1823,8 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
+                    } else if answer_line_at_index == "<pattern>" {
+                        self.tool_block_status = ToolBlockStatus::GlobPatternFound;
                     } else if answer_line_at_index == "<fs_file_path>" {
                         self.tool_block_status = ToolBlockStatus::FilePathFound;
                     } else if answer_line_at_index == "<instruction>" {
@@ -1997,6 +2014,18 @@ impl ToolUseGenerator {
                             Some(fs_file_paths) => {
                                 self.tool_input_partial = Some(ToolInputPartial::TestRunner(
                                     TestRunnerRequestPartial::new(fs_file_paths),
+                                ));
+                                let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
+                            }
+                            _ => {}
+                        }
+                    } else if answer_line_at_index == "</find_file>" {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        self.tool_type_possible = None;
+                        match self.pattern.clone() {
+                            Some(pattern) => {
+                                self.tool_input_partial = Some(ToolInputPartial::FindFile(
+                                    FindFileInputPartial::new(pattern),
                                 ));
                                 let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                             }
@@ -2261,6 +2290,20 @@ impl ToolUseGenerator {
                                     answer_line_at_index.to_owned(),
                                     answer_line_at_index.to_owned(),
                                 )));
+                    }
+                }
+                ToolBlockStatus::GlobPatternFound => {
+                    if answer_line_at_index == "</pattern>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                    } else {
+                        self.pattern = Some(answer_line_at_index.to_owned());
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolParameters(ToolParameters {
+                                field_name: "pattern".to_owned(),
+                                field_content_up_until_now: answer_line_at_index.to_owned(),
+                                field_content_delta: answer_line_at_index.to_owned(),
+                            }));
                     }
                 }
             }

@@ -35,7 +35,7 @@ use super::{
     }, filtering::broker::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
     }, git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest}, grep::file::FindInFileRequest, kw_search::tool::KeywordSearchQuery, lsp::{
-        create_file::CreateFileRequest, diagnostics::LSPDiagnosticsInput, file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial}, find_files::FindFilesRequest, get_outline_nodes::OutlineNodesUsingEditorRequest, go_to_previous_word::GoToPreviousWordRequest, gotodefintion::GoToDefinitionRequest, gotoimplementations::GoToImplementationRequest, gotoreferences::GoToReferencesRequest, grep_symbol::LSPGrepSymbolInCodebaseRequest, inlay_hints::InlayHintsRequest, list_files::{ListFilesInput, ListFilesInputPartial}, open_file::{OpenFileRequest, OpenFileRequestPartial}, quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest}, search_file::{SearchFileContentInput, SearchFileContentInputPartial}, subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest, undo_changes::UndoChangesMadeDuringExchangeRequest
+        create_file::CreateFileRequest, diagnostics::LSPDiagnosticsInput, file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial}, find_files::{FindFileInputPartial, FindFilesRequest}, get_outline_nodes::OutlineNodesUsingEditorRequest, go_to_previous_word::GoToPreviousWordRequest, gotodefintion::GoToDefinitionRequest, gotoimplementations::GoToImplementationRequest, gotoreferences::GoToReferencesRequest, grep_symbol::LSPGrepSymbolInCodebaseRequest, inlay_hints::InlayHintsRequest, list_files::{ListFilesInput, ListFilesInputPartial}, open_file::{OpenFileRequest, OpenFileRequestPartial}, quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest}, search_file::{SearchFileContentInput, SearchFileContentInputPartial}, subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest, undo_changes::UndoChangesMadeDuringExchangeRequest
     }, plan::{
         add_steps::PlanAddRequest, generator::StepGeneratorRequest, reasoning::ReasoningRequest,
         updater::PlanUpdateRequest,
@@ -62,6 +62,7 @@ pub enum ToolInputPartial {
     CodeEditorParameters(CodeEditorParameters),
     SemanticSearch(SemanticSearchParametersPartial),
     Reasoning(ToolUseAgentReasoningParamsPartial),
+    FindFile(FindFileInputPartial),
 }
 
 impl ToolInputPartial {
@@ -80,6 +81,7 @@ impl ToolInputPartial {
             Self::CodeEditorParameters(_) => ToolType::CodeEditorTool,
             Self::SemanticSearch(_) => ToolType::SemanticSearch,
             Self::Reasoning(_) => ToolType::Reasoning,
+            Self::FindFile(_) => ToolType::FindFiles,
         }
     }
 
@@ -104,6 +106,7 @@ impl ToolInputPartial {
                 semantic_search_parameters.to_string()
             }
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
+            Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(), 
         }
     }
 
@@ -136,6 +139,7 @@ impl ToolInputPartial {
                 serde_json::to_value(semantic_search_parameters).ok()
             }
             Self::Reasoning(reasoning_input) => serde_json::to_value(reasoning_input).ok(),
+            Self::FindFile(find_file_parameters) => serde_json::to_value(find_file_parameters).ok(),
         }
     }
 

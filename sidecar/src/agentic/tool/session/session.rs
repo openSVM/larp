@@ -32,8 +32,9 @@ use crate::{
             helpers::diff_recent_changes::DiffFileContent,
             input::{ToolInput, ToolInputPartial},
             lsp::{
-                file_diagnostics::DiagnosticMap, list_files::ListFilesInput,
-                open_file::OpenFileRequest, search_file::SearchFileContentInput,
+                file_diagnostics::DiagnosticMap, find_files::FindFilesRequest,
+                list_files::ListFilesInput, open_file::OpenFileRequest,
+                search_file::SearchFileContentInput,
             },
             plan::{
                 generator::{Step, StepSenderEvent},
@@ -2510,6 +2511,53 @@ impl Session {
                     &exchange_id,
                     tool_type.clone(),
                     formatted_diagnostics,
+                    UserContext::default(),
+                    exchange_id.to_owned(),
+                );
+            }
+            ToolInputPartial::FindFile(find_files) => {
+                println!("find files: {}", find_files.pattern());
+                let find_files_input = FindFilesRequest::new(
+                    find_files.pattern().to_owned(),
+                    root_directory.to_owned(),
+                );
+                let input = ToolInput::FindFiles(find_files_input);
+                let response = tool_box
+                    .tools()
+                    .invoke(input)
+                    .await
+                    .map_err(|e| SymbolError::ToolError(e))?;
+                let find_files_output = response
+                    .get_find_files_response()
+                    .ok_or(SymbolError::WrongToolOutput)?;
+                let mut response = find_files_output
+                    .files()
+                    .into_iter()
+                    .map(|file_path| file_path.to_string_lossy().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n");
+                if response.trim().is_empty() {
+                    response = "0 results found".to_owned();
+                }
+                let _ =
+                    message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::tool_output_delta_response(
+                            message_properties.root_request_id().to_owned(),
+                            message_properties.request_id_str().to_owned(),
+                            "".to_owned(),
+                            response.to_owned(),
+                        ));
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(response.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
+                }
+
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    response,
                     UserContext::default(),
                     exchange_id.to_owned(),
                 );

@@ -25,6 +25,42 @@ pub struct FindFilesRequest {
     root_directory: String,
 }
 
+impl FindFilesRequest {
+    pub fn new(pattern: String, root_directory: String) -> Self {
+        Self {
+            pattern,
+            root_directory
+        }
+    }
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct FindFileInputPartial {
+    pattern: String,
+}
+
+impl FindFileInputPartial {
+    pub fn new(pattern: String) -> Self {
+        Self {
+            pattern
+        }
+    }
+
+    pub fn pattern(&self) -> &str {
+        &self.pattern
+    }
+
+    pub fn to_string(&self) -> String {
+        format!(
+            r#"<find_file>
+<pattern>
+{}
+</pattern>
+</find_file>"#, &self.pattern
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct FindFilesResponse {
     files: Vec<PathBuf>,
