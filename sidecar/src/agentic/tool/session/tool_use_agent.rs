@@ -1243,7 +1243,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
         let cloned_llm_client = self.llm_client.clone();
         let cloned_root_request_id = root_request_id.to_owned();
-        let response = run_with_cancellation(
+        let _ = run_with_cancellation(
             cancellation_token.clone(),
             tokio::spawn(async move {
                 cloned_llm_client
