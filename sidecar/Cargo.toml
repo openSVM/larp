@@ -7,12 +7,14 @@ build = "build.rs"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
+default = ["image_compression"]
 ee = []
+image_compression = ["libcaesium", "image"]
 tee_requests = []
 
 [dependencies]
-libcaesium = { version = "0.17.1", default-features = false, features = ["jpg", "png"] }
-image = { version = "0.25.1", default-features = false }
+libcaesium = { version = "0.17.1", default-features = false, features = ["jpg", "png"], optional = true }
+image = { version = "0.25.1", default-features = false, optional = true }
 base64 = "0.21.5"
 async-trait = "0.1.77"
 ndarray = "0.15.6"

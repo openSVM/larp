@@ -1,19 +1,21 @@
-use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use caesium::{compress_in_memory, parameters::CSParameters};
-use image::{load_from_memory, GenericImageView};
-use std::collections::HashSet;
-
+use super::helpers::{guess_content, ProbableFileKind};
 use crate::chunking::{
     text_document::{Position, Range},
     types::OutlineNode,
 };
+use anyhow::Result;
 use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
-use super::helpers::{guess_content, ProbableFileKind};
+#[cfg(feature = "image_compression")]
+use {
+    base64::{engine::general_purpose::STANDARD as BASE64, Engine as _},
+    caesium::{compress_in_memory, parameters::CSParameters},
+    image::{load_from_memory, GenericImageView},
+};
 
 #[derive(Debug, Error)]
 pub enum UserContextError {
@@ -77,41 +79,51 @@ pub struct ImageInformation {
 
 impl ImageInformation {
     fn compress_base64_image(self) -> Result<Self, UserContextError> {
-        // Decode base64
-        let bytes = BASE64
-            .decode(&self.data)
-            .map_err(|e| UserContextError::Base64DecodeError(e.to_string()))?;
-        let original_size = bytes.len();
+        #[cfg(feature = "image_compression")]
+        {
+            // Decode base64
+            let bytes = BASE64
+                .decode(&self.data)
+                .map_err(|e| UserContextError::Base64DecodeError(e.to_string()))?;
+            let original_size = bytes.len();
 
-        // Read image dimensions using the image crate
-        let img = load_from_memory(&bytes)
-            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
-        let (width, height) = img.dimensions();
+            // Read image dimensions using the image crate
+            let img = load_from_memory(&bytes)
+                .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+            let (width, height) = img.dimensions();
 
-        // Calculate new dimensions if width > 1080
-        let (new_width, new_height) = if width > 1080 {
-            let aspect_ratio = height as f32 / width as f32;
-            let new_height = (1080.0 * aspect_ratio).round() as u32;
-            (1080, new_height)
-        } else {
-            (width, height)
-        };
+            // Calculate new dimensions if width > 1080
+            let (new_width, new_height) = if width > 1080 {
+                let aspect_ratio = height as f32 / width as f32;
+                let new_height = (1080.0 * aspect_ratio).round() as u32;
+                (1080, new_height)
+            } else {
+                (width, height)
+            };
 
-        // Compress using caesium
-        let mut params = CSParameters::default();
-        params.height = new_height;
-        params.width = new_width;
-        let compressed = compress_in_memory(bytes, &params)
-            .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
+            // Compress using caesium
+            let mut params = CSParameters::default();
+            params.height = new_height;
+            params.width = new_width;
+            let compressed = compress_in_memory(bytes, &params)
+                .map_err(|e| UserContextError::ImageCompressionError(e.to_string()))?;
 
-        // Calculate compression ratio
-        let compression_ratio = (1.0 - (compressed.len() as f64 / original_size as f64)) * 100.0;
-        println!("Compression ratio: {:.2}%", compression_ratio);
+            // Calculate compression ratio
+            let compression_ratio =
+                (1.0 - (compressed.len() as f64 / original_size as f64)) * 100.0;
+            println!("Compression ratio: {:.2}%", compression_ratio);
 
-        // Re-encode as base64
-        let result = BASE64.encode(compressed);
+            // Re-encode as base64
+            let result = BASE64.encode(compressed);
 
-        Ok(Self::new(self.r#type, self.media_type, result))
+            Ok(Self::new(self.r#type, self.media_type, result))
+        }
+
+        #[cfg(not(feature = "image_compression"))]
+        {
+            // When compression is disabled, return self unchanged
+            Ok(self)
+        }
     }
 
     pub fn new(r#type: String, media_type: String, data: String) -> Self {
