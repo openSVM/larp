@@ -49,7 +49,9 @@ jobs:
           result-encoding: string
 
       - name: Debug membership result
-        run: echo "Is member result: ${{ steps.check.outputs.is_member }}"
+        shell: bash
+        run: |
+          echo "Is member result: ${{ steps.check.outputs.is_member }}"
 
 
   build:
