@@ -2794,8 +2794,8 @@ reason: {}"#,
                     let output = tool_output.output().to_owned();
                     let mut output_lines: Vec<String> = output.lines().map(|line| line.to_string()).collect();
 
-                    // only keep 500 lines, hand waving this into the world 🪄
-                    let max_lines = 500;
+                    // only keep 1k lines, hand waving this into the world 🪄
+                    let max_lines = 1_000;
                     if output_lines.len() > max_lines {
                         let start_index = output_lines.len() - max_lines;
                         output_lines = output_lines.split_off(start_index);
