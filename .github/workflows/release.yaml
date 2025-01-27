@@ -15,28 +15,55 @@ jobs:
   check-membership:
     runs-on: ubuntu-latest
     outputs:
-      is_member: ${{ steps.check.outputs.result }}
+      is_member: ${{ steps.check.outputs.is_member }}
     steps:
+      - name: Debug event info
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "PR Author: ${{ github.event.pull_request.user.login }}"
+          echo "Repo Owner: ${{ github.repository_owner }}"
+
       - id: check
         uses: actions/github-script@v7
         with:
           script: |
             try {
+              const org = context.repo.owner;
+              const username = context.payload.pull_request.user.login;
+
+              console.log(`Checking membership for user ${username} in org ${org}`);
+
               const response = await github.rest.orgs.checkMembershipForUser({
-                org: context.repo.owner,
-                username: context.payload.pull_request.user.login
+                org: org,
+                username: username
               });
-              return response.status === 204;
+
+              const isMember = response.status === 204;
+              console.log(`Membership check result: ${isMember}`);
+
+              return isMember;
             } catch (error) {
+              console.log(`Error checking membership: ${error.message}`);
               return false;
             }
           result-encoding: string
+
+      - name: Debug membership result
+        run: echo "Is member result: ${{ steps.check.outputs.result }}"
+
 
   build:
     needs: check-membership
     if: github.event_name == 'workflow_dispatch' || needs.check-membership.outputs.is_member == 'false'
     name: ${{ matrix.job.name }}
     runs-on: ${{ matrix.job.os }}
+    steps:
+      - name: Debug build condition
+        run: |
+          echo "Event name: ${{ github.event_name }}"
+          echo "Is member: ${{ needs.check-membership.outputs.is_member }}"
+          echo "Build condition: ${{ github.event_name == 'workflow_dispatch' || needs.check-membership.outputs.is_member == 'false' }}"
+
     strategy:
       fail-fast: false
       matrix:
