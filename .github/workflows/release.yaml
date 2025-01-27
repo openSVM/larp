@@ -49,7 +49,7 @@ jobs:
           result-encoding: string
 
       - name: Debug membership result
-        run: echo "Is member result: ${{ steps.check.outputs.result }}"
+        run: echo "Is member result: ${{ steps.check.outputs.is_member }}"
 
 
   build:
