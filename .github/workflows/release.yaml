@@ -26,6 +26,7 @@ jobs:
       - id: check
         uses: actions/github-script@v7
         with:
+          github-token: ${{ secrets.BINARIES_RELEASE_PAT }}
           script: |
             try {
               const org = context.repo.owner;
