@@ -1,19 +1,21 @@
-use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
-use caesium::{compress_in_memory, parameters::CSParameters};
-use image::{load_from_memory, GenericImageView};
-use std::collections::HashSet;
-#[cfg(feature = "image_compression")]
+use super::helpers::{guess_content, ProbableFileKind};
 use crate::chunking::{
     text_document::{Position, Range},
     types::OutlineNode,
 };
+use anyhow::Result;
 use async_recursion::async_recursion;
 use futures::{stream, StreamExt};
 use serde::{Deserialize, Serialize};
+use std::collections::HashSet;
 use thiserror::Error;
 
-use super::helpers::{guess_content, ProbableFileKind};
+#[cfg(feature = "image_compression")]
+use {
+    base64::{engine::general_purpose::STANDARD as BASE64, Engine as _},
+    caesium::{compress_in_memory, parameters::CSParameters},
+    image::{load_from_memory, GenericImageView},
+};
 
 #[derive(Debug, Error)]
 pub enum UserContextError {
@@ -484,7 +486,6 @@ impl UserContext {
         }
     }
 
-    #[cfg(feature = "image_compression")]
     pub fn images(&self) -> Vec<ImageInformation> {
         let mut processed_images = Vec::new();
         for image in self.images.iter() {
@@ -499,11 +500,6 @@ impl UserContext {
             }
         }
         processed_images
-    }
-
-    #[cfg(not(feature = "image_compression"))]
-    pub fn images(&self) -> Vec<ImageInformation> {
-        self.images.clone()
     }
 
     pub fn copy_at_instance(mut self) -> Self {
