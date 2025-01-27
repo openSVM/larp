@@ -2530,12 +2530,16 @@ impl Session {
                 let list_files_output = response
                     .get_list_files_directory()
                     .ok_or(SymbolError::WrongToolOutput)?;
-                let response = list_files_output
+                let mut response = list_files_output
                     .files()
                     .into_iter()
                     .map(|file_path| file_path.to_string_lossy().to_string())
                     .collect::<Vec<_>>()
                     .join("\n");
+                // add a response that we did not find any results
+                if response.trim().is_empty() {
+                    response = "0 results found".to_owned();
+                }
                 let _ =
                     message_properties
                         .ui_sender()
