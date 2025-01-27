@@ -90,7 +90,7 @@ jobs:
     - name: Build binary
       shell: bash
       run: |
-        if [[ "${{ matrix.job.target }}" == "aarch64-pc-windows-msvc" ]]; then
+        if [[ "${{ matrix.job.target }}" == "aarch64-pc-windows-msvc" ]] || [[ "${{ matrix.job.target }}" == "riscv64gc-unknown-linux-gnu" ]]; then
           $BUILD_CMD build --locked --release --target=${{ matrix.job.target }} --bin webserver --no-default-features
         else
           $BUILD_CMD build --locked --release --target=${{ matrix.job.target }} --bin webserver
