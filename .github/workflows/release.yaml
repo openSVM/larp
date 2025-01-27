@@ -2,6 +2,9 @@ name: Build & release sidecar
 
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [ main ]
+    types: [opened, synchronize, reopened]
 
 env:
   CARGO_INCREMENTAL: 0
@@ -94,6 +97,7 @@ jobs:
         fi
 
     - name: Set binary name & path
+      if: github.event_name == 'workflow_dispatch'
       id: bin
       shell: bash
       run: |
@@ -112,6 +116,7 @@ jobs:
         echo "BIN_NAME=${BIN_NAME}" >> $GITHUB_OUTPUT
 
     - name: Create zip file
+      if: github.event_name == 'workflow_dispatch'
       shell: pwsh
       run: |
         # Create a staging directory structure
@@ -134,16 +139,19 @@ jobs:
         Pop-Location
 
     - name: Authenticate with Google Cloud
+      if: github.event_name == 'workflow_dispatch'
       uses: 'google-github-actions/auth@v2'
       with:
         credentials_json: '${{ secrets.GCP_GAE_SA_KEY }}'
 
     - name: Configure Google Cloud SDK
+      if: github.event_name == 'workflow_dispatch'
       uses: 'google-github-actions/setup-gcloud@v2'
       with:
         project_id: '${{ secrets.GCP_PROJECT_ID }}'
 
     - name: Update version
+      if: github.event_name == 'workflow_dispatch'
       env:
         OS_NAME: ${{ env.OS_NAME }}
         ARCH: ${{ env.ARCH }}
@@ -154,6 +162,7 @@ jobs:
         ./update_version.sh
 
     - name: Upload zip to GCP
+      if: github.event_name == 'workflow_dispatch'
       env:
         OS_NAME: ${{ env.OS_NAME }}
         ARCH: ${{ env.ARCH }}
