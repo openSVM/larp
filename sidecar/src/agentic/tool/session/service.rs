@@ -579,6 +579,7 @@ impl SessionService {
                     ToolType::AttemptCompletion,
                     ToolType::RepoMapGeneration,
                     ToolType::TerminalCommand,
+                    ToolType::FindFiles,
                     // remove this later
                     // ToolType::SemanticSearch,
                 ]
