@@ -32,3 +32,4 @@ chrono = { version = "0.4.38", features = ["serde"] }
 
 logging = { path = "../logging" }
 reqwest-middleware = { version = "0.4.0", features = ["json"] }
+google-cloud-auth = "0.13.0"

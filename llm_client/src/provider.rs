@@ -119,6 +119,7 @@ impl LLMProviderAPIKeys {
             LLMProviderAPIKeys::GoogleAIStudio(_) => LLMProvider::GoogleAIStudio,
             LLMProviderAPIKeys::OpenRouter(_) => LLMProvider::OpenRouter,
             LLMProviderAPIKeys::GroqProvider(_) => LLMProvider::Groq,
+            LLMProviderAPIKeys::VertexAI(_) => LLMProvider::VertexAI,
         }
     }
 
@@ -227,6 +228,20 @@ impl LLMProviderAPIKeys {
             LLMProvider::Groq => {
                 if let LLMProviderAPIKeys::GroqProvider(groq_api_key) = self {
                     Some(LLMProviderAPIKeys::GroqProvider(groq_api_key.clone()))
+                } else {
+                    None
+                }
+            }
+            LLMProvider::VertexAI => {
+                if let LLMProviderAPIKeys::VertexAI(config) = self {
+                    Some(LLMProviderAPIKeys::VertexAI(config.clone()))
+                } else {
+                    None
+                }
+            }
+            LLMProvider::VertexAI => {
+                if let LLMProviderAPIKeys::VertexAI(config) = self {
+                    Some(LLMProviderAPIKeys::VertexAI(config.clone()))
                 } else {
                     None
                 }

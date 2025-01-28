@@ -15,3 +15,4 @@ pub mod openai;
 pub mod openai_compatible;
 pub mod togetherai;
 pub mod types;
+pub mod vertex_ai;
