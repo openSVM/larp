@@ -6,7 +6,8 @@ use super::{
         search_and_replace::SearchAndReplaceEditingRequest,
         test_correction::TestOutputCorrectionRequest,
         types::{CodeEdit, CodeEditingPartialRequest},
-    }, code_symbol::{
+    },
+    code_symbol::{
         apply_outline_edit_to_range::ApplyOutlineEditsToRangeRequest,
         correctness::CodeCorrectnessRequest,
         error_fix::CodeEditingErrorRequest,
@@ -29,12 +30,22 @@ use super::{
         reranking_symbols_for_editing_context::ReRankingSnippetsForCodeEditingRequest,
         scratch_pad::ScratchPadAgentInput,
         should_edit::ShouldEditCodeSymbolRequest,
-    }, devtools::screenshot::RequestScreenshotInput, editor::apply::EditorApplyRequest, errors::ToolError, feedback::feedback::FeedbackGenerationRequest, file::{
+    },
+    devtools::screenshot::{RequestScreenshotInput, RequestScreenshotInputPartial},
+    editor::apply::EditorApplyRequest,
+    errors::ToolError,
+    feedback::feedback::FeedbackGenerationRequest,
+    file::{
         file_finder::ImportantFilesFinderQuery,
         semantic_search::{SemanticSearchParametersPartial, SemanticSearchRequest},
-    }, filtering::broker::{
+    },
+    filtering::broker::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
-    }, git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest}, grep::file::FindInFileRequest, kw_search::tool::KeywordSearchQuery, lsp::{
+    },
+    git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest},
+    grep::file::FindInFileRequest,
+    kw_search::tool::KeywordSearchQuery,
+    lsp::{
         create_file::CreateFileRequest,
         diagnostics::LSPDiagnosticsInput,
         file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial},
@@ -52,15 +63,26 @@ use super::{
         search_file::{SearchFileContentInput, SearchFileContentInputPartial},
         subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest,
         undo_changes::UndoChangesMadeDuringExchangeRequest,
-    }, plan::{
+    },
+    plan::{
         add_steps::PlanAddRequest, generator::StepGeneratorRequest, reasoning::ReasoningRequest,
         updater::PlanUpdateRequest,
-    }, ref_filter::ref_filter::ReferenceFilterRequest, repo_map::generator::{RepoMapGeneratorRequest, RepoMapGeneratorRequestPartial}, rerank::base::ReRankEntriesForBroker, reward::client::RewardGenerationRequest, search::big_search::BigSearchRequest, session::{
+    },
+    r#type::ToolType,
+    ref_filter::ref_filter::ReferenceFilterRequest,
+    repo_map::generator::{RepoMapGeneratorRequest, RepoMapGeneratorRequestPartial},
+    rerank::base::ReRankEntriesForBroker,
+    reward::client::RewardGenerationRequest,
+    search::big_search::BigSearchRequest,
+    session::{
         ask_followup_question::AskFollowupQuestionsRequest,
         attempt_completion::AttemptCompletionClientRequest, chat::SessionChatClientRequest,
         exchange::SessionExchangeNewRequest, hot_streak::SessionHotStreakRequest,
         tool_use_agent::ToolUseAgentReasoningParamsPartial,
-    }, swe_bench::test_tool::SWEBenchTestRequest, terminal::terminal::{TerminalInput, TerminalInputPartial}, test_runner::runner::{TestRunnerRequest, TestRunnerRequestPartial}, r#type::ToolType
+    },
+    swe_bench::test_tool::SWEBenchTestRequest,
+    terminal::terminal::{TerminalInput, TerminalInputPartial},
+    test_runner::runner::{TestRunnerRequest, TestRunnerRequestPartial},
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -79,6 +101,7 @@ pub enum ToolInputPartial {
     SemanticSearch(SemanticSearchParametersPartial),
     Reasoning(ToolUseAgentReasoningParamsPartial),
     FindFile(FindFileInputPartial),
+    RequestScreenshot(RequestScreenshotInputPartial),
 }
 
 impl ToolInputPartial {
@@ -98,6 +121,7 @@ impl ToolInputPartial {
             Self::SemanticSearch(_) => ToolType::SemanticSearch,
             Self::Reasoning(_) => ToolType::Reasoning,
             Self::FindFile(_) => ToolType::FindFiles,
+            Self::RequestScreenshot(_) => ToolType::RequestScreenshot,
         }
     }
 
@@ -123,6 +147,7 @@ impl ToolInputPartial {
             }
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
             Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(),
+            Self::RequestScreenshot(request_screenshot) => request_screenshot.to_string(),
         }
     }
 
@@ -156,6 +181,7 @@ impl ToolInputPartial {
             }
             Self::Reasoning(reasoning_input) => serde_json::to_value(reasoning_input).ok(),
             Self::FindFile(find_file_parameters) => serde_json::to_value(find_file_parameters).ok(),
+            Self::RequestScreenshot(request_screenshot) => serde_json::to_value(request_screenshot).ok(),
         }
     }
 
@@ -172,6 +198,7 @@ impl ToolInputPartial {
             ToolType::RepoMapGeneration => None,
             ToolType::TestRunner => Some(TestRunnerRequestPartial::to_json()),
             ToolType::CodeEditorTool => Some(CodeEditorParameters::to_json()),
+            ToolType::RequestScreenshot => Some(RequestScreenshotInputPartial::to_json()),
             _ => None,
         }
     }

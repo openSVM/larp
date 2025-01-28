@@ -8,6 +8,31 @@ use crate::agentic::tool::{
 use async_trait::async_trait;
 use logging::new_client;
 
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct RequestScreenshotInputPartial {}
+
+impl RequestScreenshotInputPartial {
+    pub fn new() -> Self {
+        Self {}
+    }
+
+    pub fn to_string(&self) -> String {
+        "<request_screenshot></request_screenshot>".to_owned()
+    }
+
+    pub fn to_json() -> serde_json::Value {
+        serde_json::json!({
+            "name": "request_screenshot",
+            "description": "Request a screenshot of the web application, running in the browser. This tool captures the visual state of the application and returns it as an image.",
+            "input_schema": {
+                "type": "object",
+                "properties": {},
+                "required": [],
+            },
+        })
+    }
+}
+
 pub struct RequestScreenshot {
     client: reqwest_middleware::ClientWithMiddleware,
 }

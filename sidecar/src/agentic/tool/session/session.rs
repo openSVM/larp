@@ -28,6 +28,7 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
+            devtools::screenshot::RequestScreenshotInput,
             file::semantic_search::SemanticSearchRequest,
             helpers::diff_recent_changes::DiffFileContent,
             input::{ToolInput, ToolInputPartial},
@@ -2791,38 +2792,39 @@ reason: {}"#,
                     .terminal_command()
                     .ok_or(SymbolError::WrongToolOutput)?;
 
-                    let output = tool_output.output().to_owned();
-                    let mut output_lines: Vec<String> = output.lines().map(|line| line.to_string()).collect();
+                let output = tool_output.output().to_owned();
+                let mut output_lines: Vec<String> =
+                    output.lines().map(|line| line.to_string()).collect();
 
-                    // only keep 1k lines, hand waving this into the world 🪄
-                    let max_lines = 1_000;
-                    if output_lines.len() > max_lines {
-                        let start_index = output_lines.len() - max_lines;
-                        output_lines = output_lines.split_off(start_index);
-                        output_lines.insert(0, "[... previous output truncated ...]".to_owned());
+                // only keep 1k lines, hand waving this into the world 🪄
+                let max_lines = 1_000;
+                if output_lines.len() > max_lines {
+                    let start_index = output_lines.len() - max_lines;
+                    output_lines = output_lines.split_off(start_index);
+                    output_lines.insert(0, "[... previous output truncated ...]".to_owned());
+                }
+
+                // Process each line to add truncation indicators
+                let max_chars = 500;
+                let truncation_suffix = "... truncated";
+                let suffix_len = truncation_suffix.chars().count();
+
+                for line in &mut output_lines {
+                    let char_count = line.chars().count();
+                    if char_count > max_chars {
+                        let take_chars = max_chars.saturating_sub(suffix_len);
+                        let mut truncated = String::with_capacity(max_chars);
+
+                        // Add truncated content
+                        truncated.extend(line.chars().take(take_chars));
+
+                        // Add suffix
+                        truncated.push_str(&truncation_suffix);
+
+                        // Replace original line
+                        *line = truncated;
                     }
-
-                    // Process each line to add truncation indicators
-                    let max_chars = 500;
-                    let truncation_suffix = "... truncated";
-                    let suffix_len = truncation_suffix.chars().count();
-
-                    for line in &mut output_lines {
-                        let char_count = line.chars().count();
-                        if char_count > max_chars {
-                            let take_chars = max_chars.saturating_sub(suffix_len);
-                            let mut truncated = String::with_capacity(max_chars);
-
-                            // Add truncated content
-                            truncated.extend(line.chars().take(take_chars));
-
-                            // Add suffix
-                            truncated.push_str(&truncation_suffix);
-
-                            // Replace original line
-                            *line = truncated;
-                        }
-                    }
+                }
 
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
@@ -2898,6 +2900,27 @@ reason: {}"#,
             }
             ToolInputPartial::Reasoning(_) => {
                 // we do not call this as a tool explicitly
+            }
+            ToolInputPartial::RequestScreenshot(_) => {
+                println!("request_screenshot");
+                let request_screenshot_input =
+                    RequestScreenshotInput::new(message_properties.editor_url());
+                let input = ToolInput::RequestScreenshot(request_screenshot_input);
+                let response = tool_box
+                    .tools()
+                    .invoke(input)
+                    .await
+                    .map_err(|e| SymbolError::ToolError(e))?;
+                let request_screenshot_output = response
+                    .get_request_screenshot_response()
+                    .ok_or(SymbolError::WrongToolOutput)?;
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    response,
+                    UserContext::default(),
+                    exchange_id.to_owned(),
+                );
             }
         }
         Ok(self)

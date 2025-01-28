@@ -20,7 +20,7 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
+            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, devtools::screenshot::RequestScreenshotInputPartial, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
                 file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial, list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial
             }, repo_map::generator::RepoMapGeneratorRequestPartial, session::chat::SessionChatRole, terminal::terminal::TerminalInputPartial, test_runner::runner::TestRunnerRequestPartial, r#type::ToolType
         },
@@ -1607,6 +1607,12 @@ impl ToolUseGenerator {
                         let _ = self
                             .sender
                             .send(ToolBlockEvent::ToolFound(ToolType::TestRunner));
+                    } else if answer_line_at_index == "<request_screenshot>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                        self.tool_type_possible = Some(ToolType::RequestScreenshot);
+                        let _ = self
+                        .sender
+                        .send(ToolBlockEvent::ToolFound(ToolType::RequestScreenshot));
                     }
                 }
                 ToolBlockStatus::ToolFound => {
@@ -2018,6 +2024,13 @@ impl ToolUseGenerator {
                             }
                             _ => {}
                         }
+                    } else if answer_line_at_index == "</request_screenshot>" {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        self.tool_type_possible = None;
+                        self.tool_input_partial = Some(ToolInputPartial::RequestScreenshot(
+                            RequestScreenshotInputPartial::new(),
+                        ));
+                        let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                     } else if answer_line_at_index == "</find_file>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         self.tool_type_possible = None;

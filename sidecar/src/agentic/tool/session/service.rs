@@ -1301,7 +1301,10 @@ impl SessionService {
                         ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
                         ToolInputPartial::Reasoning(_) => {
                             tool_type.to_string().bright_blue().to_string()
-                        }
+                        },
+                        ToolInputPartial::RequestScreenshot(_) => {
+                            tool_type.to_string().bright_white().to_string()
+                        },
                     };
                     state_params.push(tool_str);
                 }
