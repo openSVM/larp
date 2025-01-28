@@ -1277,10 +1277,12 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cloned_tool_found_token = tool_found_token.clone();
         let cloned_cancellation_token = cancellation_token.clone();
         let delta_updater_task = tokio::spawn(async move {
+            let mut llm_statistics: LLMClientUsageStatistics = Default::default();
             while let Some(Some(stream_msg)) =
                 run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
                     .await
             {
+                llm_statistics = stream_msg.usage_statistics();
                 // if we have found a tool then break and flush
                 if cloned_tool_found_token.is_cancelled() {
                     break;
@@ -1296,7 +1298,12 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
-            (thinking_for_tool, tool_input_partial, complete_response)
+            (
+                thinking_for_tool,
+                tool_input_partial,
+                llm_statistics,
+                complete_response,
+            )
         });
 
         // now take the tool_receiver and try sending them over as a ui_sender
@@ -1344,7 +1351,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if let Ok((thinking_for_tool, tool_input_partial, complete_response)) =
+        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) =
             delta_updater_task.await
         {
             let final_output = match tool_input_partial {
@@ -1356,7 +1363,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             };
             return Ok(ToolUseAgentOutput::new(
                 final_output?,
-                Default::default(),
+                llm_statistics,
             ));
         } else {
             Err(SymbolError::CancelledResponseStream)
