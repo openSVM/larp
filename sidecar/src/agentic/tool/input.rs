@@ -29,13 +29,29 @@ use super::{
         reranking_symbols_for_editing_context::ReRankingSnippetsForCodeEditingRequest,
         scratch_pad::ScratchPadAgentInput,
         should_edit::ShouldEditCodeSymbolRequest,
-    }, editor::apply::EditorApplyRequest, errors::ToolError, feedback::feedback::FeedbackGenerationRequest, file::{
+    }, devtools::screenshot::RequestScreenshotInput, editor::apply::EditorApplyRequest, errors::ToolError, feedback::feedback::FeedbackGenerationRequest, file::{
         file_finder::ImportantFilesFinderQuery,
         semantic_search::{SemanticSearchParametersPartial, SemanticSearchRequest},
     }, filtering::broker::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
     }, git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest}, grep::file::FindInFileRequest, kw_search::tool::KeywordSearchQuery, lsp::{
-        create_file::CreateFileRequest, diagnostics::LSPDiagnosticsInput, file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial}, find_files::{FindFileInputPartial, FindFilesRequest}, get_outline_nodes::OutlineNodesUsingEditorRequest, go_to_previous_word::GoToPreviousWordRequest, gotodefintion::GoToDefinitionRequest, gotoimplementations::GoToImplementationRequest, gotoreferences::GoToReferencesRequest, grep_symbol::LSPGrepSymbolInCodebaseRequest, inlay_hints::InlayHintsRequest, list_files::{ListFilesInput, ListFilesInputPartial}, open_file::{OpenFileRequest, OpenFileRequestPartial}, quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest}, search_file::{SearchFileContentInput, SearchFileContentInputPartial}, subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest, undo_changes::UndoChangesMadeDuringExchangeRequest
+        create_file::CreateFileRequest,
+        diagnostics::LSPDiagnosticsInput,
+        file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial},
+        find_files::{FindFileInputPartial, FindFilesRequest},
+        get_outline_nodes::OutlineNodesUsingEditorRequest,
+        go_to_previous_word::GoToPreviousWordRequest,
+        gotodefintion::GoToDefinitionRequest,
+        gotoimplementations::GoToImplementationRequest,
+        gotoreferences::GoToReferencesRequest,
+        grep_symbol::LSPGrepSymbolInCodebaseRequest,
+        inlay_hints::InlayHintsRequest,
+        list_files::{ListFilesInput, ListFilesInputPartial},
+        open_file::{OpenFileRequest, OpenFileRequestPartial},
+        quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest},
+        search_file::{SearchFileContentInput, SearchFileContentInputPartial},
+        subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest,
+        undo_changes::UndoChangesMadeDuringExchangeRequest,
     }, plan::{
         add_steps::PlanAddRequest, generator::StepGeneratorRequest, reasoning::ReasoningRequest,
         updater::PlanUpdateRequest,
@@ -106,7 +122,7 @@ impl ToolInputPartial {
                 semantic_search_parameters.to_string()
             }
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
-            Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(), 
+            Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(),
         }
     }
 
@@ -287,6 +303,8 @@ pub enum ToolInput {
     SemanticSearch(SemanticSearchRequest),
     // Find files input
     FindFiles(FindFilesRequest),
+    // Request screenshot input
+    RequestScreenshot(RequestScreenshotInput),
 }
 
 impl ToolInput {
@@ -377,6 +395,7 @@ impl ToolInput {
             ToolInput::RewardGeneration(_) => ToolType::RewardGeneration,
             ToolInput::FeedbackGeneration(_) => ToolType::FeedbackGeneration,
             ToolInput::FindFiles(_) => ToolType::FindFiles,
+            ToolInput::RequestScreenshot(_) => ToolType::RequestScreenshot,
         }
     }
 
@@ -1127,6 +1146,14 @@ impl ToolInput {
             Ok(terminal_command)
         } else {
             Err(ToolError::WrongToolInput(ToolType::TerminalCommand))
+        }
+    }
+
+    pub fn screenshot_request(self) -> Result<RequestScreenshotInput, ToolError> {
+        if let ToolInput::RequestScreenshot(screenshot_request) = self {
+            Ok(screenshot_request)
+        } else {
+            Err(ToolError::WrongToolInput(ToolType::RequestScreenshot))
         }
     }
 }
