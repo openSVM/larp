@@ -58,6 +58,7 @@ impl std::fmt::Display for LLMProvider {
             LLMProvider::GoogleAIStudio => write!(f, "GoogleAIStudio"),
             LLMProvider::OpenRouter => write!(f, "OpenRouter"),
             LLMProvider::Groq => write!(f, "Groq"),
+            LLMProvider::Deepseek => write!(f, "Deepseek"),
         }
     }
 }
@@ -87,6 +88,7 @@ pub enum LLMProviderAPIKeys {
     GoogleAIStudio(GoogleAIStudioKey),
     OpenRouter(OpenRouterAPIKey),
     GroqProvider(GroqProviderAPIKey),
+    Deepseek(DeepseekConfig),
 }
 
 impl LLMProviderAPIKeys {
@@ -119,6 +121,7 @@ impl LLMProviderAPIKeys {
             LLMProviderAPIKeys::GoogleAIStudio(_) => LLMProvider::GoogleAIStudio,
             LLMProviderAPIKeys::OpenRouter(_) => LLMProvider::OpenRouter,
             LLMProviderAPIKeys::GroqProvider(_) => LLMProvider::Groq,
+            LLMProviderAPIKeys::Deepseek(_) => LLMProvider::Deepseek,
         }
     }
 
@@ -227,6 +230,16 @@ impl LLMProviderAPIKeys {
             LLMProvider::Groq => {
                 if let LLMProviderAPIKeys::GroqProvider(groq_api_key) = self {
                     Some(LLMProviderAPIKeys::GroqProvider(groq_api_key.clone()))
+                } else {
+                    None
+                }
+            }
+            LLMProvider::Deepseek => {
+                if let LLMProviderAPIKeys::Deepseek(config) = self {
+                    Some(LLMProviderAPIKeys::OpenAICompatible(OpenAICompatibleConfig::new(
+                        config.api_key.clone(),
+                        "https://api.deepseek.com/".to_string(),
+                    )))
                 } else {
                     None
                 }
@@ -368,6 +381,17 @@ pub struct LMStudioConfig {
 impl LMStudioConfig {
     pub fn api_base(&self) -> &str {
         &self.api_base
+    }
+}
+
+#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
+pub struct DeepseekConfig {
+    pub api_key: String,
+}
+
+impl DeepseekConfig {
+    pub fn new(api_key: String) -> Self {
+        Self { api_key }
     }
 }
 
