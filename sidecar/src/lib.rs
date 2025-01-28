@@ -9,7 +9,6 @@ pub mod in_line_agent;
 pub mod inline_completion;
 pub mod mcts;
 pub mod repo;
-pub mod repomap;
 pub mod reporting;
 pub mod reranking;
 pub mod state;

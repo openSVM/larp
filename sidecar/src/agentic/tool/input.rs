@@ -76,7 +76,6 @@ impl ToolInputPartial {
             Self::TerminalCommand(_) => ToolType::TerminalCommand,
             Self::AskFollowupQuestions(_) => ToolType::AskFollowupQuestions,
             Self::AttemptCompletion(_) => ToolType::AttemptCompletion,
-            Self::RepoMapGeneration(_) => ToolType::RepoMapGeneration,
             Self::TestRunner(_) => ToolType::TestRunner,
             Self::CodeEditorParameters(_) => ToolType::CodeEditorTool,
             Self::SemanticSearch(_) => ToolType::SemanticSearch,

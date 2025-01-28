@@ -265,7 +265,6 @@ impl ToolType {
         let map_tool_type = vec![
             ToolType::SearchFileContentWithRegex,
             ToolType::ListFiles,
-            ToolType::RepoMapGeneration,
         ];
         map_tool_type
             .into_iter()

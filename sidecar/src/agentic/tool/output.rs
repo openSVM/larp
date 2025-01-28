@@ -847,13 +847,6 @@ impl ToolOutput {
         }
     }
 
-    pub fn repo_map_generator_response(self) -> Option<RepoMapGeneratorResponse> {
-        match self {
-            ToolOutput::RepoMapGeneration(response) => Some(response),
-            _ => None,
-        }
-    }
-
     pub fn get_pending_spawned_process_output(
         self,
     ) -> Option<SubProcessSpanwedPendingOutputResponse> {

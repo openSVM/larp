@@ -426,10 +426,6 @@ impl ToolBroker {
             Box::new(AttemptCompletionClient::new()),
         );
         tools.insert(
-            ToolType::RepoMapGeneration,
-            Box::new(RepoMapGeneratorClient::new()),
-        );
-        tools.insert(
             ToolType::SubProcessSpawnedPendingOutput,
             Box::new(SubProcessSpawnedPendingOutputClient::new()),
         );
