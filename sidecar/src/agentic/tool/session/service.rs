@@ -2,6 +2,7 @@
 
 use std::{collections::HashMap, sync::Arc};
 
+use color_eyre::owo_colors::OwoColorize;
 use colored::Colorize;
 use llm_client::broker::LLMBroker;
 use tokio::{io::AsyncWriteExt, sync::Mutex};
@@ -578,6 +579,7 @@ impl SessionService {
                     ToolType::AttemptCompletion,
                     ToolType::RepoMapGeneration,
                     ToolType::TerminalCommand,
+                    ToolType::FindFiles,
                     // remove this later
                     // ToolType::SemanticSearch,
                 ]
@@ -1255,6 +1257,9 @@ impl SessionService {
                                     "str_replace_editor::view".purple().to_string()
                                 }
                             }
+                        }
+                        ToolInputPartial::FindFile(_) => {
+                            tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::CodeEditing(_) => {
                             tool_type.to_string().bright_purple().to_string()

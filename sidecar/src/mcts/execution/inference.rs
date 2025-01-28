@@ -556,6 +556,7 @@ Always include the <thinking></thinking> section before using the tool."#
         message_properties: SymbolEventMessageProperties,
     ) -> Result<ActionObservation, InferenceError> {
         match tool_input_partial {
+            ToolInputPartial::FindFile(_) => Err(InferenceError::WrongToolOutput),
             ToolInputPartial::Reasoning(_) => Err(InferenceError::WrongToolOutput),
             ToolInputPartial::SemanticSearch(_) => Err(InferenceError::WrongToolOutput),
             ToolInputPartial::AskFollowupQuestions(_) => {

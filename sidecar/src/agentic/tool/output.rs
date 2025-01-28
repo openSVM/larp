@@ -35,22 +35,7 @@ use super::{
     git::{diff_client::GitDiffClientResponse, edited_files::EditedFilesResponse},
     grep::file::FindInFileResponse,
     lsp::{
-        create_file::CreateFileResponse,
-        diagnostics::LSPDiagnosticsOutput,
-        file_diagnostics::FileDiagnosticsOutput,
-        get_outline_nodes::OutlineNodesUsingEditorResponse,
-        go_to_previous_word::GoToPreviousWordResponse,
-        gotodefintion::GoToDefinitionResponse,
-        gotoimplementations::GoToImplementationResponse,
-        gotoreferences::GoToReferencesResponse,
-        grep_symbol::LSPGrepSymbolInCodebaseResponse,
-        inlay_hints::InlayHintsResponse,
-        list_files::ListFilesOutput,
-        open_file::OpenFileResponse,
-        quick_fix::{GetQuickFixResponse, LSPQuickFixInvocationResponse},
-        search_file::SearchFileContentWithRegexOutput,
-        subprocess_spawned_output::SubProcessSpanwedPendingOutputResponse,
-        undo_changes::UndoChangesMadeDuringExchangeRespnose,
+        create_file::CreateFileResponse, diagnostics::LSPDiagnosticsOutput, file_diagnostics::FileDiagnosticsOutput, find_files::FindFilesResponse, get_outline_nodes::OutlineNodesUsingEditorResponse, go_to_previous_word::GoToPreviousWordResponse, gotodefintion::GoToDefinitionResponse, gotoimplementations::GoToImplementationResponse, gotoreferences::GoToReferencesResponse, grep_symbol::LSPGrepSymbolInCodebaseResponse, inlay_hints::InlayHintsResponse, list_files::ListFilesOutput, open_file::OpenFileResponse, quick_fix::{GetQuickFixResponse, LSPQuickFixInvocationResponse}, search_file::SearchFileContentWithRegexOutput, subprocess_spawned_output::SubProcessSpanwedPendingOutputResponse, undo_changes::UndoChangesMadeDuringExchangeRespnose
     },
     plan::{generator::StepGeneratorResponse, reasoning::ReasoningResponse},
     repo_map::generator::RepoMapGeneratorResponse,
@@ -228,6 +213,8 @@ pub enum ToolOutput {
     FeedbackGeneration(FeedbackGenerationResponse),
     // Semantic search file level response
     SemanticSearch(SemanticSearchResponse),
+    // Find files output
+    FindFiles(FindFilesResponse),
 }
 
 impl ToolOutput {
@@ -893,6 +880,13 @@ impl ToolOutput {
     pub fn get_semantic_search_response(self) -> Option<SemanticSearchResponse> {
         match self {
             ToolOutput::SemanticSearch(response) => Some(response),
+            _ => None,
+        }
+    }
+
+    pub fn get_find_files_response(self) -> Option<FindFilesResponse> {
+        match self {
+            ToolOutput::FindFiles(response) => Some(response),
             _ => None,
         }
     }

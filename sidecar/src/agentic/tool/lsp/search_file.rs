@@ -317,18 +317,20 @@ impl Tool for SearchFileContentClient {
 
         while let Some(line) = reader.next_line().await? {
             if line_count >= max_lines {
+                println!("Reached max lines, breaking");
                 break;
             }
             output.push_str(&line);
             output.push('\n');
             line_count += 1;
+            println!("Line count: {}", line_count);
         }
 
+        // (R1) Kill the child process to prevent deadlock
+        if let Err(e) = child.start_kill() {
+            println!("Failed to kill child process: {}", e);
+        }
         let _status = child.wait().await?;
-        // even if there were errors we still want to read from this
-        // if !status.success() {
-        //     return Err(ToolError::OutputStreamNotPresent);
-        // }
 
         let mut results: Vec<SearchResult> = Vec::new();
         let mut current_result: Option<SearchResult> = None;

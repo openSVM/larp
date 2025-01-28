@@ -2725,9 +2725,9 @@ dependencies = [
 
 [[package]]
 name = "imagequant"
-version = "4.3.3"
+version = "4.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5fecc99538c9061ee4d88476f6cd704c9f06575a34f0083affdaa1337a331aa7"
+checksum = "1cede25dbe6a6c3842989fa341cba6e2a4dc33ba12a33f553baeed257f965cb5"
 dependencies = [
  "arrayvec",
  "once_cell",
@@ -3086,9 +3086,9 @@ dependencies = [
 
 [[package]]
 name = "lodepng"
-version = "3.10.7"
+version = "3.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7b2dea7cda68e381418c985fd8f32a9c279a21ae8c715f2376adb20c27a0fad3"
+checksum = "a7720115060cd38dcfe5c758525a43fd34dc615d0566374212ff0dc3b6151eac"
 dependencies = [
  "crc32fast",
  "flate2",
@@ -4730,7 +4730,7 @@ dependencies = [
 
 [[package]]
 name = "sidecar"
-version = "0.1.20"
+version = "0.1.22"
 dependencies = [
  "anyhow",
  "async-openai",

@@ -1932,6 +1932,9 @@ impl SearchTree {
                                 }
                             }
                         }
+                        ToolInputPartial::FindFile(_) => {
+                            tool_type.to_string().bright_yellow().to_string()
+                        }
                         ToolInputPartial::CodeEditing(_) => {
                             tool_type.to_string().bright_purple().to_string()
                         }

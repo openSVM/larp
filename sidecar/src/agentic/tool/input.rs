@@ -6,8 +6,7 @@ use super::{
         search_and_replace::SearchAndReplaceEditingRequest,
         test_correction::TestOutputCorrectionRequest,
         types::{CodeEdit, CodeEditingPartialRequest},
-    },
-    code_symbol::{
+    }, code_symbol::{
         apply_outline_edit_to_range::ApplyOutlineEditsToRangeRequest,
         correctness::CodeCorrectnessRequest,
         error_fix::CodeEditingErrorRequest,
@@ -30,57 +29,22 @@ use super::{
         reranking_symbols_for_editing_context::ReRankingSnippetsForCodeEditingRequest,
         scratch_pad::ScratchPadAgentInput,
         should_edit::ShouldEditCodeSymbolRequest,
-    },
-    editor::apply::EditorApplyRequest,
-    errors::ToolError,
-    feedback::feedback::FeedbackGenerationRequest,
-    file::{
+    }, editor::apply::EditorApplyRequest, errors::ToolError, feedback::feedback::FeedbackGenerationRequest, file::{
         file_finder::ImportantFilesFinderQuery,
         semantic_search::{SemanticSearchParametersPartial, SemanticSearchRequest},
-    },
-    filtering::broker::{
+    }, filtering::broker::{
         CodeToEditFilterRequest, CodeToEditSymbolRequest, CodeToProbeSubSymbolRequest,
-    },
-    git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest},
-    grep::file::FindInFileRequest,
-    kw_search::tool::KeywordSearchQuery,
-    lsp::{
-        create_file::CreateFileRequest,
-        diagnostics::LSPDiagnosticsInput,
-        file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial},
-        get_outline_nodes::OutlineNodesUsingEditorRequest,
-        go_to_previous_word::GoToPreviousWordRequest,
-        gotodefintion::GoToDefinitionRequest,
-        gotoimplementations::GoToImplementationRequest,
-        gotoreferences::GoToReferencesRequest,
-        grep_symbol::LSPGrepSymbolInCodebaseRequest,
-        inlay_hints::InlayHintsRequest,
-        list_files::{ListFilesInput, ListFilesInputPartial},
-        open_file::{OpenFileRequest, OpenFileRequestPartial},
-        quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest},
-        search_file::{SearchFileContentInput, SearchFileContentInputPartial},
-        subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest,
-        undo_changes::UndoChangesMadeDuringExchangeRequest,
-    },
-    plan::{
+    }, git::{diff_client::GitDiffClientRequest, edited_files::EditedFilesRequest}, grep::file::FindInFileRequest, kw_search::tool::KeywordSearchQuery, lsp::{
+        create_file::CreateFileRequest, diagnostics::LSPDiagnosticsInput, file_diagnostics::{FileDiagnosticsInput, WorkspaceDiagnosticsPartial}, find_files::{FindFileInputPartial, FindFilesRequest}, get_outline_nodes::OutlineNodesUsingEditorRequest, go_to_previous_word::GoToPreviousWordRequest, gotodefintion::GoToDefinitionRequest, gotoimplementations::GoToImplementationRequest, gotoreferences::GoToReferencesRequest, grep_symbol::LSPGrepSymbolInCodebaseRequest, inlay_hints::InlayHintsRequest, list_files::{ListFilesInput, ListFilesInputPartial}, open_file::{OpenFileRequest, OpenFileRequestPartial}, quick_fix::{GetQuickFixRequest, LSPQuickFixInvocationRequest}, search_file::{SearchFileContentInput, SearchFileContentInputPartial}, subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest, undo_changes::UndoChangesMadeDuringExchangeRequest
+    }, plan::{
         add_steps::PlanAddRequest, generator::StepGeneratorRequest, reasoning::ReasoningRequest,
         updater::PlanUpdateRequest,
-    },
-    r#type::ToolType,
-    ref_filter::ref_filter::ReferenceFilterRequest,
-    repo_map::generator::{RepoMapGeneratorRequest, RepoMapGeneratorRequestPartial},
-    rerank::base::ReRankEntriesForBroker,
-    reward::client::RewardGenerationRequest,
-    search::big_search::BigSearchRequest,
-    session::{
+    }, ref_filter::ref_filter::ReferenceFilterRequest, repo_map::generator::{RepoMapGeneratorRequest, RepoMapGeneratorRequestPartial}, rerank::base::ReRankEntriesForBroker, reward::client::RewardGenerationRequest, search::big_search::BigSearchRequest, session::{
         ask_followup_question::AskFollowupQuestionsRequest,
         attempt_completion::AttemptCompletionClientRequest, chat::SessionChatClientRequest,
         exchange::SessionExchangeNewRequest, hot_streak::SessionHotStreakRequest,
         tool_use_agent::ToolUseAgentReasoningParamsPartial,
-    },
-    swe_bench::test_tool::SWEBenchTestRequest,
-    terminal::terminal::{TerminalInput, TerminalInputPartial},
-    test_runner::runner::{TestRunnerRequest, TestRunnerRequestPartial},
+    }, swe_bench::test_tool::SWEBenchTestRequest, terminal::terminal::{TerminalInput, TerminalInputPartial}, test_runner::runner::{TestRunnerRequest, TestRunnerRequestPartial}, r#type::ToolType
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -98,6 +62,7 @@ pub enum ToolInputPartial {
     CodeEditorParameters(CodeEditorParameters),
     SemanticSearch(SemanticSearchParametersPartial),
     Reasoning(ToolUseAgentReasoningParamsPartial),
+    FindFile(FindFileInputPartial),
 }
 
 impl ToolInputPartial {
@@ -116,6 +81,7 @@ impl ToolInputPartial {
             Self::CodeEditorParameters(_) => ToolType::CodeEditorTool,
             Self::SemanticSearch(_) => ToolType::SemanticSearch,
             Self::Reasoning(_) => ToolType::Reasoning,
+            Self::FindFile(_) => ToolType::FindFiles,
         }
     }
 
@@ -140,6 +106,7 @@ impl ToolInputPartial {
                 semantic_search_parameters.to_string()
             }
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
+            Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(), 
         }
     }
 
@@ -172,6 +139,7 @@ impl ToolInputPartial {
                 serde_json::to_value(semantic_search_parameters).ok()
             }
             Self::Reasoning(reasoning_input) => serde_json::to_value(reasoning_input).ok(),
+            Self::FindFile(find_file_parameters) => serde_json::to_value(find_file_parameters).ok(),
         }
     }
 
@@ -317,6 +285,8 @@ pub enum ToolInput {
     FeedbackGeneration(FeedbackGenerationRequest),
     // Semantic search input
     SemanticSearch(SemanticSearchRequest),
+    // Find files input
+    FindFiles(FindFilesRequest),
 }
 
 impl ToolInput {
@@ -406,6 +376,15 @@ impl ToolInput {
             ToolInput::RunTests(_) => ToolType::TestRunner,
             ToolInput::RewardGeneration(_) => ToolType::RewardGeneration,
             ToolInput::FeedbackGeneration(_) => ToolType::FeedbackGeneration,
+            ToolInput::FindFiles(_) => ToolType::FindFiles,
+        }
+    }
+
+    pub fn is_find_files(self) -> Result<FindFilesRequest, ToolError> {
+        if let ToolInput::FindFiles(request) = self {
+            Ok(request)
+        } else {
+            Err(ToolError::WrongToolInput(ToolType::FindFiles))
         }
     }
 
