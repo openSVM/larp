@@ -1314,7 +1314,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             (
                 thinking_for_tool,
                 tool_input_partial,
-                dbg!(llm_statistics),
+                llm_statistics,
                 complete_response,
             )
         });

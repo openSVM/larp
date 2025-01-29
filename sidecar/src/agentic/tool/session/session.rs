@@ -1265,7 +1265,7 @@ impl Session {
                 // add the action node for it
                 let mut action_node = ActionNode::default_with_index(self.exchanges());
                 action_node = action_node.set_action_tools(tool_input_partial.clone());
-                action_node.set_llm_usage_statistics_maybe(dbg!(usage_stats));
+                action_node.set_llm_usage_statistics_maybe(usage_stats);
                 self.action_nodes.push(action_node);
 
                 // add to our exchange over here
@@ -1285,7 +1285,7 @@ impl Session {
                 action_node = action_node
                     .set_action_error(input_string.to_owned())
                     .error_observation(input_string.to_owned());
-                action_node.set_llm_usage_statistics_maybe(dbg!(usage_stats));
+                action_node.set_llm_usage_statistics_maybe(usage_stats);
                 self.action_nodes.push(action_node);
 
                 // return the value

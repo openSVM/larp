@@ -1312,7 +1312,7 @@ impl SessionService {
             let llm_stats = if let Some(stats) = node.get_llm_usage_statistics() {
                 format!(
                     " [tokens: in={:?}, out={:?}]",
-                    stats.input_tokens().unwrap_or(0),
+                    stats.input_tokens().unwrap_or(0) + stats.cached_input_tokens().unwrap_or(0),
                     stats.output_tokens().unwrap_or(0)
                 )
             } else {
@@ -1325,7 +1325,8 @@ impl SessionService {
                 if let Some(stats) = &node.get_llm_usage_statistics() {
                     format!(
                         " [tokens: in={:?}, out={:?}]",
-                        stats.input_tokens().unwrap_or(0),
+                        stats.input_tokens().unwrap_or(0)
+                            + stats.cached_input_tokens().unwrap_or(0),
                         stats.output_tokens().unwrap_or(0)
                     )
                 } else {
