@@ -739,6 +739,7 @@ impl LLMClient for AnthropicClient {
         let mut buffered_string = "".to_owned();
         while let Some(Ok(event)) = event_source.next().await {
             // TODO: debugging this
+            println!("anthropic_eventdata::{:?}", &event.data);
             let event = serde_json::from_str::<AnthropicEvent>(&event.data);
             println!(
                 "input_tokens:{}::output_tokens:{}",
