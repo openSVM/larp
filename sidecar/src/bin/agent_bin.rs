@@ -211,6 +211,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             Some(args.repo_name.clone()),
             message_properties,
             false, // not in devtools context
+            None,  // steps parameter
         )
         .await;
     println!("agent::tool_use::end");

@@ -214,6 +214,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(args.repo_name.clone()),
             message_properties,
             false, // not in devtools context
+            None,  // steps parameter
         )
         .await;
     println!("agent::tool_use::end");
