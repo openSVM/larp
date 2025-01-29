@@ -1597,6 +1597,7 @@ pub async fn agent_tool_use(
                         mcts_log_directory,
                         None,
                         message_properties,
+                        false, // not in devtools context
                     )
                     .await
             })

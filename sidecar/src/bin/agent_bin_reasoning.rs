@@ -213,6 +213,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(args.log_directory.clone()),
             Some(args.repo_name.clone()),
             message_properties,
+            false, // not in devtools context
         )
         .await;
     println!("agent::tool_use::end");
