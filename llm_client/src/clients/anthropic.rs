@@ -129,8 +129,6 @@ enum AnthropicEvent {
     MessageStart {
         #[serde(rename = "message")]
         message: MessageData,
-        #[serde(rename = "usage")]
-        usage: Usage,
     },
     #[serde(rename = "content_block_start")]
     ContentBlockStart {
@@ -153,7 +151,7 @@ enum AnthropicEvent {
     },
     #[serde(rename = "message_delta")]
     MessageDelta {
-        #[serde(rename = "edit")]
+        #[serde(rename = "delta")]
         _delta: MessageDeltaData,
         #[serde(rename = "usage")]
         usage: Usage,
@@ -549,10 +547,7 @@ impl AnthropicClient {
                     *running_tool_input_ref = "".to_owned();
                     *current_tool_use_id_ref = None;
                 }
-                Ok(AnthropicEvent::MessageStart {
-                    message,
-                    usage: _usage,
-                }) => {
+                Ok(AnthropicEvent::MessageStart { message }) => {
                     println!(
                         "anthropic::cache_hit::{:?}",
                         message.usage.cache_read_input_tokens
@@ -799,11 +794,13 @@ impl LLMClient for AnthropicClient {
                         debug!("input_json_delta::{}", &partial_json);
                     }
                 },
-                Ok(AnthropicEvent::MessageStart { message, usage }) => {
-                    input_tokens = input_tokens + usage.input_tokens.unwrap_or_default();
-                    output_tokens = output_tokens + usage.output_tokens.unwrap_or_default();
-                    input_cached_tokens =
-                        input_cached_tokens + usage.cache_read_input_tokens.unwrap_or_default();
+                Ok(AnthropicEvent::MessageStart { message }) => {
+                    input_tokens = input_tokens
+                        + message.usage.input_tokens.unwrap_or_default()
+                        + message.usage.cache_read_input_tokens.unwrap_or_default();
+                    output_tokens = output_tokens + message.usage.output_tokens.unwrap_or_default();
+                    input_cached_tokens = input_cached_tokens
+                        + message.usage.cache_read_input_tokens.unwrap_or_default();
                     println!(
                         "anthropic::cache_hit::{:?}",
                         message.usage.cache_read_input_tokens
