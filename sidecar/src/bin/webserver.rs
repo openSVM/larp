@@ -141,7 +141,6 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
 
     // routes through middleware
     let protected_routes = Router::new()
-        .nest("/inline_completion", inline_completion())
         .nest("/agentic", agentic_router())
         .nest("/plan", plan_router());
     // .layer(from_fn(auth_middleware)); // routes through middleware
@@ -279,37 +278,4 @@ fn tree_sitter_router() -> Router {
 fn file_operations_router() -> Router {
     use axum::routing::*;
     Router::new().route("/edit_file", post(sidecar::webserver::file_edit::file_edit))
-}
-
-fn inline_completion() -> Router {
-    use axum::routing::*;
-    Router::new()
-        .route(
-            "/inline_completion",
-            post(sidecar::webserver::inline_completion::inline_completion),
-        )
-        .route(
-            "/cancel_inline_completion",
-            post(sidecar::webserver::inline_completion::cancel_inline_completion),
-        )
-        .route(
-            "/document_open",
-            post(sidecar::webserver::inline_completion::inline_document_open),
-        )
-        .route(
-            "/document_content_changed",
-            post(sidecar::webserver::inline_completion::inline_completion_file_content_change),
-        )
-        .route(
-            "/get_document_content",
-            post(sidecar::webserver::inline_completion::inline_completion_file_content),
-        )
-        .route(
-            "/get_identifier_nodes",
-            post(sidecar::webserver::inline_completion::get_identifier_nodes),
-        )
-        .route(
-            "/get_symbol_history",
-            post(sidecar::webserver::inline_completion::symbol_history),
-        )
 }
