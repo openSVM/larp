@@ -1269,7 +1269,7 @@ impl SessionService {
                             tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::SearchFileContentWithRegex(_) => {
-                            tool_type.to_string().bright_white().to_string()
+                            tool_type.to_string().bright_cyan().to_string()
                         }
                         ToolInputPartial::OpenFile(_) => {
                             tool_type.to_string().bright_yellow().to_string()
