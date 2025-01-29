@@ -20,9 +20,21 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
-                file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial, list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial
-            }, repo_map::generator::RepoMapGeneratorRequestPartial, session::chat::SessionChatRole, terminal::terminal::TerminalInputPartial, test_runner::runner::TestRunnerRequestPartial, r#type::ToolType
+            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
+            errors::ToolError,
+            file::semantic_search::SemanticSearchParametersPartial,
+            helpers::cancellation_future::run_with_cancellation,
+            input::ToolInputPartial,
+            lsp::{
+                file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial,
+                list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial,
+                search_file::SearchFileContentInputPartial,
+            },
+            r#type::ToolType,
+            repo_map::generator::RepoMapGeneratorRequestPartial,
+            session::chat::SessionChatRole,
+            terminal::terminal::TerminalInputPartial,
+            test_runner::runner::TestRunnerRequestPartial,
         },
     },
     mcts::action_node::ActionNode,
@@ -1301,7 +1313,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             (
                 thinking_for_tool,
                 tool_input_partial,
-                llm_statistics,
+                dbg!(llm_statistics),
                 complete_response,
             )
         });
@@ -1361,10 +1373,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 ))),
                 None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
             };
-            return Ok(ToolUseAgentOutput::new(
-                final_output?,
-                llm_statistics,
-            ));
+            return Ok(ToolUseAgentOutput::new(final_output?, llm_statistics));
         } else {
             Err(SymbolError::CancelledResponseStream)
         }
@@ -1549,7 +1558,9 @@ impl ToolUseGenerator {
                     } else if answer_line_at_index == "<find_file>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::FindFiles);
-                        let _ = self.sender.send(ToolBlockEvent::ToolFound(ToolType::FindFiles));
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::FindFiles));
                     } else if answer_line_at_index == "<grep_string>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SearchFileContentWithRegex);
@@ -1617,13 +1628,13 @@ impl ToolUseGenerator {
                 ToolBlockStatus::ToolFound => {
                     // there are cases where the llm does not put the \n properly
                     // we still want to parse it out properly
-                    if answer_line_at_index.starts_with("<pattern>") && answer_line_at_index.ends_with("</pattern>") {
+                    if answer_line_at_index.starts_with("<pattern>")
+                        && answer_line_at_index.ends_with("</pattern>")
+                    {
                         // record that we found a file path over here
-                        if let Some(prefix_removed) =
-                            answer_line_at_index.strip_prefix("<pattern>")
+                        if let Some(prefix_removed) = answer_line_at_index.strip_prefix("<pattern>")
                         {
-                            if let Some(suffix_removed) =
-                                prefix_removed.strip_suffix("</pattern>")
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</pattern>")
                             {
                                 self.pattern = Some(suffix_removed.to_owned());
                                 let _ = self.sender.send(ToolBlockEvent::ToolParameters(
@@ -1635,8 +1646,7 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
-                    }
-                    else if answer_line_at_index.starts_with("<fs_file_path>")
+                    } else if answer_line_at_index.starts_with("<fs_file_path>")
                         && answer_line_at_index.ends_with("</fs_file_path>")
                     {
                         // record that we found a file path over here

@@ -740,7 +740,6 @@ impl LLMClient for AnthropicClient {
                 "input_tokens:{}::output_tokens:{}",
                 input_tokens, output_tokens
             );
-            println!("{:?}", event);
             match event {
                 Ok(AnthropicEvent::ContentBlockStart { content_block, .. }) => {
                     match content_block {
