@@ -5331,8 +5331,9 @@ impl CodeSymbolImportant for AnthropicCodeSymbolImportant {
                 .map_err(|e| CodeSymbolError::LLMClientError(e));
             match response {
                 Ok(response) => {
-                    if let Ok(parsed_response) = Reply::parse_response(response.answer_up_until_now())
-                        .map(|reply| reply.to_code_symbol_important_response())
+                    if let Ok(parsed_response) =
+                        Reply::parse_response(response.answer_up_until_now())
+                            .map(|reply| reply.to_code_symbol_important_response())
                     {
                         return Ok(parsed_response);
                     } else {
@@ -5526,7 +5527,8 @@ impl CodeSymbolImportant for AnthropicCodeSymbolImportant {
                 sender,
             )
             .await?;
-        Reply::parse_response(response.answer_up_until_now()).map(|reply| reply.to_code_symbol_important_response())
+        Reply::parse_response(response.answer_up_until_now())
+            .map(|reply| reply.to_code_symbol_important_response())
     }
 
     // This replies back with more data about what questions to ask further
@@ -5588,7 +5590,9 @@ impl CodeSymbolImportant for AnthropicCodeSymbolImportant {
                 )
                 .await?;
             // now we want to parse the reply here properly
-            let parsed_response = CodeSymbolToAskQuestionsResponse::parse_response(response.answer_up_until_now().to_owned());
+            let parsed_response = CodeSymbolToAskQuestionsResponse::parse_response(
+                response.answer_up_until_now().to_owned(),
+            );
             match parsed_response {
                 Ok(_) => return parsed_response,
                 Err(_) => {
@@ -5644,7 +5648,9 @@ impl CodeSymbolImportant for AnthropicCodeSymbolImportant {
             response = response.answer_up_until_now(),
         );
         println!("Should probe question request: {:?}", &response);
-        CodeSymbolShouldAskQuestionsResponse::parse_response(response.answer_up_until_now().to_owned())
+        CodeSymbolShouldAskQuestionsResponse::parse_response(
+            response.answer_up_until_now().to_owned(),
+        )
     }
 
     async fn should_probe_follow_along_symbol_request(
@@ -5979,8 +5985,8 @@ impl RepoMapSearch for AnthropicCodeSymbolImportant {
                 sender,
             )
             .await?;
-        let parsed_response =
-            Reply::parse_response(response.answer_up_until_now()).map(|reply| reply.to_code_symbol_important_response());
+        let parsed_response = Reply::parse_response(response.answer_up_until_now())
+            .map(|reply| reply.to_code_symbol_important_response());
 
         let duration = start.elapsed();
         println!("get_repo_symbols::LLM_response_time: {:?}", duration);

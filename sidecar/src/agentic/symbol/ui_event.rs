@@ -700,7 +700,7 @@ impl UIEventWithID {
             exchange_id,
             event: UIEvent::FrameworkEvent(FrameworkEvent::ToolCallError(ToolTypeErrorEvent {
                 error_string,
-            }))
+            })),
         }
     }
 

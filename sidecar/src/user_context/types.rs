@@ -491,7 +491,6 @@ impl UserContext {
         self
     }
 
-
     pub fn images(&self) -> Vec<ImageInformation> {
         let mut processed_images = Vec::new();
         for image in self.images.iter() {

@@ -769,7 +769,7 @@ Output:
                         false,
                     )),
                 }
-            },
+            }
             ToolInputPartial::RequestScreenshot(_) => Err(InferenceError::WrongToolOutput),
         }
     }

@@ -3,6 +3,7 @@
 pub mod create_file;
 pub mod diagnostics;
 pub mod file_diagnostics;
+pub(crate) mod find_files;
 pub mod get_outline_nodes;
 pub(crate) mod go_to_previous_word;
 pub mod gotodefintion;
@@ -17,4 +18,3 @@ pub mod quick_fix;
 pub mod search_file;
 pub(crate) mod subprocess_spawned_output;
 pub(crate) mod undo_changes;
-pub(crate) mod find_files;

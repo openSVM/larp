@@ -1370,7 +1370,9 @@ impl CodeToEditFilterFormatter for AnthropicCodeToEditFormatter {
                 .map_err(|e| CodeToEditFilteringError::LLMClientError(e));
             match response {
                 Ok(response) => {
-                    if let Ok(parsed_response) = self.parse_code_sections(response.answer_up_until_now()) {
+                    if let Ok(parsed_response) =
+                        self.parse_code_sections(response.answer_up_until_now())
+                    {
                         return Ok(parsed_response);
                     } else {
                         retries = retries + 1;
@@ -1521,7 +1523,8 @@ Remember that your reply should be strictly in the following format:
                 retries = retries + 1;
                 continue;
             }
-            let result = self.parse_reponse_for_probing(response.answer_up_until_now(), request.get_snippets());
+            let result = self
+                .parse_reponse_for_probing(response.answer_up_until_now(), request.get_snippets());
             match result {
                 Ok(_) => return result,
                 Err(_) => {

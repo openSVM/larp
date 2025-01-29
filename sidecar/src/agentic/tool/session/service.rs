@@ -729,6 +729,7 @@ impl SessionService {
                     .agent_loop(
                         session.clone(),
                         running_in_editor,
+                        reasoning,
                         mcts_log_directory.clone(),
                         tool_box.clone(),
                         tool_agent.clone(),
@@ -746,6 +747,7 @@ impl SessionService {
             self.agent_loop(
                 session,
                 running_in_editor,
+                reasoning,
                 mcts_log_directory,
                 tool_box,
                 tool_agent,
@@ -762,6 +764,9 @@ impl SessionService {
         &self,
         mut session: Session,
         running_in_editor: bool,
+        // reasoning is passed so we can short circuit the loop early on when
+        // the agent has been going over context etc
+        _reasoning: bool,
         mcts_log_directory: Option<String>,
         tool_box: Arc<ToolBox>,
         tool_agent: ToolUseAgent,
@@ -1301,10 +1306,10 @@ impl SessionService {
                         ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
                         ToolInputPartial::Reasoning(_) => {
                             tool_type.to_string().bright_blue().to_string()
-                        },
+                        }
                         ToolInputPartial::RequestScreenshot(_) => {
                             tool_type.to_string().bright_white().to_string()
-                        },
+                        }
                     };
                     state_params.push(tool_str);
                 }

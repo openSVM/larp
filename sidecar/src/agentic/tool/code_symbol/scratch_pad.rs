@@ -730,7 +730,10 @@ impl Tool for ScratchPadAgentBroker {
 
         match stream_result {
             Some(Ok(response)) => Ok(ToolOutput::SearchAndReplaceEditing(
-                SearchAndReplaceEditingResponse::new(response.answer_up_until_now().to_owned(), response.answer_up_until_now().to_owned()),
+                SearchAndReplaceEditingResponse::new(
+                    response.answer_up_until_now().to_owned(),
+                    response.answer_up_until_now().to_owned(),
+                ),
             )),
             _ => Err(ToolError::MissingTool),
         }

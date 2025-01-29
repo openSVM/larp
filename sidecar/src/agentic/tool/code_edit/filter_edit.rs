@@ -219,7 +219,8 @@ impl Tool for FilterEditOperationBroker {
                 .await;
             match response {
                 Ok(response) => {
-                    let parsed_response = from_str::<FilterEditOperationResponse>(response.answer_up_until_now());
+                    let parsed_response =
+                        from_str::<FilterEditOperationResponse>(response.answer_up_until_now());
                     match parsed_response {
                         Ok(parsed_response) => {
                             return Ok(ToolOutput::filter_edit_operation(parsed_response));

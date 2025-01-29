@@ -124,6 +124,9 @@ def subtract(a, b, logger):
     println!(
         "response {}:\n{}",
         start_instant.elapsed().as_millis(),
-        response.expect("to work always").answer_up_until_now().to_owned()
+        response
+            .expect("to work always")
+            .answer_up_until_now()
+            .to_owned()
     );
 }

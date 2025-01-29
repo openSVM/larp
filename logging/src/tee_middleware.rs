@@ -1,12 +1,11 @@
+use http::Extensions;
 use reqwest::{Client, Request, Response};
 use reqwest_middleware::{Middleware, Next, Result};
-use http::Extensions;
 use std::env;
 use tokio;
 
 pub fn tee_server_url() -> String {
-    env::var("AIDE_TEE_URL")
-        .unwrap_or_else(|_| "http://localhost:8080".to_string())
+    env::var("AIDE_TEE_URL").unwrap_or_else(|_| "http://localhost:8080".to_string())
 }
 
 pub struct TeeMiddleware {
@@ -34,14 +33,14 @@ impl Middleware for TeeMiddleware {
 
         let body = req.try_clone().and_then(|req| {
             req.body().map(|body| {
-                body.as_bytes().map_or_else(
-                    || Vec::new(),
-                    |bytes| bytes.to_vec()
-                )
+                body.as_bytes()
+                    .map_or_else(|| Vec::new(), |bytes| bytes.to_vec())
             })
         });
 
-        let endpoint = req.url().host_str()
+        let endpoint = req
+            .url()
+            .host_str()
             .map(|host| {
                 if let Some(port) = req.url().port() {
                     format!("{}:{}", host, port)
@@ -53,7 +52,8 @@ impl Middleware for TeeMiddleware {
         let mut headers = req.headers().clone();
         headers.append("endpoint", endpoint.parse().unwrap());
 
-        let tee_request = self.tee_client
+        let tee_request = self
+            .tee_client
             .request(req.method().clone(), full_url)
             .headers(headers);
 

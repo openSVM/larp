@@ -1,4 +1,4 @@
-use reqwest_middleware::{ClientWithMiddleware, ClientBuilder};
+use reqwest_middleware::{ClientBuilder, ClientWithMiddleware};
 
 pub fn new_client() -> ClientWithMiddleware {
     #[cfg(feature = "tee_requests")]

@@ -6,10 +6,14 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 use globset::{Glob, GlobSet, GlobSetBuilder};
 
-use crate::agentic::tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::{Tool, ToolRewardScale}};
+use crate::agentic::tool::{
+    errors::ToolError,
+    input::ToolInput,
+    output::ToolOutput,
+    r#type::{Tool, ToolRewardScale},
+};
 
 use super::list_files::list_files;
-
 
 pub struct FindFilesClient {}
 
@@ -29,7 +33,7 @@ impl FindFilesRequest {
     pub fn new(pattern: String, root_directory: String) -> Self {
         Self {
             pattern,
-            root_directory
+            root_directory,
         }
     }
 }
@@ -41,9 +45,7 @@ pub struct FindFileInputPartial {
 
 impl FindFileInputPartial {
     pub fn new(pattern: String) -> Self {
-        Self {
-            pattern
-        }
+        Self { pattern }
     }
 
     pub fn pattern(&self) -> &str {
@@ -56,7 +58,8 @@ impl FindFileInputPartial {
 <pattern>
 {}
 </pattern>
-</find_file>"#, &self.pattern
+</find_file>"#,
+            &self.pattern
         )
     }
 }
@@ -81,32 +84,36 @@ fn compile_glob_set(patterns: &[String]) -> Result<GlobSet, ToolError> {
     Ok(builder.build()?)
 }
 
-fn find_files(pattern: &str, files: &[PathBuf], root_directory: &str) -> Result<Vec<PathBuf>, ToolError> {
+fn find_files(
+    pattern: &str,
+    files: &[PathBuf],
+    root_directory: &str,
+) -> Result<Vec<PathBuf>, ToolError> {
     // Compile include globs
     let include_patterns = vec![pattern.to_owned()];
     let include_set = compile_glob_set(include_patterns.as_slice())?;
-    
+
     let mut results = Vec::new();
-    
+
     for file in files {
         // Compute relative path
         let relative_path = match file.strip_prefix(root_directory) {
             Ok(p) => p,
             Err(_) => continue, // Skip files not under the search directory
         };
-        
+
         // Convert relative path to a string with forward slashes for glob matching
         let rel_path_str = relative_path.to_string_lossy().replace("\\", "/");
-        
+
         // Check include patterns
         if !include_set.is_match(&rel_path_str) {
             continue;
         }
-        
+
         // Collect the result
         results.push(file.clone());
     }
-    
+
     Ok(results)
 }
 
@@ -118,7 +125,9 @@ impl Tool for FindFilesClient {
         // handwaving a limit of 1M files when running the find operation over here
         let file_list = list_files(&directory_path, true, 1_000_000).0;
         let find_files = find_files(&context.pattern, &file_list, &context.root_directory)?;
-        Ok(ToolOutput::FindFiles(FindFilesResponse { files: find_files }))
+        Ok(ToolOutput::FindFiles(FindFilesResponse {
+            files: find_files,
+        }))
     }
 
     fn tool_description(&self) -> String {

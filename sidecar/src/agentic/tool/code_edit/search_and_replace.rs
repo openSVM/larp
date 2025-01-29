@@ -178,7 +178,6 @@ impl StreamedEditingForEditor {
         }
     }
 
-
     pub async fn send_edit_event(
         &self,
         editor_url: String,

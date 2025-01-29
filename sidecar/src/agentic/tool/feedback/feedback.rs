@@ -155,7 +155,9 @@ impl Tool for FeedbackClientGenerator {
 
         match response {
             Ok(response) => {
-                let output = FeedbackGenerationResponse::parse_response(response.answer_up_until_now().to_owned())?;
+                let output = FeedbackGenerationResponse::parse_response(
+                    response.answer_up_until_now().to_owned(),
+                )?;
                 Ok(ToolOutput::FeedbackGeneration(output))
             }
             Err(e) => Err(ToolError::LLMClientError(e)),

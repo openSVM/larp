@@ -181,7 +181,9 @@ impl ToolInputPartial {
             }
             Self::Reasoning(reasoning_input) => serde_json::to_value(reasoning_input).ok(),
             Self::FindFile(find_file_parameters) => serde_json::to_value(find_file_parameters).ok(),
-            Self::RequestScreenshot(request_screenshot) => serde_json::to_value(request_screenshot).ok(),
+            Self::RequestScreenshot(request_screenshot) => {
+                serde_json::to_value(request_screenshot).ok()
+            }
         }
     }
 

@@ -474,7 +474,9 @@ impl Tool for ReRankingSnippetsForCodeEditingContext {
             match response {
                 Ok(response) => {
                     if let Ok(parsed_response) =
-                        ReRankingSnippetsForCodeEditingResponse::parse_response(response.answer_up_until_now())
+                        ReRankingSnippetsForCodeEditingResponse::parse_response(
+                            response.answer_up_until_now(),
+                        )
                     {
                         return Ok(ToolOutput::re_ranked_code_snippets_for_editing_context(
                             parsed_response,

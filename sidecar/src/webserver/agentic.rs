@@ -6,7 +6,6 @@ use super::types::json as json_result;
 use axum::response::{sse, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
-use tracing::error;
 use llm_client::clients::types::LLMType;
 use llm_client::provider::{
     CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
@@ -17,6 +16,7 @@ use std::{sync::Arc, time::Duration};
 use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
+use tracing::error;
 
 use super::types::Result;
 use crate::agentic::symbol::anchored::AnchoredSymbol;
