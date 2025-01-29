@@ -1295,7 +1295,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
                     .await
             {
-                llm_statistics_ref.set_usage_statistics(dbg!(stream_msg.usage_statistics()));
+                llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
                 // if we have found a tool then break and flush
                 if cloned_tool_found_token.is_cancelled() {
                     break;
