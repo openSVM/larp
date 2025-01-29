@@ -13,7 +13,8 @@ use super::{
         filter_edit::FilterEditOperationBroker, find::FindCodeSectionsToEdit,
         models::broker::CodeEditBroker, search_and_replace::SearchAndReplaceEditing,
         test_correction::TestCorrection, types::CodeEditingTool,
-    }, code_symbol::{
+    },
+    code_symbol::{
         apply_outline_edit_to_range::ApplyOutlineEditsToRange, correctness::CodeCorrectnessBroker,
         error_fix::CodeSymbolErrorFixBroker, find_file_for_new_symbol::FindFileForNewSymbol,
         find_symbols_to_edit_in_context::FindSymbolsToEditInContext,
@@ -25,16 +26,55 @@ use super::{
         probe_try_hard_answer::ProbeTryHardAnswer, repo_map_search::RepoMapSearchBroker,
         reranking_symbols_for_editing_context::ReRankingSnippetsForCodeEditingContext,
         scratch_pad::ScratchPadAgentBroker, should_edit::ShouldEditCodeSymbol,
-    }, editor::apply::EditorApply, errors::ToolError, feedback::feedback::FeedbackClientGenerator, file::{file_finder::ImportantFilesFinderBroker, semantic_search::SemanticSearch}, filtering::broker::CodeToEditFormatterBroker, git::{diff_client::GitDiffClient, edited_files::EditedFiles}, grep::file::FindInFile, input::{ToolInput, ToolInputPartial}, lsp::{
-        create_file::LSPCreateFile, diagnostics::LSPDiagnostics, file_diagnostics::FileDiagnostics, find_files::FindFilesClient, get_outline_nodes::OutlineNodesUsingEditorClient, go_to_previous_word::GoToPreviousWordClient, gotodefintion::LSPGoToDefinition, gotoimplementations::LSPGoToImplementation, gotoreferences::LSPGoToReferences, gototypedefinition::LSPGoToTypeDefinition, grep_symbol::GrepSymbolInCodebase, inlay_hints::InlayHints, list_files::ListFilesClient, open_file::LSPOpenFile, quick_fix::{LSPQuickFixClient, LSPQuickFixInvocationClient}, search_file::SearchFileContentClient, subprocess_spawned_output::SubProcessSpawnedPendingOutputClient, undo_changes::UndoChangesMadeDuringExchange
-    }, output::ToolOutput, plan::{
+    },
+    devtools::screenshot::RequestScreenshot,
+    editor::apply::EditorApply,
+    errors::ToolError,
+    feedback::feedback::FeedbackClientGenerator,
+    file::{file_finder::ImportantFilesFinderBroker, semantic_search::SemanticSearch},
+    filtering::broker::CodeToEditFormatterBroker,
+    git::{diff_client::GitDiffClient, edited_files::EditedFiles},
+    grep::file::FindInFile,
+    input::{ToolInput, ToolInputPartial},
+    lsp::{
+        create_file::LSPCreateFile,
+        diagnostics::LSPDiagnostics,
+        file_diagnostics::FileDiagnostics,
+        find_files::FindFilesClient,
+        get_outline_nodes::OutlineNodesUsingEditorClient,
+        go_to_previous_word::GoToPreviousWordClient,
+        gotodefintion::LSPGoToDefinition,
+        gotoimplementations::LSPGoToImplementation,
+        gotoreferences::LSPGoToReferences,
+        gototypedefinition::LSPGoToTypeDefinition,
+        grep_symbol::GrepSymbolInCodebase,
+        inlay_hints::InlayHints,
+        list_files::ListFilesClient,
+        open_file::LSPOpenFile,
+        quick_fix::{LSPQuickFixClient, LSPQuickFixInvocationClient},
+        search_file::SearchFileContentClient,
+        subprocess_spawned_output::SubProcessSpawnedPendingOutputClient,
+        undo_changes::UndoChangesMadeDuringExchange,
+    },
+    output::ToolOutput,
+    plan::{
         add_steps::PlanAddStepClient, generator::StepGeneratorClient, reasoning::ReasoningClient,
         updater::PlanUpdaterClient,
-    }, ref_filter::ref_filter::ReferenceFilterBroker, repo_map::generator::RepoMapGeneratorClient, rerank::base::ReRankBroker, reward::client::RewardClientGenerator, search::big_search::BigSearchBroker, session::{
+    },
+    r#type::{Tool, ToolRewardScale, ToolType},
+    ref_filter::ref_filter::ReferenceFilterBroker,
+    repo_map::generator::RepoMapGeneratorClient,
+    rerank::base::ReRankBroker,
+    reward::client::RewardClientGenerator,
+    search::big_search::BigSearchBroker,
+    session::{
         ask_followup_question::AskFollowupQuestions, attempt_completion::AttemptCompletionClient,
         chat::SessionChatClient, exchange::SessionExchangeClient,
         hot_streak::SessionHotStreakClient,
-    }, swe_bench::test_tool::SWEBenchTestTool, terminal::terminal::TerminalTool, test_runner::runner::TestRunner, r#type::{Tool, ToolRewardScale, ToolType}
+    },
+    swe_bench::test_tool::SWEBenchTestTool,
+    terminal::terminal::TerminalTool,
+    test_runner::runner::TestRunner,
 };
 
 pub struct ToolBrokerConfiguration {
@@ -446,9 +486,10 @@ impl ToolBroker {
             ToolType::SemanticSearch,
             Box::new(SemanticSearch::new(llm_client)),
         );
+        tools.insert(ToolType::FindFiles, Box::new(FindFilesClient::new()));
         tools.insert(
-            ToolType::FindFiles,
-            Box::new(FindFilesClient::new()),
+            ToolType::RequestScreenshot,
+            Box::new(RequestScreenshot::new()),
         );
         // we also want to add the re-ranking tool here, so we invoke it freely
         Self { tools }

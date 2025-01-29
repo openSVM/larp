@@ -418,7 +418,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new_with_devtools(false, Some(repo_name), None, false),
+            ToolUseAgentProperties::new(false, Some(repo_name), None),
         );
 
         session = session
@@ -585,6 +585,12 @@ impl SessionService {
                     // ToolType::SemanticSearch,
                 ]
                 .into_iter()
+                .chain(if is_devtools_context {
+                    vec![ToolType::RequestScreenshot]
+                } else {
+                    vec![]
+                })
+                .into_iter()
                 .chain(if running_in_editor {
                     // these tools are only availabe inside the editor
                     // they are not available on the agent-farm yet
@@ -612,7 +618,7 @@ impl SessionService {
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new_with_devtools(running_in_editor, repo_name, aide_rules, is_devtools_context),
+            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
         );
 
         session = session
@@ -1295,7 +1301,10 @@ impl SessionService {
                         ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
                         ToolInputPartial::Reasoning(_) => {
                             tool_type.to_string().bright_blue().to_string()
-                        }
+                        },
+                        ToolInputPartial::RequestScreenshot(_) => {
+                            tool_type.to_string().bright_white().to_string()
+                        },
                     };
                     state_params.push(tool_str);
                 }

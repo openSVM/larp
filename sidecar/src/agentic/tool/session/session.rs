@@ -28,6 +28,7 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
+            devtools::screenshot::RequestScreenshotInput,
             file::semantic_search::SemanticSearchRequest,
             helpers::diff_recent_changes::DiffFileContent,
             input::{ToolInput, ToolInputPartial},
@@ -49,7 +50,7 @@ use crate::{
     chunking::text_document::{Position, Range},
     mcts::action_node::ActionNode,
     repo::types::RepoRef,
-    user_context::types::UserContext,
+    user_context::types::{ImageInformation, UserContext},
 };
 
 use super::{
@@ -666,6 +667,18 @@ impl Exchange {
                         ),
                     )
                 } else {
+                    let images = tool_output
+                        .user_context
+                        .images()
+                        .into_iter()
+                        .map(|user_context_image| {
+                            SessionChatMessageImage::new(
+                                user_context_image.r#type().to_owned(),
+                                user_context_image.media_type().to_owned(),
+                                user_context_image.data().to_owned(),
+                            )
+                        })
+                        .collect();
                     SessionChatMessage::user(
                         format!(
                             // tool output is generally an observation for the AI
@@ -675,7 +688,7 @@ impl Exchange {
                             tool_output.tool_type.to_string(),
                             tool_output.output,
                         ),
-                        vec![],
+                        images,
                     )
                 }
             }
@@ -2899,6 +2912,42 @@ reason: {}"#,
             }
             ToolInputPartial::Reasoning(_) => {
                 // we do not call this as a tool explicitly
+            }
+            ToolInputPartial::RequestScreenshot(_) => {
+                println!("request_screenshot");
+                let request_screenshot_input =
+                    RequestScreenshotInput::new(message_properties.editor_url());
+                let input = ToolInput::RequestScreenshot(request_screenshot_input);
+                let response = tool_box
+                    .tools()
+                    .invoke(input)
+                    .await
+                    .map_err(|e| SymbolError::ToolError(e))?;
+                let request_screenshot_output = response
+                    .get_request_screenshot_response()
+                    .ok_or(SymbolError::WrongToolOutput)?;
+                let response = request_screenshot_output.to_llm_image();
+
+                // Convert SessionChatMessageImage to ImageInformation
+                let image_info = ImageInformation::new(
+                    response.r#type().to_owned(),
+                    response.media().to_owned(),
+                    response.data().to_owned(),
+                );
+
+                // we have the tool output over here
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut("Screenshot captured successfully".to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
+                }
+
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    "Screenshot captured successfully".to_owned(),
+                    UserContext::default().add_image(image_info),
+                    exchange_id.to_owned(),
+                );
             }
         }
         Ok(self)

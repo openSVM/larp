@@ -21,6 +21,7 @@ use crate::{
         },
         tool::{
             code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
+            devtools::screenshot::RequestScreenshotInputPartial,
             errors::ToolError,
             file::semantic_search::SemanticSearchParametersPartial,
             helpers::cancellation_future::run_with_cancellation,
@@ -270,7 +271,6 @@ pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
-    is_devtools_context: bool,
 }
 
 impl ToolUseAgentProperties {
@@ -279,29 +279,7 @@ impl ToolUseAgentProperties {
             _in_editor: in_editor,
             repo_name,
             aide_rules,
-            is_devtools_context: false, // Default to false
         }
-    }
-
-    // New constructor with isDevtoolsContext parameter
-    pub fn new_with_devtools(
-        in_editor: bool,
-        repo_name: Option<String>,
-        aide_rules: Option<String>,
-        is_devtools_context: bool,
-    ) -> Self {
-        Self {
-            _in_editor: in_editor,
-            repo_name,
-            aide_rules,
-            is_devtools_context,
-        }
-    }
-
-    // TODO: Use isDevtoolsContext to modify system prompt
-    // This will be implemented later to modify the system prompt based on the context
-    fn _modify_system_prompt_for_devtools(&self, prompt: String) -> String {
-        todo!("Implement system prompt modification based on is_devtools_context");
     }
 }
 
@@ -1647,6 +1625,12 @@ impl ToolUseGenerator {
                         let _ = self
                             .sender
                             .send(ToolBlockEvent::ToolFound(ToolType::TestRunner));
+                    } else if answer_line_at_index == "<request_screenshot>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                        self.tool_type_possible = Some(ToolType::RequestScreenshot);
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::RequestScreenshot));
                     }
                 }
                 ToolBlockStatus::ToolFound => {
@@ -2057,6 +2041,13 @@ impl ToolUseGenerator {
                             }
                             _ => {}
                         }
+                    } else if answer_line_at_index == "</request_screenshot>" {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        self.tool_type_possible = None;
+                        self.tool_input_partial = Some(ToolInputPartial::RequestScreenshot(
+                            RequestScreenshotInputPartial::new(),
+                        ));
+                        let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
                     } else if answer_line_at_index == "</find_file>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         self.tool_type_possible = None;
