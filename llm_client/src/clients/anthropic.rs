@@ -229,14 +229,17 @@ impl AnthropicRequest {
         model_str: String,
     ) -> Self {
         let model = completion_request.model();
-        let temperature = completion_request.temperature();
+        let mut temperature = completion_request.temperature();
+        if matches!(model, LLMType::Custom(_)) {
+            temperature = 1.0;
+        }
         let max_tokens = match completion_request.get_max_tokens() {
             Some(tokens) => Some(tokens),
             None => {
                 if model == &LLMType::ClaudeSonnet {
                     Some(8192)
                 } else {
-                    Some(4096)
+                    Some(30_000)
                 }
             }
         };
