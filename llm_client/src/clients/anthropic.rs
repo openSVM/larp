@@ -734,7 +734,6 @@ impl LLMClient for AnthropicClient {
         let mut buffered_string = "".to_owned();
         while let Some(Ok(event)) = event_source.next().await {
             // TODO: debugging this
-            println!("anthropic_eventdata::{:?}", &event.data);
             let event = serde_json::from_str::<AnthropicEvent>(&event.data);
             println!(
                 "input_tokens:{}::output_tokens:{}",
@@ -754,11 +753,11 @@ impl LLMClient for AnthropicClient {
                                     Some(text),
                                     model_str.to_owned(),
                                 )
-                                .set_usage_statistics(
+                                .set_usage_statistics(dbg!(
                                     LLMClientUsageStatistics::new()
                                         .set_input_tokens(input_tokens)
-                                        .set_output_tokens(output_tokens),
-                                ),
+                                        .set_output_tokens(output_tokens)
+                                )),
                             ) {
                                 error!("Failed to send completion response: {}", e);
                                 return Err(LLMClientError::SendError(e));
@@ -780,11 +779,19 @@ impl LLMClient for AnthropicClient {
                             generated_tokens_count = &buffered_string.len(),
                             time_taken = time_diff,
                         );
-                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                            buffered_string.to_owned(),
-                            Some(text),
-                            model_str.to_owned(),
-                        )) {
+                        if let Err(e) = sender.send(
+                            LLMClientCompletionResponse::new(
+                                buffered_string.to_owned(),
+                                Some(text),
+                                model_str.to_owned(),
+                            )
+                            .set_usage_statistics(
+                                LLMClientUsageStatistics::new()
+                                    .set_input_tokens(input_tokens)
+                                    .set_output_tokens(output_tokens)
+                                    .set_cached_input_tokens(input_cached_tokens),
+                            ),
+                        ) {
                             error!("Failed to send completion response: {}", e);
                             return Err(LLMClientError::SendError(e));
                         }
@@ -800,20 +807,12 @@ impl LLMClient for AnthropicClient {
                     output_tokens = output_tokens + message.usage.output_tokens.unwrap_or_default();
                     input_cached_tokens = input_cached_tokens
                         + message.usage.cache_read_input_tokens.unwrap_or_default();
-                    println!(
-                        "anthropic::cache_hit::{:?}",
-                        message.usage.cache_read_input_tokens
-                    );
-                    println!("anthropic::input_tokens::{}", input_tokens);
-                    println!("anthropic::output_tokens::{}", output_tokens);
                 }
                 Ok(AnthropicEvent::MessageDelta { _delta: _, usage }) => {
                     input_tokens = input_tokens + usage.input_tokens.unwrap_or_default();
                     output_tokens = output_tokens + usage.output_tokens.unwrap_or_default();
                     input_cached_tokens =
                         input_cached_tokens + usage.cache_read_input_tokens.unwrap_or_default();
-                    println!("anthropic::input_tokens::{}", input_tokens);
-                    println!("anthropic::output_tokens::{}", output_tokens);
                 }
                 Err(e) => {
                     println!("{:?}", e);
