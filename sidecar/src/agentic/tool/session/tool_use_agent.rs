@@ -270,6 +270,7 @@ pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
+    is_devtools_context: bool,
 }
 
 impl ToolUseAgentProperties {
@@ -278,7 +279,29 @@ impl ToolUseAgentProperties {
             _in_editor: in_editor,
             repo_name,
             aide_rules,
+            is_devtools_context: false, // Default to false
         }
+    }
+
+    // New constructor with isDevtoolsContext parameter
+    pub fn new_with_devtools(
+        in_editor: bool,
+        repo_name: Option<String>,
+        aide_rules: Option<String>,
+        is_devtools_context: bool,
+    ) -> Self {
+        Self {
+            _in_editor: in_editor,
+            repo_name,
+            aide_rules,
+            is_devtools_context,
+        }
+    }
+
+    // TODO: Use isDevtoolsContext to modify system prompt
+    // This will be implemented later to modify the system prompt based on the context
+    fn _modify_system_prompt_for_devtools(&self, prompt: String) -> String {
+        todo!("Implement system prompt modification based on is_devtools_context");
     }
 }
 
