@@ -740,6 +740,10 @@ impl LLMClient for AnthropicClient {
         while let Some(Ok(event)) = event_source.next().await {
             // TODO: debugging this
             let event = serde_json::from_str::<AnthropicEvent>(&event.data);
+            println!(
+                "input_tokens:{}::output_tokens:{}",
+                input_tokens, output_tokens
+            );
             match event {
                 Ok(AnthropicEvent::ContentBlockStart { content_block, .. }) => {
                     match content_block {
@@ -802,12 +806,16 @@ impl LLMClient for AnthropicClient {
                         "anthropic::cache_hit::{:?}",
                         message.usage.cache_read_input_tokens
                     );
+                    println!("anthropic::input_tokens::{}", input_tokens);
+                    println!("anthropic::output_tokens::{}", output_tokens);
                 }
                 Ok(AnthropicEvent::MessageDelta { _delta: _, usage }) => {
                     input_tokens = input_tokens + usage.input_tokens.unwrap_or_default();
                     output_tokens = output_tokens + usage.output_tokens.unwrap_or_default();
                     input_cached_tokens =
                         input_cached_tokens + usage.cache_read_input_tokens.unwrap_or_default();
+                    println!("anthropic::input_tokens::{}", input_tokens);
+                    println!("anthropic::output_tokens::{}", output_tokens);
                 }
                 Err(e) => {
                     println!("{:?}", e);
