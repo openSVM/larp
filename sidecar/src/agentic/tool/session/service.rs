@@ -418,7 +418,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(false, Some(repo_name), None),
+            ToolUseAgentProperties::new_with_devtools(false, Some(repo_name), None, false),
         );
 
         session = session
@@ -618,7 +618,7 @@ impl SessionService {
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
+            ToolUseAgentProperties::new_with_devtools(running_in_editor, repo_name, aide_rules, is_devtools_context),
         );
 
         session = session
@@ -1249,13 +1249,13 @@ impl SessionService {
                             // Unique colors for each EditorCommand
                             match &parameters.command {
                                 EditorCommand::Create => {
-                                    "str_replace_editor::create".blue().to_string()
+                                    "str_replace_editor::create".bright_blue().to_string()
                                 }
                                 EditorCommand::Insert => {
-                                    "str_replace_editor::insert".yellow().to_string()
+                                    "str_replace_editor::insert".bright_yellow().to_string()
                                 }
                                 EditorCommand::StrReplace => {
-                                    "str_replace_editor::str_replace".blue().to_string()
+                                    "str_replace_editor::str_replace".green().to_string()
                                 }
                                 EditorCommand::UndoEdit => {
                                     "str_replace_editor::undo_edit".white().to_string()
@@ -1266,31 +1266,31 @@ impl SessionService {
                             }
                         }
                         ToolInputPartial::FindFile(_) => {
-                            tool_type.to_string().bright_yellow().to_string()
+                            tool_type.to_string().bright_cyan().to_string()
                         }
                         ToolInputPartial::CodeEditing(_) => {
-                            tool_type.to_string().bright_purple().to_string()
+                            tool_type.to_string().bright_blue().to_string()
                         }
                         ToolInputPartial::ListFiles(_) => {
                             tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::SearchFileContentWithRegex(_) => {
-                            tool_type.to_string().bright_purple().to_string()
+                            tool_type.to_string().bright_cyan().to_string()
                         }
                         ToolInputPartial::OpenFile(_) => {
-                            tool_type.to_string().bright_magenta().to_string()
+                            tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::SemanticSearch(_) => {
-                            tool_type.to_string().bright_purple().to_string()
+                            tool_type.to_string().black().to_string()
                         }
                         ToolInputPartial::LSPDiagnostics(_) => {
-                            tool_type.to_string().bright_cyan().to_string()
+                            tool_type.to_string().cyan().to_string()
                         }
                         ToolInputPartial::TerminalCommand(_) => {
                             tool_type.to_string().bright_red().to_string()
                         }
                         ToolInputPartial::AskFollowupQuestions(_) => {
-                            tool_type.to_string().bright_white().to_string()
+                            tool_type.to_string().white().to_string()
                         }
                         ToolInputPartial::AttemptCompletion(_) => {
                             tool_type.to_string().bright_green().to_string()
@@ -1319,11 +1319,30 @@ impl SessionService {
 
         // Construct state_info
         let state_info = if !state_params.is_empty() {
-            format!("Node ({})", state_params.join(", "))
-            // format!("Node {} ({})", node_index, state_params.join(", "))
+            let llm_stats = if let Some(stats) = node.get_llm_usage_statistics() {
+                format!(
+                    " [tokens: in={:?}, out={:?}]",
+                    stats.input_tokens().unwrap_or(0) + stats.cached_input_tokens().unwrap_or(0),
+                    stats.output_tokens().unwrap_or(0)
+                )
+            } else {
+                "".to_string()
+            };
+            format!("Node ({}){}", state_params.join(", "), llm_stats)
         } else {
-            format!("Node ()")
-            // format!("Node {} ()", node_index)
+            format!(
+                "Node (){}",
+                if let Some(stats) = &node.get_llm_usage_statistics() {
+                    format!(
+                        " [tokens: in={:?}, out={:?}]",
+                        stats.input_tokens().unwrap_or(0)
+                            + stats.cached_input_tokens().unwrap_or(0),
+                        stats.output_tokens().unwrap_or(0)
+                    )
+                } else {
+                    "".to_string()
+                }
+            )
         };
 
         // Construct node_str based on reward

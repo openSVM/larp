@@ -222,6 +222,10 @@ impl ActionNode {
         Self::new(index, 1)
     }
 
+    pub fn get_llm_usage_statistics(&self) -> Option<LLMClientUsageStatistics> {
+        self.llm_usage_statistics.clone()
+    }
+
     pub fn set_llm_usage_statistics_maybe(
         &mut self,
         llm_usage_satatistics: Option<LLMClientUsageStatistics>,

@@ -856,6 +856,12 @@ impl LLMClientUsageStatistics {
         self
     }
 
+    pub fn set_usage_statistics(&mut self, other: LLMClientUsageStatistics) {
+        self.input_tokens = other.input_tokens;
+        self.output_tokens = other.output_tokens;
+        self.cached_input_tokens = other.cached_input_tokens;
+    }
+
     pub fn set_input_tokens(mut self, input_tokens: u32) -> Self {
         self.input_tokens = Some(input_tokens);
         self

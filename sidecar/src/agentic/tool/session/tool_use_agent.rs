@@ -21,7 +21,9 @@ use crate::{
         },
         tool::{
             code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, devtools::screenshot::RequestScreenshotInputPartial, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
-                file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial, list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial, search_file::SearchFileContentInputPartial
+                file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial,
+                list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial,
+                search_file::SearchFileContentInputPartial,
             }, repo_map::generator::RepoMapGeneratorRequestPartial, session::chat::SessionChatRole, terminal::terminal::TerminalInputPartial, test_runner::runner::TestRunnerRequestPartial, r#type::ToolType
         },
     },
@@ -258,6 +260,7 @@ pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
+    is_devtools_context: bool,
 }
 
 impl ToolUseAgentProperties {
@@ -266,7 +269,29 @@ impl ToolUseAgentProperties {
             _in_editor: in_editor,
             repo_name,
             aide_rules,
+            is_devtools_context: false, // Default to false
         }
+    }
+
+    // New constructor with isDevtoolsContext parameter
+    pub fn new_with_devtools(
+        in_editor: bool,
+        repo_name: Option<String>,
+        aide_rules: Option<String>,
+        is_devtools_context: bool,
+    ) -> Self {
+        Self {
+            _in_editor: in_editor,
+            repo_name,
+            aide_rules,
+            is_devtools_context,
+        }
+    }
+
+    // TODO: Use isDevtoolsContext to modify system prompt
+    // This will be implemented later to modify the system prompt based on the context
+    fn _modify_system_prompt_for_devtools(&self, prompt: String) -> String {
+        todo!("Implement system prompt modification based on is_devtools_context");
     }
 }
 
@@ -1277,10 +1302,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cloned_tool_found_token = tool_found_token.clone();
         let cloned_cancellation_token = cancellation_token.clone();
         let delta_updater_task = tokio::spawn(async move {
+            let mut llm_statistics: LLMClientUsageStatistics = Default::default();
+            let llm_statistics_ref = &mut llm_statistics;
             while let Some(Some(stream_msg)) =
                 run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
                     .await
             {
+                llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
                 // if we have found a tool then break and flush
                 if cloned_tool_found_token.is_cancelled() {
                     break;
@@ -1296,7 +1324,12 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
-            (thinking_for_tool, tool_input_partial, complete_response)
+            (
+                thinking_for_tool,
+                tool_input_partial,
+                llm_statistics,
+                complete_response,
+            )
         });
 
         // now take the tool_receiver and try sending them over as a ui_sender
@@ -1344,7 +1377,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if let Ok((thinking_for_tool, tool_input_partial, complete_response)) =
+        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) =
             delta_updater_task.await
         {
             let final_output = match tool_input_partial {
@@ -1354,10 +1387,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 ))),
                 None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
             };
-            return Ok(ToolUseAgentOutput::new(
-                final_output?,
-                Default::default(),
-            ));
+            return Ok(ToolUseAgentOutput::new(final_output?, llm_statistics));
         } else {
             Err(SymbolError::CancelledResponseStream)
         }
@@ -1542,7 +1572,9 @@ impl ToolUseGenerator {
                     } else if answer_line_at_index == "<find_file>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::FindFiles);
-                        let _ = self.sender.send(ToolBlockEvent::ToolFound(ToolType::FindFiles));
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::FindFiles));
                     } else if answer_line_at_index == "<grep_string>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SearchFileContentWithRegex);
@@ -1616,13 +1648,13 @@ impl ToolUseGenerator {
                 ToolBlockStatus::ToolFound => {
                     // there are cases where the llm does not put the \n properly
                     // we still want to parse it out properly
-                    if answer_line_at_index.starts_with("<pattern>") && answer_line_at_index.ends_with("</pattern>") {
+                    if answer_line_at_index.starts_with("<pattern>")
+                        && answer_line_at_index.ends_with("</pattern>")
+                    {
                         // record that we found a file path over here
-                        if let Some(prefix_removed) =
-                            answer_line_at_index.strip_prefix("<pattern>")
+                        if let Some(prefix_removed) = answer_line_at_index.strip_prefix("<pattern>")
                         {
-                            if let Some(suffix_removed) =
-                                prefix_removed.strip_suffix("</pattern>")
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</pattern>")
                             {
                                 self.pattern = Some(suffix_removed.to_owned());
                                 let _ = self.sender.send(ToolBlockEvent::ToolParameters(
@@ -1634,8 +1666,7 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
-                    }
-                    else if answer_line_at_index.starts_with("<fs_file_path>")
+                    } else if answer_line_at_index.starts_with("<fs_file_path>")
                         && answer_line_at_index.ends_with("</fs_file_path>")
                     {
                         // record that we found a file path over here
