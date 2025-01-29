@@ -20,11 +20,22 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest}, devtools::screenshot::RequestScreenshotInputPartial, errors::ToolError, file::semantic_search::SemanticSearchParametersPartial, helpers::cancellation_future::run_with_cancellation, input::ToolInputPartial, lsp::{
+            code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
+            devtools::screenshot::RequestScreenshotInputPartial,
+            errors::ToolError,
+            file::semantic_search::SemanticSearchParametersPartial,
+            helpers::cancellation_future::run_with_cancellation,
+            input::ToolInputPartial,
+            lsp::{
                 file_diagnostics::WorkspaceDiagnosticsPartial, find_files::FindFileInputPartial,
                 list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial,
                 search_file::SearchFileContentInputPartial,
-            }, repo_map::generator::RepoMapGeneratorRequestPartial, session::chat::SessionChatRole, terminal::terminal::TerminalInputPartial, test_runner::runner::TestRunnerRequestPartial, r#type::ToolType
+            },
+            r#type::ToolType,
+            repo_map::generator::RepoMapGeneratorRequestPartial,
+            session::chat::SessionChatRole,
+            terminal::terminal::TerminalInputPartial,
+            test_runner::runner::TestRunnerRequestPartial,
         },
     },
     mcts::action_node::ActionNode,
@@ -260,7 +271,6 @@ pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
-    is_devtools_context: bool,
 }
 
 impl ToolUseAgentProperties {
@@ -269,29 +279,7 @@ impl ToolUseAgentProperties {
             _in_editor: in_editor,
             repo_name,
             aide_rules,
-            is_devtools_context: false, // Default to false
         }
-    }
-
-    // New constructor with isDevtoolsContext parameter
-    pub fn new_with_devtools(
-        in_editor: bool,
-        repo_name: Option<String>,
-        aide_rules: Option<String>,
-        is_devtools_context: bool,
-    ) -> Self {
-        Self {
-            _in_editor: in_editor,
-            repo_name,
-            aide_rules,
-            is_devtools_context,
-        }
-    }
-
-    // TODO: Use isDevtoolsContext to modify system prompt
-    // This will be implemented later to modify the system prompt based on the context
-    fn _modify_system_prompt_for_devtools(&self, prompt: String) -> String {
-        todo!("Implement system prompt modification based on is_devtools_context");
     }
 }
 
@@ -1641,8 +1629,8 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::RequestScreenshot);
                         let _ = self
-                        .sender
-                        .send(ToolBlockEvent::ToolFound(ToolType::RequestScreenshot));
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::RequestScreenshot));
                     }
                 }
                 ToolBlockStatus::ToolFound => {
