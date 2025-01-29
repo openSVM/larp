@@ -346,7 +346,10 @@ false
                 .await
             {
                 Ok(response) => {
-                    break Ok(GoogleStudioLLM::parse_search_response(response.answer_up_until_now())?.requests)
+                    break Ok(GoogleStudioLLM::parse_search_response(
+                        response.answer_up_until_now(),
+                    )?
+                    .requests)
                 }
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
@@ -440,7 +443,11 @@ false
                 )
                 .await
             {
-                Ok(response) => break Ok(GoogleStudioLLM::parse_identify_response(response.answer_up_until_now())?),
+                Ok(response) => {
+                    break Ok(GoogleStudioLLM::parse_identify_response(
+                        response.answer_up_until_now(),
+                    )?)
+                }
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
                     sleep(RETRY_DELAY).await;
@@ -489,7 +496,11 @@ false
                 )
                 .await
             {
-                Ok(response) => break Ok(GoogleStudioLLM::parse_decide_response(response.answer_up_until_now())?),
+                Ok(response) => {
+                    break Ok(GoogleStudioLLM::parse_decide_response(
+                        response.answer_up_until_now(),
+                    )?)
+                }
                 Err(e) if attempt < MAX_RETRIES => {
                     eprintln!("Attempt {} failed: {:?}. Retrying...", attempt, e);
                     sleep(RETRY_DELAY).await;

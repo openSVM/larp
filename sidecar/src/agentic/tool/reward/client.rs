@@ -176,7 +176,9 @@ impl Tool for RewardClientGenerator {
 
         match response {
             Ok(response) => {
-                let output = RewardGenerationResponse::parse_output(response.answer_up_until_now().to_owned())?;
+                let output = RewardGenerationResponse::parse_output(
+                    response.answer_up_until_now().to_owned(),
+                )?;
                 Ok(ToolOutput::RewardGeneration(output))
             }
             Err(e) => Err(ToolError::LLMClientError(e)),

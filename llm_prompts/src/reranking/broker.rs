@@ -160,8 +160,11 @@ impl ReRankBroker {
                     .await?;
 
                 // We have the updated list
-                let updated_list =
-                    self.order_code_digests_listwise(&llm_type, response.answer_up_until_now().to_owned(), listwise_request)?;
+                let updated_list = self.order_code_digests_listwise(
+                    &llm_type,
+                    response.answer_up_until_now().to_owned(),
+                    listwise_request,
+                )?;
                 // Now we will in place replace the code spans from the digests from our start position
                 // with the elements in this list
                 for (index, code_span_digest) in updated_list.into_iter().enumerate() {

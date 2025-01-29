@@ -323,9 +323,9 @@ impl Tool for ApplyOutlineEditsToRange {
             }
             match stream_result {
                 Some(Ok(response)) => {
-                    if let Ok(parsed_response) =
-                        ApplyOutlineEditsToRangeResponse::parse_response(response.answer_up_until_now())
-                    {
+                    if let Ok(parsed_response) = ApplyOutlineEditsToRangeResponse::parse_response(
+                        response.answer_up_until_now(),
+                    ) {
                         return Ok(ToolOutput::apply_outline_edits_to_range(parsed_response));
                     } else {
                         retries = retries + 1;

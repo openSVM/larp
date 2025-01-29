@@ -55,8 +55,7 @@ impl TerminalInputPartial {
 {}
 </wait_for_exit>
 </execute_command>"#,
-            self.command,
-            self.wait_for_exit
+            self.command, self.wait_for_exit
         )
     }
 

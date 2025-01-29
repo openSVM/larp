@@ -18,7 +18,8 @@ impl RequestScreenshotInputPartial {
 
     pub fn to_string(&self) -> String {
         "<request_screenshot>
-</request_screenshot>".to_owned()
+</request_screenshot>"
+            .to_owned()
     }
 
     pub fn to_json() -> serde_json::Value {
@@ -50,7 +51,7 @@ impl RequestScreenshotInput {
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct RequestScreenshotOutput {
-    #[serde(rename="type")]
+    #[serde(rename = "type")]
     r#type: String,
     media_type: String,
     data: String,

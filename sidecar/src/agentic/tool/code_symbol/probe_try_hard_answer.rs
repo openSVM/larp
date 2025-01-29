@@ -142,7 +142,9 @@ impl Tool for ProbeTryHardAnswer {
                         retries = retries + 1;
                         continue;
                     } else {
-                        return Ok(ToolOutput::ProbeTryHardAnswer(response.answer_up_until_now().to_owned()));
+                        return Ok(ToolOutput::ProbeTryHardAnswer(
+                            response.answer_up_until_now().to_owned(),
+                        ));
                     }
                 }
                 Err(e) => {

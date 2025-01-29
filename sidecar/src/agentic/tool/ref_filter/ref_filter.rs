@@ -612,7 +612,9 @@ impl Tool for ReferenceFilterBroker {
                     );
 
                     let parsed_response = match response {
-                        Ok(response) => from_str::<ReferenceFilterResponse>(response.answer_up_until_now()).ok(),
+                        Ok(response) => {
+                            from_str::<ReferenceFilterResponse>(response.answer_up_until_now()).ok()
+                        }
                         Err(_) => None,
                     };
 
