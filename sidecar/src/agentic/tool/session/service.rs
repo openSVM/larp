@@ -1262,19 +1262,19 @@ impl SessionService {
                             tool_type.to_string().bright_cyan().to_string()
                         }
                         ToolInputPartial::CodeEditing(_) => {
-                            tool_type.to_string().bright_purple().to_string()
+                            tool_type.to_string().bright_blue().to_string()
                         }
                         ToolInputPartial::ListFiles(_) => {
-                            tool_type.to_string().yellow().to_string()
+                            tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::SearchFileContentWithRegex(_) => {
                             tool_type.to_string().bright_white().to_string()
                         }
                         ToolInputPartial::OpenFile(_) => {
-                            tool_type.to_string().bright_magenta().to_string()
+                            tool_type.to_string().bright_yellow().to_string()
                         }
                         ToolInputPartial::SemanticSearch(_) => {
-                            tool_type.to_string().blue().to_string()
+                            tool_type.to_string().black().to_string()
                         }
                         ToolInputPartial::LSPDiagnostics(_) => {
                             tool_type.to_string().cyan().to_string()
