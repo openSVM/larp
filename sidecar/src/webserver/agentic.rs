@@ -1015,6 +1015,7 @@ pub async fn agent_session_chat(
         aide_rules,
         reasoning: _reasoning,
         semantic_search: _semantic_search,
+        is_devtools_context: _is_devtools_context,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     let llm_provider = model_configuration
@@ -1597,6 +1598,7 @@ pub async fn agent_tool_use(
                         mcts_log_directory,
                         None,
                         message_properties,
+                        is_devtools_context,
                     )
                     .await
             })

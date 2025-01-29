@@ -548,6 +548,7 @@ impl SessionService {
         mcts_log_directory: Option<String>,
         repo_name: Option<String>,
         message_properties: SymbolEventMessageProperties,
+        is_devtools_context: bool,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
         let mut session =
@@ -611,7 +612,7 @@ impl SessionService {
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
+            ToolUseAgentProperties::new_with_devtools(running_in_editor, repo_name, aide_rules, is_devtools_context),
         );
 
         session = session

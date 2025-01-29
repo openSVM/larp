@@ -258,6 +258,7 @@ pub struct ToolUseAgentProperties {
     _in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
+    is_devtools_context: bool,
 }
 
 impl ToolUseAgentProperties {
@@ -266,6 +267,21 @@ impl ToolUseAgentProperties {
             _in_editor: in_editor,
             repo_name,
             aide_rules,
+            is_devtools_context: false, // Default to false for backward compatibility
+        }
+    }
+
+    pub fn new_with_devtools(
+        in_editor: bool,
+        repo_name: Option<String>,
+        aide_rules: Option<String>,
+        is_devtools_context: bool,
+    ) -> Self {
+        Self {
+            _in_editor: in_editor,
+            repo_name,
+            aide_rules,
+            is_devtools_context,
         }
     }
 }
@@ -307,6 +323,7 @@ impl ToolUseAgent {
 
     /// o1 message for reasoning
     fn system_message_for_o1(&self, repo_name: &str) -> String {
+        // TODO: Modify the system prompt based on self.properties.is_devtools_context
         let working_directory = self.working_directory.to_owned();
         format!(
             r#"You have to assign tasks to a junior engineer and follow the user instructions.
