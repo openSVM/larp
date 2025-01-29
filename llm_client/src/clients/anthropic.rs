@@ -748,11 +748,18 @@ impl LLMClient for AnthropicClient {
                         }
                         ContentBlockStart::TextDelta { text } => {
                             buffered_string = buffered_string + &text;
-                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                                buffered_string.to_owned(),
-                                Some(text),
-                                model_str.to_owned(),
-                            )) {
+                            if let Err(e) = sender.send(
+                                LLMClientCompletionResponse::new(
+                                    buffered_string.to_owned(),
+                                    Some(text),
+                                    model_str.to_owned(),
+                                )
+                                .set_usage_statistics(
+                                    LLMClientUsageStatistics::new()
+                                        .set_input_tokens(input_tokens)
+                                        .set_output_tokens(output_tokens),
+                                ),
+                            ) {
                                 error!("Failed to send completion response: {}", e);
                                 return Err(LLMClientError::SendError(e));
                             }
