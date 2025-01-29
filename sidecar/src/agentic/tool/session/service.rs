@@ -418,7 +418,7 @@ impl SessionService {
             root_directory.to_owned(),
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(false, Some(repo_name), None, Some(false)),
+            ToolUseAgentProperties::new(false, Some(repo_name), None),
         );
 
         session = session
@@ -548,7 +548,7 @@ impl SessionService {
         mcts_log_directory: Option<String>,
         repo_name: Option<String>,
         message_properties: SymbolEventMessageProperties,
-        is_devtools_context: Option<bool>,
+        is_devtools_context: bool,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
         let mut session =
@@ -585,7 +585,7 @@ impl SessionService {
                     // ToolType::SemanticSearch,
                 ]
                 .into_iter()
-                .chain(if is_devtools_context.unwrap_or(false) {
+                .chain(if is_devtools_context {
                     vec![ToolType::RequestScreenshot]
                 } else {
                     vec![]
@@ -618,7 +618,7 @@ impl SessionService {
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules, is_devtools_context),
+            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
         );
 
         session = session

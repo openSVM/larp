@@ -36,7 +36,7 @@ pub enum SessionChatRole {
     Assistant,
 }
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize)]
 pub struct SessionChatMessageImage {
     r#type: String,
     media_type: String,

@@ -990,7 +990,7 @@ pub struct AgentSessionChatRequest {
     #[serde(default)]
     semantic_search: bool,
     #[serde(default)]
-    is_devtools_context: Option<bool>,
+    is_devtools_context: bool,
 }
 
 /// Handles the agent session and either creates it or appends to it

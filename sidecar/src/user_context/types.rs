@@ -486,6 +486,12 @@ impl UserContext {
         }
     }
 
+    pub fn add_image(mut self, image: ImageInformation) -> Self {
+        self.images.push(image);
+        self
+    }
+
+
     pub fn images(&self) -> Vec<ImageInformation> {
         let mut processed_images = Vec::new();
         for image in self.images.iter() {

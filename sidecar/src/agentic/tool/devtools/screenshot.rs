@@ -3,9 +3,9 @@ use crate::agentic::tool::{
     input::ToolInput,
     output::ToolOutput,
     r#type::{Tool, ToolRewardScale},
-    session::chat::SessionChatMessageImage,
 };
 use async_trait::async_trait;
+use llm_client::clients::types::LLMClientMessageImage;
 use logging::new_client;
 
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
@@ -17,7 +17,8 @@ impl RequestScreenshotInputPartial {
     }
 
     pub fn to_string(&self) -> String {
-        "<request_screenshot></request_screenshot>".to_owned()
+        "<request_screenshot>
+</request_screenshot>".to_owned()
     }
 
     pub fn to_json() -> serde_json::Value {
@@ -47,7 +48,31 @@ impl RequestScreenshotInput {
     }
 }
 
-pub type RequestScreenshotOutput = SessionChatMessageImage;
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct RequestScreenshotOutput {
+    #[serde(rename="type")]
+    r#type: String,
+    media_type: String,
+    data: String,
+}
+
+impl RequestScreenshotOutput {
+    pub fn new(r#type: String, media_type: String, data: String) -> Self {
+        Self {
+            r#type,
+            media_type,
+            data,
+        }
+    }
+
+    pub fn to_llm_image(&self) -> LLMClientMessageImage {
+        LLMClientMessageImage::new(
+            self.r#type.to_owned(),
+            self.media_type.to_owned(),
+            self.data.to_owned(),
+        )
+    }
+}
 
 impl RequestScreenshot {
     pub fn new() -> Self {
@@ -76,11 +101,28 @@ impl Tool for RequestScreenshot {
     }
 
     fn tool_description(&self) -> String {
-        "".to_owned()
+        format!(
+            r#"### request_screenshot
+Request a screenshot of the web application, running in the browser.
+Use this when you need to capture the current visual state of the application for analysis or verification.
+The screenshot will be taken of the entire visible viewport and returned as an image.
+This is particularly useful for:
+- Verifying UI changes
+- Documenting the application state
+- Analyzing visual bugs or layout issues
+- Capturing the result of UI interactions"#
+        )
     }
 
     fn tool_input_format(&self) -> String {
-        "".to_owned()
+        format!(
+            r#"Parameters:
+No parameters required - the tool will automatically capture the current browser viewport.
+
+Usage:
+<request_screenshot>
+</request_screenshot>"#
+        )
     }
 
     fn get_evaluation_criteria(&self, _trajectory_length: usize) -> Vec<String> {
