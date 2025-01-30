@@ -488,13 +488,7 @@ impl UserContext {
 
     pub fn add_image(mut self, image: ImageInformation) -> Self {
         // Compress the image once when adding it
-        if let Ok(compressed_image) = ImageInformation::new(
-            image.r#type().to_owned(),
-            image.media_type().to_owned(),
-            image.data().to_owned(),
-        )
-        .compress_base64_image()
-        {
+        if let Ok(compressed_image) = image.compress_base64_image() {
             self.images.push(compressed_image);
         } else {
             // If compression fails, store original
