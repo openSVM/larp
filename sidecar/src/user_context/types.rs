@@ -78,7 +78,7 @@ pub struct ImageInformation {
 }
 
 impl ImageInformation {
-    fn compress_base64_image(self) -> Result<Self, UserContextError> {
+    fn compress_base64_image(&self) -> Result<Self, UserContextError> {
         #[cfg(feature = "image_compression")]
         {
             // Decode base64
@@ -116,13 +116,13 @@ impl ImageInformation {
             // Re-encode as base64
             let result = BASE64.encode(compressed);
 
-            Ok(Self::new(self.r#type, self.media_type, result))
+            Ok(Self::new(self.r#type.clone(), self.media_type.clone(), result))
         }
 
         #[cfg(not(feature = "image_compression"))]
         {
             // When compression is disabled, return self unchanged
-            Ok(self)
+            Ok(self.clone())
         }
     }
 
@@ -439,30 +439,29 @@ pub struct UserContext {
     #[serde(default)]
     original_variables: Vec<VariableInformation>,
     #[serde(default)]
+    #[serde(deserialize_with = "compress_images_on_deserialize")]
     images: Vec<ImageInformation>,
-    // TODO(skcd): The file content map over here contains the full context through out the
-    // lifecycle of ownership
-    // so we can freely update it when we want
-    // if we want to perform any operations comparing this to another user context
-    // we can do so over here
-    // - we want to track the changed file content values over here relative to
-    // another filecontent value
-    // use https://github.com/aorwall/moatless-tree-search/blob/59340c9aaa08af28919f563a9a5e0b229da7b3cb/moatless/file_context.py#L194-L204 to
-    // generate the changed span ids which are present
-    // TLDR: we want to get the patch and then get the line numbers which have changed
-    // everytime we apply any change on a file over here
     pub file_content_map: Vec<FileContentValue>,
     pub terminal_selection: Option<String>,
-    // These paths will be absolute and need to be used to get the
-    // context of the folders here, we will output it properly
     folder_paths: Vec<String>,
-    // These are all hacks for now, we will move them to proper strucutre later on
     is_plan_generation: bool,
     is_plan_execution_until: Option<usize>,
     #[serde(default)]
     is_plan_append: bool,
     #[serde(default)]
     is_plan_drop_from: Option<usize>,
+}
+
+fn compress_images_on_deserialize<'de, D>(deserializer: D) -> Result<Vec<ImageInformation>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let images = Vec::<ImageInformation>::deserialize(deserializer)?;
+    let compressed_images = images
+        .into_iter()
+        .map(|image| image.compress_base64_image().unwrap_or(image))
+        .collect();
+    Ok(compressed_images)
 }
 
 impl UserContext {
@@ -487,24 +486,16 @@ impl UserContext {
     }
 
     pub fn add_image(mut self, image: ImageInformation) -> Self {
-        self.images.push(image);
+        // Compress the image once when adding it
+        match image.compress_base64_image() {
+            Ok(compressed_image) => self.images.push(compressed_image),
+            Err(_) => self.images.push(image),
+        }
         self
     }
 
     pub fn images(&self) -> Vec<ImageInformation> {
-        let mut processed_images = Vec::new();
-        for image in self.images.iter() {
-            if let Ok(compressed_image) = ImageInformation::new(
-                image.r#type().to_owned(),
-                image.media_type().to_owned(),
-                image.data().to_owned(),
-            )
-            .compress_base64_image()
-            {
-                processed_images.push(compressed_image);
-            }
-        }
-        processed_images
+        self.images.clone() // Simply return the already stored (and compressed) images
     }
 
     pub fn copy_at_instance(mut self) -> Self {
@@ -790,16 +781,8 @@ impl UserContext {
             })
             .collect::<Vec<_>>();
 
-        // Process and compress any new images before merging
-        let mut processed_new_images = Vec::new();
-        for image in new_user_context.images {
-            let compressed_image = ImageInformation::new(
-                image.r#type().to_owned(),
-                image.media_type().to_owned(),
-                image.data().to_owned(),
-            );
-            processed_new_images.push(compressed_image);
-        }
+        // No need to compress images here as they were compressed when added
+        let processed_new_images = new_user_context.images;
         new_user_context.images = processed_new_images;
 
         let images_to_extend = self
@@ -946,4 +929,47 @@ pub async fn read_folder_selection(
 
     output.push_str("</file_content>\n</folder>\n</selection_item>");
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn test_image_compression_on_deserialize() {
+        // Skip test if image compression feature is not enabled
+        #[cfg(feature = "image_compression")]
+        {
+            // Create a test image (base64 encoded 1x1 PNG)
+            let test_image = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==";
+            let json_data = json!({
+                "variables": [],
+                "original_variables": [],
+                "images": [
+                    {
+                        "type": "png",
+                        "media_type": "image/png",
+                        "data": test_image
+                    }
+                ],
+                "file_content_map": [],
+                "terminal_selection": null,
+                "folder_paths": [],
+                "is_plan_generation": false,
+                "is_plan_execution_until": null,
+                "is_plan_append": false,
+                "is_plan_drop_from": null
+            });
+
+            // Deserialize JSON into UserContext
+            let user_context: UserContext = serde_json::from_value(json_data).unwrap();
+
+            // Verify image was compressed
+            assert!(!user_context.images.is_empty());
+            let compressed_image = &user_context.images[0];
+            assert!(compressed_image.data().len() <= test_image.len(), 
+                   "Image should be compressed or unchanged, but was larger");
+        }
+    }
 }
