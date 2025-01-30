@@ -964,8 +964,9 @@ impl Tool for SearchAndReplaceEditing {
                     ),
                 ))
             }
-            // wrong error over here but its fine for now
-            _ => Err(ToolError::RetriesExhausted),
+            Some(Ok(Err(e))) => Err(ToolError::LLMClientError(e)),
+            Some(Err(_)) => Err(ToolError::UserCancellation),
+            None => Err(ToolError::UserCancellation),
         }
     }
 

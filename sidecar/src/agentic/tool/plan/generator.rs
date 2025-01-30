@@ -641,7 +641,9 @@ impl Tool for StepGeneratorClient {
                     human_help: None,
                 }))
             }
-            _ => Err(ToolError::RetriesExhausted),
+            Some(Ok(Err(e))) => Err(ToolError::LLMClientError(e)),
+            Some(Err(_)) => Err(ToolError::UserCancellation),
+            None => Err(ToolError::UserCancellation),
         }
     }
 

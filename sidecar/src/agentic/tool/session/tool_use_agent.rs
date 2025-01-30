@@ -385,7 +385,7 @@ When you produce an output in response to the junior engineer's progress, includ
 {{High-level step-by-step plan}}
 </instruction>
 </plan>
-- This is the updated plan, reflecting the overall strategy and steps to address the user problem. 
+- This is the updated plan, reflecting the overall strategy and steps to address the user problem.
 - Include a brief acknowledgment of completed tasks from previous instructions so they are not repeated.
 
 ### Notes Section (if needed)
@@ -1335,11 +1335,17 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let delta_updater_task = tokio::spawn(async move {
             let mut llm_statistics: LLMClientUsageStatistics = Default::default();
             let llm_statistics_ref = &mut llm_statistics;
+
             while let Some(Some(stream_msg)) =
                 run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
                     .await
             {
+                // If cancelled during stream processing, return early
+                if cloned_cancellation_token.is_cancelled() {
+                    return Err(SymbolError::CancelledResponseStream);
+                }
                 llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
+
                 if cloned_tool_found_token.is_cancelled() {
                     break;
                 }
@@ -1352,12 +1358,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
-            (
+
+            Ok((
                 thinking_for_tool,
                 tool_input_partial,
                 llm_statistics,
                 complete_response,
-            )
+            ))
         });
 
         let mut tool_update_receiver =
@@ -1401,19 +1408,24 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) =
-            delta_updater_task.await
-        {
-            let final_output = match tool_input_partial {
-                Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
-                    tool_input_partial,
-                    thinking_for_tool,
-                ))),
-                None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
-            };
-            return Ok(Some(ToolUseAgentOutput::new(final_output?, llm_statistics)));
+        // If the loop was broken due to cancellation, return early with CancelledResponseStream
+        if cancellation_token.is_cancelled() {
+            return Err(SymbolError::CancelledResponseStream);
         }
-        Ok(None)
+
+        match delta_updater_task.await {
+            Ok(Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response))) => {
+                let final_output = match tool_input_partial {
+                    Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
+                        tool_input_partial,
+                        thinking_for_tool,
+                    ))),
+                    None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
+                };
+                Ok(Some(ToolUseAgentOutput::new(final_output?, llm_statistics)))
+            }
+            Ok(Err(_)) | Err(_) => Err(SymbolError::CancelledResponseStream),
+        }
     }
 }
 
@@ -2390,18 +2402,18 @@ mod tests {
     fn test_agent_reasoning_params_parsing() {
         let response = r#"<plan>
 <instruction>
-1. Create a standalone Python script that demonstrates the unexpected behavior of separability_matrix with nested compound models.  
-2. Run the script to confirm that the final matrix for "m.Pix2Sky_TAN() & cm" is not the block diagonal, as suspected.  
-3. Analyze the output and proceed to inspect "astropy/modeling/separable.py" to understand how the separability_matrix is computed.  
-4. Propose and implement a fix in the code.  
-5. Rerun the reproduction script to verify the fix.  
+1. Create a standalone Python script that demonstrates the unexpected behavior of separability_matrix with nested compound models.
+2. Run the script to confirm that the final matrix for "m.Pix2Sky_TAN() & cm" is not the block diagonal, as suspected.
+3. Analyze the output and proceed to inspect "astropy/modeling/separable.py" to understand how the separability_matrix is computed.
+4. Propose and implement a fix in the code.
+5. Rerun the reproduction script to verify the fix.
 6. Confirm that the unexpected behavior is resolved.
 </instruction>
 </plan>
 
 <current_task>
 <instruction>
-1) In the root directory of the "astropy" repository, create a file named "reproduce_separability_issue.py".  
+1) In the root directory of the "astropy" repository, create a file named "reproduce_separability_issue.py".
 2) In that file, reproduce the user's example code demonstrating the nested compound models and how separability_matrix is returning unexpected results:
 --------------------------------------------------------------------------------
 from astropy.modeling import models as m
@@ -2411,7 +2423,7 @@ def main():
     cm = m.Linear1D(10) & m.Linear1D(5)
     print("separability_matrix(cm):")
     print(separability_matrix(cm))
-    
+
     tan_and_cm = m.Pix2Sky_TAN() & cm
     print("\nseparability_matrix(m.Pix2Sky_TAN() & cm):")
     print(separability_matrix(tan_and_cm))
@@ -2419,7 +2431,7 @@ def main():
 if __name__ == "__main__":
     main()
 --------------------------------------------------------------------------------
-3) Save your changes.  
+3) Save your changes.
 4) Run the script (e.g., "python reproduce_separability_issue.py") in the same directory and capture the output for our reference.
 </instruction>
 </current_task>"#;

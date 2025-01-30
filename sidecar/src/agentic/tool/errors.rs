@@ -88,4 +88,7 @@ pub enum ToolError {
 
     #[error("Glob error")]
     GlobError(#[from] globset::Error),
+
+    #[error("Cancelled by user")]
+    UserCancellation,
 }
