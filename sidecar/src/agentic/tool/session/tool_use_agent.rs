@@ -1342,12 +1342,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             {
                 // If cancelled during stream processing, return early
                 if cloned_cancellation_token.is_cancelled() {
-                    return Err::<_, Box<dyn std::error::Error + Send + Sync>>(
-                        "Stream cancelled".into(),
-                    );
+                    return Err(SymbolError::CancelledResponseStream);
                 }
-
                 llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
+
                 if cloned_tool_found_token.is_cancelled() {
                     break;
                 }
@@ -1361,7 +1359,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
 
-            Ok::<_, Box<dyn std::error::Error + Send + Sync>>((
+            Ok((
                 thinking_for_tool,
                 tool_input_partial,
                 llm_statistics,
