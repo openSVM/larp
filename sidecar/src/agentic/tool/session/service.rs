@@ -581,18 +581,21 @@ impl SessionService {
             }
             Ok(())
         } else {
-            self.agent_loop(
-                session,
-                running_in_editor,
-                reasoning,
-                mcts_log_directory,
-                tool_box,
-                tool_agent,
-                root_directory,
-                exchange_id,
-                message_properties,
-            )
-            .await
+            let output = self
+                .agent_loop(
+                    session,
+                    running_in_editor,
+                    reasoning,
+                    mcts_log_directory,
+                    tool_box,
+                    tool_agent,
+                    root_directory,
+                    exchange_id,
+                    message_properties,
+                )
+                .await;
+            println!("agent_loop::output::({:?})", &output);
+            output
         }
     }
 
