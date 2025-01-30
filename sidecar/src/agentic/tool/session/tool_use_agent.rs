@@ -8,8 +8,10 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType,
-            LLMClientCompletionResponse},
+        types::{
+            LLMClientCompletionRequest, LLMClientCompletionResponse, LLMClientMessage,
+            LLMClientUsageStatistics, LLMType,
+        },
     },
     provider::OpenAIProvider,
 };
@@ -1222,7 +1224,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             .map(|last_message| last_message.is_human_message())
             .unwrap_or_default()
         {
-            if let Some(pending_spawned_process_output) = input.pending_spawned_process_output.clone() {
+            if let Some(pending_spawned_process_output) =
+                input.pending_spawned_process_output.clone()
+            {
                 previous_messages.push(LLMClientMessage::user(format!(
                     r#"<executed_terminal_output>
 {}
@@ -1245,31 +1249,35 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cancellation_token = input.symbol_event_message_properties.cancellation_token();
 
         // First try with original LLM (Sonnet)
-        if let Some(result) = self.try_with_llm(
-            llm_properties.clone(),
-            cancellation_token.clone(),
-            root_request_id.clone(),
-            ui_sender.clone(),
-            exchange_id,
-            final_messages.clone(),
-        )
-        .await? {
+        if let Some(result) = self
+            .try_with_llm(
+                llm_properties.clone(),
+                cancellation_token.clone(),
+                root_request_id.clone(),
+                ui_sender.clone(),
+                exchange_id,
+                final_messages.clone(),
+            )
+            .await?
+        {
             return Ok(result);
         }
 
         // If original LLM (Sonnet) failed, try with GPT-4
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
-            println!("Sonnet LLM failed, falling back to GPT-4");
-            let gpt4_properties = llm_properties.clone().set_llm(LLMType::Gpt4);
-            if let Some(result) = self.try_with_llm(
-                gpt4_properties,
-                cancellation_token,
-                root_request_id,
-                ui_sender,
-                exchange_id,
-                final_messages,
-            )
-            .await? {
+            println!("Sonnet LLM failed, falling back to GPT-4o");
+            let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
+            if let Some(result) = self
+                .try_with_llm(
+                    gpt4o_properties,
+                    cancellation_token,
+                    root_request_id,
+                    ui_sender,
+                    exchange_id,
+                    final_messages,
+                )
+                .await?
+            {
                 return Ok(result);
             }
         }
@@ -1287,7 +1295,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         final_messages: Vec<LLMClientMessage>,
     ) -> Result<Option<ToolUseAgentOutput>, SymbolError> {
         let agent_temperature = self.temperature;
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel::<LLMClientCompletionResponse>();
+        let (sender, receiver) =
+            tokio::sync::mpsc::unbounded_channel::<LLMClientCompletionResponse>();
         let cloned_llm_client = self.llm_client.clone();
         let cloned_root_request_id = root_request_id.clone();
         let cloned_cancellation_token = cancellation_token.clone();
@@ -1326,7 +1335,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let delta_updater_task = tokio::spawn(async move {
             let mut llm_statistics: LLMClientUsageStatistics = Default::default();
             let llm_statistics_ref = &mut llm_statistics;
-            while let Some(Some(stream_msg)) = run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next()).await {
+            while let Some(Some(stream_msg)) =
+                run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
+                    .await
+            {
                 llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
                 if cloned_tool_found_token.is_cancelled() {
                     break;
@@ -1348,8 +1360,11 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             )
         });
 
-        let mut tool_update_receiver = tokio_stream::wrappers::UnboundedReceiverStream::new(tool_update_receiver);
-        while let Some(Some(tool_update)) = run_with_cancellation(cancellation_token.clone(), tool_update_receiver.next()).await {
+        let mut tool_update_receiver =
+            tokio_stream::wrappers::UnboundedReceiverStream::new(tool_update_receiver);
+        while let Some(Some(tool_update)) =
+            run_with_cancellation(cancellation_token.clone(), tool_update_receiver.next()).await
+        {
             match tool_update {
                 ToolBlockEvent::ThinkingFull(thinking_up_until_now) => {
                     let _ = ui_sender.clone().send(UIEventWithID::tool_thinking(
@@ -1386,7 +1401,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) = delta_updater_task.await {
+        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) =
+            delta_updater_task.await
+        {
             let final_output = match tool_input_partial {
                 Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
                     tool_input_partial,
