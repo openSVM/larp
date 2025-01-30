@@ -327,11 +327,14 @@ impl Tool for SessionHotStreakClient {
         let response = llm_response.await;
         println!("session_hot_streak_client::response::({:?})", &response);
         let answer_up_until_now = polling_llm_response.await;
-        match answer_up_until_now {
-            Ok(response) => Ok(ToolOutput::context_driven_hot_streak_reply(
+
+        match (response, answer_up_until_now) {
+            (Some(Ok(Ok(_))), Ok(response)) => Ok(ToolOutput::context_driven_hot_streak_reply(
                 SessionHotStreakResponse::new(response),
             )),
-            _ => Err(ToolError::RetriesExhausted),
+            (Some(Ok(Err(e))), _) => Err(ToolError::LLMClientError(e)),
+            (Some(Err(_)), _) | (None, _) => Err(ToolError::UserCancellation),
+            (_, Err(_)) => Err(ToolError::UserCancellation),
         }
     }
 

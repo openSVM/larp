@@ -490,11 +490,14 @@ impl Tool for SessionChatClient {
         println!("session_chat_client::response::({:?})", &response);
         // wait for the delta streaming to finish
         let answer_up_until_now = polling_llm_response.await;
-        match answer_up_until_now {
-            Ok(response) => Ok(ToolOutput::context_driven_chat_reply(
+
+        match (response, answer_up_until_now) {
+            (Some(Ok(Ok(_))), Ok(response)) => Ok(ToolOutput::context_driven_chat_reply(
                 SessionChatClientResponse { reply: response },
             )),
-            _ => Err(ToolError::RetriesExhausted),
+            (Some(Ok(Err(e))), _) => Err(ToolError::LLMClientError(e)),
+            (Some(Err(_)), _) | (None, _) => Err(ToolError::UserCancellation),
+            (_, Err(_)) => Err(ToolError::UserCancellation),
         }
     }
 
