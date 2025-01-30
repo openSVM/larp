@@ -637,6 +637,21 @@ impl SessionService {
 
         session = session.accept_open_exchanges_if_any(message_properties.clone());
 
+        // Check if total input tokens from last action node exceed 150k
+        let mut reasoning = reasoning;
+        if !reasoning {
+            if let Some(last_node) = session.action_nodes().last() {
+                if let Some(stats) = last_node.get_llm_usage_statistics() {
+                    let total_input_tokens = stats.input_tokens().unwrap_or(0) + 
+                        stats.cached_input_tokens().unwrap_or(0);
+                    if total_input_tokens > 150_000 {
+                        reasoning = true;
+                        println!("Enabling reasoning flow: input tokens ({}) exceed 150k", total_input_tokens);
+                    }
+                }
+            }
+        }
+
         // now that we have saved it we can start the loop over here and look out for the cancellation
         // token which will imply that we should end the current loop
         if reasoning {
