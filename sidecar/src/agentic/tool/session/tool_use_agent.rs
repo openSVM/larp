@@ -1292,10 +1292,18 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let delta_updater_task = tokio::spawn(async move {
             let mut llm_statistics: LLMClientUsageStatistics = Default::default();
             let llm_statistics_ref = &mut llm_statistics;
+
             while let Some(Some(stream_msg)) =
                 run_with_cancellation(cloned_cancellation_token.clone(), delta_receiver.next())
                     .await
             {
+                // If cancelled during stream processing, return early
+                if cloned_cancellation_token.is_cancelled() {
+                    return Err::<_, Box<dyn std::error::Error + Send + Sync>>(
+                        "Stream cancelled".into(),
+                    );
+                }
+
                 llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
                 // if we have found a tool then break and flush
                 if cloned_tool_found_token.is_cancelled() {
@@ -1306,18 +1314,20 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     tool_use_generator.add_delta(delta);
                 }
             }
+
             // for forcing a flush, we append a \n on our own to the answer up until now
             // so that there are no remaining lines
             tool_use_generator.flush_answer();
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
-            (
+
+            Ok::<_, Box<dyn std::error::Error + Send + Sync>>((
                 thinking_for_tool,
                 tool_input_partial,
                 llm_statistics,
                 complete_response,
-            )
+            ))
         });
 
         // now take the tool_receiver and try sending them over as a ui_sender
@@ -1365,19 +1375,23 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if let Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response)) =
-            delta_updater_task.await
-        {
-            let final_output = match tool_input_partial {
-                Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
-                    tool_input_partial,
-                    thinking_for_tool,
-                ))),
-                None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
-            };
-            return Ok(ToolUseAgentOutput::new(final_output?, llm_statistics));
-        } else {
-            Err(SymbolError::CancelledResponseStream)
+        // If the loop was broken due to cancellation, return early with CancelledResponseStream
+        if cancellation_token.is_cancelled() {
+            return Err(SymbolError::CancelledResponseStream);
+        }
+
+        match delta_updater_task.await {
+            Ok(Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response))) => {
+                let final_output = match tool_input_partial {
+                    Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
+                        tool_input_partial,
+                        thinking_for_tool,
+                    ))),
+                    None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
+                };
+                Ok(ToolUseAgentOutput::new(final_output?, llm_statistics))
+            }
+            Ok(Err(_)) | Err(_) => Err(SymbolError::CancelledResponseStream)
         }
     }
 }
