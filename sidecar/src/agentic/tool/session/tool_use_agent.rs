@@ -8,7 +8,10 @@ use llm_client::{
     clients::{
         anthropic::AnthropicClient,
         open_router::OpenRouterClient,
-        types::{LLMClientCompletionRequest, LLMClientMessage, LLMClientUsageStatistics, LLMType},
+        types::{
+            LLMClientCompletionRequest, LLMClientCompletionResponse, LLMClientMessage,
+            LLMClientUsageStatistics, LLMType,
+        },
     },
     provider::OpenAIProvider,
 };
@@ -17,7 +20,7 @@ use crate::{
     agentic::{
         symbol::{
             errors::SymbolError, events::message_event::SymbolEventMessageProperties,
-            ui_event::UIEventWithID,
+            identifier::LLMProperties, ui_event::UIEventWithID,
         },
         tool::{
             code_edit::{code_editor::CodeEditorParameters, types::CodeEditingPartialRequest},
@@ -382,7 +385,7 @@ When you produce an output in response to the junior engineer's progress, includ
 {{High-level step-by-step plan}}
 </instruction>
 </plan>
-- This is the updated plan, reflecting the overall strategy and steps to address the user problem. 
+- This is the updated plan, reflecting the overall strategy and steps to address the user problem.
 - Include a brief acknowledgment of completed tasks from previous instructions so they are not repeated.
 
 ### Notes Section (if needed)
@@ -1165,10 +1168,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         &self,
         input: ToolUseAgentInput,
     ) -> Result<ToolUseAgentOutput, SymbolError> {
-        // Now over here we want to trigger the tool agent recursively and also parse out the output as required
-        // this will involve some kind of magic because for each tool type we want to be sure about how we are parsing the output but it should not be too hard to make that happen
         let system_message = LLMClientMessage::system(self.system_message(&input)).cache_point();
-        // grab the previous messages as well
         let llm_properties = input
             .symbol_event_message_properties
             .llm_properties()
@@ -1195,9 +1195,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             })
             .collect::<Vec<_>>();
 
-        // Add a reminder about the format of the tools
-        // the divider here is necessary since the agent gets confused
-        // that this is part of the git-diff output
         previous_messages.push(LLMClientMessage::user(format!(
             r#"
 ---
@@ -1207,8 +1204,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             input.tool_format_reminder.join("\n\n")
         )));
 
-        // anthropic allows setting up to 4 cache points, we are going to be more
-        // lax here and set 3, since system_messgae takes 1 slot
         let mut cache_points_set = 0;
         let cache_points_allowed = 3;
         previous_messages
@@ -1229,7 +1224,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             .map(|last_message| last_message.is_human_message())
             .unwrap_or_default()
         {
-            if let Some(pending_spawned_process_output) = input.pending_spawned_process_output {
+            if let Some(pending_spawned_process_output) =
+                input.pending_spawned_process_output.clone()
+            {
                 previous_messages.push(LLMClientMessage::user(format!(
                     r#"<executed_terminal_output>
 {}
@@ -1244,18 +1241,66 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             .to_owned();
         let ui_sender = input.symbol_event_message_properties.ui_sender();
         let exchange_id = input.symbol_event_message_properties.request_id_str();
-        let final_messages: Vec<_> = vec![system_message]
+        let final_messages: Vec<_> = vec![system_message.clone()]
             .into_iter()
-            .chain(previous_messages)
+            .chain(previous_messages.clone())
             .collect();
 
         let cancellation_token = input.symbol_event_message_properties.cancellation_token();
 
-        let agent_temperature = self.temperature;
+        // First try with original LLM (Sonnet)
+        if let Some(result) = self
+            .try_with_llm(
+                llm_properties.clone(),
+                cancellation_token.clone(),
+                root_request_id.clone(),
+                ui_sender.clone(),
+                exchange_id,
+                final_messages.clone(),
+            )
+            .await?
+        {
+            return Ok(result);
+        }
 
-        let (sender, receiver) = tokio::sync::mpsc::unbounded_channel();
+        // If original LLM (Sonnet) failed, try with GPT-4
+        if llm_properties.llm() == &LLMType::ClaudeSonnet {
+            println!("Sonnet LLM failed, falling back to GPT-4o");
+            let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
+            if let Some(result) = self
+                .try_with_llm(
+                    gpt4o_properties,
+                    cancellation_token,
+                    root_request_id,
+                    ui_sender,
+                    exchange_id,
+                    final_messages,
+                )
+                .await?
+            {
+                return Ok(result);
+            }
+        }
+
+        Err(SymbolError::CancelledResponseStream)
+    }
+
+    async fn try_with_llm(
+        &self,
+        llm_properties: LLMProperties,
+        cancellation_token: tokio_util::sync::CancellationToken,
+        root_request_id: String,
+        ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
+        exchange_id: &str,
+        final_messages: Vec<LLMClientMessage>,
+    ) -> Result<Option<ToolUseAgentOutput>, SymbolError> {
+        let agent_temperature = self.temperature;
+        let (sender, receiver) =
+            tokio::sync::mpsc::unbounded_channel::<LLMClientCompletionResponse>();
         let cloned_llm_client = self.llm_client.clone();
-        let cloned_root_request_id = root_request_id.to_owned();
+        let cloned_root_request_id = root_request_id.clone();
+        let cloned_cancellation_token = cancellation_token.clone();
+
         let _ = run_with_cancellation(
             cancellation_token.clone(),
             tokio::spawn(async move {
@@ -1285,10 +1330,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let (tool_update_sender, tool_update_receiver) = tokio::sync::mpsc::unbounded_channel();
         let mut tool_use_generator = ToolUseGenerator::new(tool_update_sender);
 
-        // run this in a background thread for now
         let tool_found_token = tokio_util::sync::CancellationToken::new();
         let cloned_tool_found_token = tool_found_token.clone();
-        let cloned_cancellation_token = cancellation_token.clone();
         let delta_updater_task = tokio::spawn(async move {
             let mut llm_statistics: LLMClientUsageStatistics = Default::default();
             let llm_statistics_ref = &mut llm_statistics;
@@ -1305,7 +1348,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 }
 
                 llm_statistics_ref.set_usage_statistics(stream_msg.usage_statistics());
-                // if we have found a tool then break and flush
                 if cloned_tool_found_token.is_cancelled() {
                     break;
                 }
@@ -1314,9 +1356,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     tool_use_generator.add_delta(delta);
                 }
             }
-
-            // for forcing a flush, we append a \n on our own to the answer up until now
-            // so that there are no remaining lines
             tool_use_generator.flush_answer();
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
@@ -1330,8 +1369,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             ))
         });
 
-        // now take the tool_receiver and try sending them over as a ui_sender
-        // event
         let mut tool_update_receiver =
             tokio_stream::wrappers::UnboundedReceiverStream::new(tool_update_receiver);
         while let Some(Some(tool_update)) =
@@ -1340,34 +1377,32 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             match tool_update {
                 ToolBlockEvent::ThinkingFull(thinking_up_until_now) => {
                     let _ = ui_sender.clone().send(UIEventWithID::tool_thinking(
-                        root_request_id.to_owned(),
+                        root_request_id.clone(),
                         exchange_id.to_owned(),
                         thinking_up_until_now,
                     ));
                 }
                 ToolBlockEvent::NoToolFound(full_output) => {
                     let _ = ui_sender.clone().send(UIEventWithID::tool_not_found(
-                        root_request_id.to_owned(),
+                        root_request_id.clone(),
                         exchange_id.to_owned(),
                         full_output,
                     ));
                 }
                 ToolBlockEvent::ToolFound(tool_found) => {
                     let _ = ui_sender.clone().send(UIEventWithID::tool_found(
-                        root_request_id.to_owned(),
+                        root_request_id.clone(),
                         exchange_id.to_owned(),
                         tool_found,
                     ));
                 }
                 ToolBlockEvent::ToolWithParametersFound => {
-                    // cancel the token once we have a tool
                     tool_found_token.cancel();
-                    // If we have found a tool we should break hard over here
                     break;
                 }
                 ToolBlockEvent::ToolParameters(tool_parameters_update) => {
                     let _ = ui_sender.clone().send(UIEventWithID::tool_parameter_found(
-                        root_request_id.to_owned(),
+                        root_request_id.clone(),
                         exchange_id.to_owned(),
                         tool_parameters_update,
                     ));
@@ -1389,9 +1424,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     ))),
                     None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
                 };
-                Ok(ToolUseAgentOutput::new(final_output?, llm_statistics))
+                Ok(Some(ToolUseAgentOutput::new(final_output?, llm_statistics)))
             }
-            Ok(Err(_)) | Err(_) => Err(SymbolError::CancelledResponseStream)
+            Ok(Err(_)) | Err(_) => Err(SymbolError::CancelledResponseStream),
         }
     }
 }
@@ -2369,18 +2404,18 @@ mod tests {
     fn test_agent_reasoning_params_parsing() {
         let response = r#"<plan>
 <instruction>
-1. Create a standalone Python script that demonstrates the unexpected behavior of separability_matrix with nested compound models.  
-2. Run the script to confirm that the final matrix for "m.Pix2Sky_TAN() & cm" is not the block diagonal, as suspected.  
-3. Analyze the output and proceed to inspect "astropy/modeling/separable.py" to understand how the separability_matrix is computed.  
-4. Propose and implement a fix in the code.  
-5. Rerun the reproduction script to verify the fix.  
+1. Create a standalone Python script that demonstrates the unexpected behavior of separability_matrix with nested compound models.
+2. Run the script to confirm that the final matrix for "m.Pix2Sky_TAN() & cm" is not the block diagonal, as suspected.
+3. Analyze the output and proceed to inspect "astropy/modeling/separable.py" to understand how the separability_matrix is computed.
+4. Propose and implement a fix in the code.
+5. Rerun the reproduction script to verify the fix.
 6. Confirm that the unexpected behavior is resolved.
 </instruction>
 </plan>
 
 <current_task>
 <instruction>
-1) In the root directory of the "astropy" repository, create a file named "reproduce_separability_issue.py".  
+1) In the root directory of the "astropy" repository, create a file named "reproduce_separability_issue.py".
 2) In that file, reproduce the user's example code demonstrating the nested compound models and how separability_matrix is returning unexpected results:
 --------------------------------------------------------------------------------
 from astropy.modeling import models as m
@@ -2390,7 +2425,7 @@ def main():
     cm = m.Linear1D(10) & m.Linear1D(5)
     print("separability_matrix(cm):")
     print(separability_matrix(cm))
-    
+
     tan_and_cm = m.Pix2Sky_TAN() & cm
     print("\nseparability_matrix(m.Pix2Sky_TAN() & cm):")
     print(separability_matrix(tan_and_cm))
@@ -2398,7 +2433,7 @@ def main():
 if __name__ == "__main__":
     main()
 --------------------------------------------------------------------------------
-3) Save your changes.  
+3) Save your changes.
 4) Run the script (e.g., "python reproduce_separability_issue.py") in the same directory and capture the output for our reference.
 </instruction>
 </current_task>"#;
