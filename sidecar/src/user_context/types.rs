@@ -487,24 +487,24 @@ impl UserContext {
     }
 
     pub fn add_image(mut self, image: ImageInformation) -> Self {
-        self.images.push(image);
+        // Compress the image once when adding it
+        if let Ok(compressed_image) = ImageInformation::new(
+            image.r#type().to_owned(),
+            image.media_type().to_owned(),
+            image.data().to_owned(),
+        )
+        .compress_base64_image()
+        {
+            self.images.push(compressed_image);
+        } else {
+            // If compression fails, store original
+            self.images.push(image);
+        }
         self
     }
 
     pub fn images(&self) -> Vec<ImageInformation> {
-        let mut processed_images = Vec::new();
-        for image in self.images.iter() {
-            if let Ok(compressed_image) = ImageInformation::new(
-                image.r#type().to_owned(),
-                image.media_type().to_owned(),
-                image.data().to_owned(),
-            )
-            .compress_base64_image()
-            {
-                processed_images.push(compressed_image);
-            }
-        }
-        processed_images
+        self.images.clone() // Simply return the already stored (and compressed) images
     }
 
     pub fn copy_at_instance(mut self) -> Self {
@@ -790,16 +790,8 @@ impl UserContext {
             })
             .collect::<Vec<_>>();
 
-        // Process and compress any new images before merging
-        let mut processed_new_images = Vec::new();
-        for image in new_user_context.images {
-            let compressed_image = ImageInformation::new(
-                image.r#type().to_owned(),
-                image.media_type().to_owned(),
-                image.data().to_owned(),
-            );
-            processed_new_images.push(compressed_image);
-        }
+        // No need to compress images here as they were compressed when added
+        let processed_new_images = new_user_context.images;
         new_user_context.images = processed_new_images;
 
         let images_to_extend = self
