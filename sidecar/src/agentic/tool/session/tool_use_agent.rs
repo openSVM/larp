@@ -1276,13 +1276,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        // If original LLM (Sonnet) failed, try with GPT-4
+        // If original LLM (Sonnet) failed, try with gemini-pro-1.5
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
             println!("sonnet_failed::failing_back_to_4o");
-            let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
+            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiPro);
             if let Some(result) = self
                 .try_with_llm(
-                    gpt4o_properties,
+                    gemini_pro_properties,
                     cancellation_token,
                     root_request_id,
                     ui_sender,
