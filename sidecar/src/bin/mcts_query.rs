@@ -159,6 +159,15 @@ async fn main() -> color_eyre::Result<()> {
     // Convert SearchTree nodes to Vec<ActionNode>
     let action_nodes: Vec<ActionNode> = search_tree.index_to_node.values().cloned().collect();
 
+    // Test print to verify thinking is preserved
+    if let Some(first_node) = action_nodes.first() {
+        if let Some(observation) = first_node.observation() {
+            if let Some(thinking) = observation.thinking() {
+                println!("Thinking from first node: {}", thinking);
+            }
+        }
+    }
+
     // Create reasoning input
     let reasoning_input = ToolUseAgentReasoningInput::new(
         args.question.clone(),
