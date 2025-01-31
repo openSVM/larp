@@ -2,14 +2,20 @@ use std::fs;
 use std::path::PathBuf;
 use clap::Parser;
 use serde_json;
-use sidecar::mcts::action_node::ActionNode;
-use sidecar::agentic::symbol::{
-    events::message_event::SymbolEventMessageProperties,
-    events::input::SymbolEventRequestId,
-    identifier::LLMProperties,
-    ui_event::UIEventWithID,
+use sidecar::mcts::{
+    action_node::{SearchTree, SearchTreeMinimal},
+    selector::selector::Selector,
 };
-use sidecar::agentic::tool::session::tool_use_agent::{ToolUseAgent, ToolUseAgentReasoningInput, ToolUseAgentProperties};
+use sidecar::agentic::{
+    symbol::{
+        events::message_event::SymbolEventMessageProperties,
+        events::input::SymbolEventRequestId,
+        identifier::LLMProperties,
+        ui_event::UIEventWithID,
+        tool_box::ToolBox,
+    },
+    tool::{r#type::ToolType, session::tool_use_agent::{ToolUseAgent, ToolUseAgentReasoningInput, ToolUseAgentProperties}},
+};
 use llm_client::{
     clients::types::LLMType,
     provider::{LLMProvider, LLMProviderAPIKeys, OpenAIProvider},
@@ -39,16 +45,50 @@ async fn main() -> color_eyre::Result<()> {
     // Read the JSON file
     let json_content = fs::read_to_string(args.mcts_path)?;
     
-    // Deserialize into a Vector of ActionNodes
-    let action_nodes: Vec<ActionNode> = serde_json::from_str(&json_content)?;
+    // Deserialize into SearchTreeMinimal
+    let search_tree_minimal: SearchTreeMinimal = serde_json::from_str(&json_content)?;
 
-    // Create LLMBroker
-    let llm_broker = LLMBroker::new().await?;
-    let llm_broker = Arc::new(llm_broker);
+    // Create LLMBroker and ToolBox
+    let llm_broker = Arc::new(LLMBroker::new().await?);
+    let tool_box = Arc::new(ToolBox::new(
+        Arc::new(llm_broker.clone()),
+        Arc::new(llm_broker.clone()),
+        Arc::new(llm_broker.clone()),
+    ));
+
+    // Create selector with default values similar to swe_bench_submission
+    let selector = Selector::new(
+        1.0,    // exploitation_weight
+        false,  // use_average_reward
+        1.0,    // exploration_weight
+        0.8,    // depth_weight
+        0.0,    // depth_bonus_factor
+        50.0,   // high_value_threshold
+        0.0,    // low_value_threshold
+        75.0,   // very_high_value_threshold
+        50.0,   // high_value_leaf_bonus_constant
+        20.0,   // high_value_bad_children_bonus_constant
+        5.0,    // high_value_child_penalty_constant
+        50.0,   // finished_trajectory_penalty
+        50.0,   // expect_correction_bonus
+        vec![], // check_for_bad_child_actions
+        100.0,  // diversity_weight
+        25.0,   // duplicate_child_penalty_constant
+        50.0,   // duplicate_action_penalty_constant
+    );
+
+    // Convert to SearchTree
+    let search_tree = SearchTree::from_minimal_tree(
+        search_tree_minimal,
+        selector,
+        llm_broker.clone(),
+        tool_box.clone(),
+        vec![], // Empty tools vector as default
+    );
 
     // Create tool use agent
     let tool_use_agent = ToolUseAgent::new(
-        llm_broker,
+        llm_broker.clone(),
         std::env::current_dir()?.to_string_lossy().to_string(),
         "linux".to_string(),
         "bash".to_string(),
@@ -87,7 +127,7 @@ async fn main() -> color_eyre::Result<()> {
     // Create reasoning input
     let reasoning_input = ToolUseAgentReasoningInput::new(
         args.question.clone(),
-        action_nodes,
+        search_tree,
         None,
         message_properties,
     );
@@ -95,11 +135,9 @@ async fn main() -> color_eyre::Result<()> {
     // Process the reasoning request
     let result = tool_use_agent.reasoning_output(reasoning_input).await?;
     
-    // Print the result - use the accessor methods
+    // Print the result
     println!("Instruction:\n{}\n", result.instruction());
     println!("Notes:\n{}\n", result.notes());
-    // Since there's no accessor for plan, we'll need to handle it differently
-    // or just show the available information
     println!("Result summary:\nInstructions and notes from MCTS trajectory analysis");
 
     Ok(())
