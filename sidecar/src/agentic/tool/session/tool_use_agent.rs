@@ -271,7 +271,7 @@ pub enum ToolUseAgentOutputType {
 /// which might be present
 #[derive(Clone)]
 pub struct ToolUseAgentProperties {
-    _in_editor: bool,
+    in_editor: bool,
     repo_name: Option<String>,
     aide_rules: Option<String>,
 }
@@ -279,7 +279,7 @@ pub struct ToolUseAgentProperties {
 impl ToolUseAgentProperties {
     pub fn new(in_editor: bool, repo_name: Option<String>, aide_rules: Option<String>) -> Self {
         Self {
-            _in_editor: in_editor,
+            in_editor,
             repo_name,
             aide_rules,
         }
@@ -767,6 +767,11 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         let tool_descriptions = context.tool_descriptions.join("\n\n");
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
+        let in_editor_message = if self.properties.in_editor {
+            "\n- You are working in an editor, DO NOT CYCLE through various suggestions or improvements, pick the first one and then finish working".to_owned()
+        } else {
+            "".to_owned()
+        };
         let aide_rules = match self.properties.aide_rules.clone() {
             Some(aide_rules) => {
                 format!(
@@ -775,7 +780,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 ====
 
 Additional guildelines and rules the user has provided which must be followed:
-{aide_rules}
+{aide_rules}{in_editor_message}
 
 ===="
                 )
