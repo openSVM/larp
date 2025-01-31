@@ -1,27 +1,36 @@
-use std::fs;
-use std::path::PathBuf;
+use std::{fs, path::PathBuf, sync::Arc};
 use clap::Parser;
 use serde_json;
 use sidecar::mcts::{
-    action_node::{SearchTree, SearchTreeMinimal},
+    action_node::{SearchTree, SearchTreeMinimal, ActionNode},
     selector::selector::Selector,
 };
-use sidecar::agentic::{
-    symbol::{
-        events::message_event::SymbolEventMessageProperties,
-        events::input::SymbolEventRequestId,
-        identifier::LLMProperties,
-        ui_event::UIEventWithID,
-        tool_box::ToolBox,
+use sidecar::{
+    agentic::{
+        symbol::{
+            events::message_event::SymbolEventMessageProperties,
+            events::input::SymbolEventRequestId,
+            identifier::LLMProperties,
+            ui_event::UIEventWithID,
+            tool_box::ToolBox,
+        },
+        tool::{
+            session::tool_use_agent::{ToolUseAgent, ToolUseAgentReasoningInput, ToolUseAgentProperties},
+            broker::{ToolBroker, ToolBrokerConfiguration},
+            code_edit::models::broker::CodeEditBroker,
+        },
     },
-    tool::{r#type::ToolType, session::tool_use_agent::{ToolUseAgent, ToolUseAgentReasoningInput, ToolUseAgentProperties}},
+    chunking::{
+        editor_parsing::EditorParsing,
+        languages::TSLanguageParsing,
+    },
+    inline_completion::symbols_tracker::SymbolTrackerInline,
 };
 use llm_client::{
     clients::types::LLMType,
     provider::{LLMProvider, LLMProviderAPIKeys, OpenAIProvider},
     broker::LLMBroker,
 };
-use std::sync::Arc;
 use tokio::sync::mpsc::unbounded_channel;
 use tokio_util::sync::CancellationToken;
 
@@ -48,12 +57,35 @@ async fn main() -> color_eyre::Result<()> {
     // Deserialize into SearchTreeMinimal
     let search_tree_minimal: SearchTreeMinimal = serde_json::from_str(&json_content)?;
 
-    // Create LLMBroker and ToolBox
+    // Create required dependencies in the correct order
     let llm_broker = Arc::new(LLMBroker::new().await?);
+    let editor_parsing = Arc::new(EditorParsing::default());
+    let language_parsing = Arc::new(TSLanguageParsing::init());
+    let symbol_tracker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
+    
+    // Create dummy/default components for ToolBroker
+    let code_edit_broker = Arc::new(CodeEditBroker::new());
+    let tool_broker_config = ToolBrokerConfiguration::new(None, false);
+    // Use empty string for now since we don't actually need the API key for this use case
+    let fail_over_llm = LLMProperties::new(
+        LLMType::O1,
+        LLMProvider::OpenAI,
+        LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(String::new())),
+    );
+
+    let tool_broker = Arc::new(ToolBroker::new(
+        llm_broker.clone(),
+        code_edit_broker,
+        symbol_tracker.clone(),
+        language_parsing,
+        tool_broker_config,
+        fail_over_llm,
+    ));
+    
     let tool_box = Arc::new(ToolBox::new(
-        Arc::new(llm_broker.clone()),
-        Arc::new(llm_broker.clone()),
-        Arc::new(llm_broker.clone()),
+        tool_broker,
+        symbol_tracker,
+        editor_parsing,
     ));
 
     // Create selector with default values similar to swe_bench_submission
@@ -77,7 +109,7 @@ async fn main() -> color_eyre::Result<()> {
         50.0,   // duplicate_action_penalty_constant
     );
 
-    // Convert to SearchTree
+    // Convert to SearchTree with updated parameters
     let search_tree = SearchTree::from_minimal_tree(
         search_tree_minimal,
         selector,
@@ -86,7 +118,7 @@ async fn main() -> color_eyre::Result<()> {
         vec![], // Empty tools vector as default
     );
 
-    // Create tool use agent
+    // Create tool use agent with updated parameters
     let tool_use_agent = ToolUseAgent::new(
         llm_broker.clone(),
         std::env::current_dir()?.to_string_lossy().to_string(),
@@ -107,7 +139,7 @@ async fn main() -> color_eyre::Result<()> {
     );
     let cancellation_token = CancellationToken::new();
     let api_key = LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
-        std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY must be set")
+        std::env::var("OPENAI_API_KEY").unwrap_or_else(|_| "sk-dummy-test-key".to_string())
     ));
     let llm_properties = LLMProperties::new(
         LLMType::O1,
@@ -124,10 +156,13 @@ async fn main() -> color_eyre::Result<()> {
         llm_properties,
     );
 
+    // Convert SearchTree nodes to Vec<ActionNode>
+    let action_nodes: Vec<ActionNode> = search_tree.index_to_node.values().cloned().collect();
+
     // Create reasoning input
     let reasoning_input = ToolUseAgentReasoningInput::new(
         args.question.clone(),
-        search_tree,
+        action_nodes,
         None,
         message_properties,
     );
