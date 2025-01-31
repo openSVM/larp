@@ -20,7 +20,6 @@ use tracing::error;
 
 use super::types::Result;
 use crate::agentic::symbol::anchored::AnchoredSymbol;
-use crate::agentic::symbol::errors::SymbolError;
 use crate::agentic::symbol::events::environment_event::{EnvironmentEvent, EnvironmentEventType};
 use crate::agentic::symbol::events::input::SymbolEventRequestId;
 use crate::agentic::symbol::events::lsp::LSPDiagnosticError;
