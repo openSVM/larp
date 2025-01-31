@@ -35,6 +35,8 @@ pub enum LLMType {
     O1Mini,
     /// o1 model
     O1,
+    /// o3 mini model
+    O3Mini,
     /// DeepSeek Coder 1.3B Instruct model
     DeepSeekCoder1_3BInstruct,
     /// DeepSeek Coder 33B Instruct model
@@ -148,6 +150,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "o1-preview" => Ok(LLMType::O1Preview),
                     "o1-mini" => Ok(LLMType::O1Mini),
                     "o1" => Ok(LLMType::O1),
+                    "o3-mini" => Ok(LLMType::O3Mini),
                     _ => Ok(LLMType::Custom(value.to_string())),
                 }
             }
@@ -244,6 +247,7 @@ impl fmt::Display for LLMType {
             LLMType::O1Preview => write!(f, "o1-preview"),
             LLMType::O1Mini => write!(f, "o1-mini"),
             LLMType::O1 => write!(f, "o1"),
+            LLMType::O3Mini => write!(f, "o3-mini"),
             LLMType::Custom(s) => write!(f, "Custom({})", s),
         }
     }
