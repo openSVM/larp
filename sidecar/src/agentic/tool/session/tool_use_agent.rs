@@ -1265,12 +1265,21 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             )
             .await?
         {
-            return Ok(result);
+            // only return over here if we have success with the tool output
+            if matches!(
+                result,
+                ToolUseAgentOutput {
+                    r#type: ToolUseAgentOutputType::Success(_),
+                    usage_statistics: _,
+                }
+            ) {
+                return Ok(result);
+            }
         }
 
         // If original LLM (Sonnet) failed, try with GPT-4
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
-            println!("Sonnet LLM failed, falling back to GPT-4o");
+            println!("sonnet_failed::failing_back_to_4o");
             let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
             if let Some(result) = self
                 .try_with_llm(

@@ -20,6 +20,7 @@ use tracing::error;
 
 use super::types::Result;
 use crate::agentic::symbol::anchored::AnchoredSymbol;
+use crate::agentic::symbol::errors::SymbolError;
 use crate::agentic::symbol::events::environment_event::{EnvironmentEvent, EnvironmentEventType};
 use crate::agentic::symbol::events::input::SymbolEventRequestId;
 use crate::agentic::symbol::events::lsp::LSPDiagnosticError;
@@ -1075,6 +1076,7 @@ pub async fn agent_session_chat(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_chat: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
@@ -1223,6 +1225,7 @@ pub async fn agent_session_edit_anchored(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_edit_anchored: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
@@ -1375,6 +1378,7 @@ pub async fn agent_session_edit_agentic(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_edit_agentic: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
@@ -1611,6 +1615,7 @@ pub async fn agent_tool_use(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
@@ -1760,6 +1765,7 @@ pub async fn agent_session_plan_iterate(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_plan_iterate: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
@@ -1910,6 +1916,7 @@ pub async fn agent_session_plan(
 
             match result {
                 Ok(Ok(_)) => (),
+                Ok(Err(SymbolError::CancelledResponseStream)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_plan: {:?}", e);
                     let _ = sender.send(UIEventWithID::error(
