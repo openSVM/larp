@@ -15,6 +15,7 @@ pub struct TerminalTool {
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct TerminalInputPartial {
     command: String,
+    #[serde(default)]
     wait_for_exit: bool,
 }
 
@@ -30,8 +31,8 @@ impl TerminalInputPartial {
         &self.command
     }
 
-    pub fn wait_for_exit(&self) -> &bool {
-        &self.wait_for_exit
+    pub fn wait_for_exit(&self) -> bool {
+        self.wait_for_exit
     }
 
     pub fn sanitise_for_repro_script(self) -> Self {
@@ -85,6 +86,7 @@ impl TerminalInputPartial {
 pub struct TerminalInput {
     command: String,
     editor_url: String,
+    #[serde(default)]
     wait_for_exit: bool,
 }
 
