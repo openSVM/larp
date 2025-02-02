@@ -1536,13 +1536,20 @@ pub async fn agent_tool_use(
         shell,
         aide_rules,
         // TODO(skcd): use the reasoning here to force the agentic llm to behave better
-        reasoning: _reasoning,
+        reasoning,
         semantic_search,
         is_devtools_context,
     }): Json<AgentSessionChatRequest>,
 ) -> Result<impl IntoResponse> {
     // disable reasoning
-    let reasoning = false;
+    // disable reasoning
+    let reasoning =
+        if whoami::username() == "skcd".to_owned() || whoami::username() == "root".to_owned() {
+            reasoning
+        } else {
+            // gate hard for now before we push a new verwsion of the editor
+            false
+        };
     let llm_provider = model_configuration
         .llm_properties_for_slow_model()
         .unwrap_or(LLMProperties::new(
