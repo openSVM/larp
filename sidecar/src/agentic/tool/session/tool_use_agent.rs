@@ -337,24 +337,9 @@ impl ToolUseAgent {
 
     /// o1 message for reasoning
     fn system_message_for_o1(&self, repo_name: &str) -> String {
-        let aide_rules = match self.properties.aide_rules.clone() {
-            Some(aide_rules) => {
-                format!(
-                    "
-
-====
-
-Additional guildelines and rules the user has provided which must be followed:
-{aide_rules}
-
-===="
-                )
-            }
-            None => "".to_owned(),
-        };
         let working_directory = self.working_directory.to_owned();
         format!(
-            r#"Act as an expert architect engineer and provide direction to your junior engineer.
+            r#"Provide instructions to a junior eningeer who will be working as per your instructions to solve a user instruction.
 Study the user instruction and the current code and the repository.
 You will keep a high level plan and give out tasks to the junior engineer.
 After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
@@ -366,14 +351,17 @@ Keep refining the plan and giving out tasks to the junior engineer until the use
 - Bug fixing (this can be with or without a correctness tool)
 - Understanding the codebase
 
-{aide_rules}
-
 ## Rules to follow:
 - You can not create a new branch on the repository or change the commit of the repository.
 - You cannot access any file outside the repository directory.
 - You are not allowed to install any new packages as the developer environment has been already setup in the repository directory.
 - Once you have solved the user instruction, finish by not returning any instruction to the junior engineer.
-- If a correctness tool is given, you can ask the junior engineer to use it after they are done editing the code not along with any multi-step task they might be doing.
+- If a correctness tool is given, use it after the junior engineer has worked to sanity check their work.
+
+## How to solve and help with the user instruction:
+1. As a first step, it might be a good idea to explore the repository to familiarize yourself with its structure.
+2. Edit the sourcecode of the repository to resolve the issue using the junior engineer.
+3. Think about edgecases and make that the junior engineer handles them as well.
 
 ## How to leverage the junior engineer
 
@@ -401,7 +389,7 @@ Keep refining the plan and giving out tasks to the junior engineer until the use
 
 ## Workflow
 
-- **Identify the Problem**: Describe the github issue in your own words (since the junior engineer won't see it).
+- **Identify the Problem**: Describe the user instruction in your own words (since the junior engineer won't see it).
 - **Break Down the Task**: Outline the tasks needed to address the problem.
 - **Assign Tasks**: Provide instructions with enough detail that the junior engineer can carry them out without additional context.
 - **Track Progress**: After the engineer executes a task, use the generated artifacts (opened files, code changes, terminal output) to update or refine your plan.
