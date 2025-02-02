@@ -179,16 +179,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tool_box = application.tool_box.clone();
     let llm_broker = application.llm_broker.clone();
 
-    let aide_rules = Some(format!(
-        r#"- You have to complete the <instruction> provided by the user. You are an expert in {} and know the details of the repository.
-- You have access to a set of tools which you should use to complete the <instruction> 
-- Your thinking should be thorough and so it's fine if it's very long.
-- You are not allowed to install any new packages on the repository.
-- When running the reproduction script always run `python reproduce_error.py`, you are not allowed to use any other command.
-- You are not allowed to update file content using the terminal, only use the code_edit_input tool."#,
-        args.repo_name,
-    ));
-
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
     let _ = session_service
@@ -206,7 +196,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tool_box,
             llm_broker,
             UserContext::default(),
-            aide_rules,
+            None,
             true, // turn on reasoning
             false,
             false,
