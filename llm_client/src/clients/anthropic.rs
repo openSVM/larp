@@ -228,20 +228,10 @@ impl AnthropicRequest {
         completion_request: LLMClientCompletionRequest,
         model_str: String,
     ) -> Self {
-        let model = completion_request.model();
-        let mut temperature = completion_request.temperature();
-        if matches!(model, LLMType::Custom(_)) {
-            temperature = 1.0;
-        }
+        let temperature = completion_request.temperature();
         let max_tokens = match completion_request.get_max_tokens() {
             Some(tokens) => Some(tokens),
-            None => {
-                if model == &LLMType::ClaudeSonnet {
-                    Some(8192)
-                } else {
-                    Some(30_000)
-                }
-            }
+            None => Some(8192),
         };
         let messages = completion_request.messages();
         // grab the tools over here ONLY from the system message
