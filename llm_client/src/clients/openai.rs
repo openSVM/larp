@@ -45,7 +45,7 @@ impl OpenAIClient {
             LLMType::Llama3_1_8bInstruct => Some("llama-3.1-8b-instant".to_owned()),
             LLMType::O1Preview => Some("o1-preview".to_owned()),
             LLMType::O1 => Some("o1".to_owned()),
-            LLMType::O3Mini => Some("o3-mini".to_owned()),
+            LLMType::O3MiniHigh => Some("o3-mini".to_owned()),
             _ => None,
         }
     }
@@ -220,7 +220,7 @@ impl LLMClient for OpenAIClient {
         let messages = if llm_model == &LLMType::O1Preview
             || llm_model == &LLMType::O1
             || llm_model == &LLMType::O1Mini
-            || llm_model == &LLMType::O3Mini
+            || llm_model == &LLMType::O3MiniHigh
         {
             self.o1_preview_messages(request.messages())?
         } else {
@@ -232,19 +232,19 @@ impl LLMClient for OpenAIClient {
             .messages(messages);
 
         // o1 and o3-mini do not support streaming on the api
-        if llm_model != &LLMType::O1 && llm_model != &LLMType::O3Mini {
+        if llm_model != &LLMType::O1 {
             request_builder = request_builder.stream(true);
         }
         // set response format to text
         request_builder.response_format(ResponseFormat::Text);
 
-        // we cannot set temperature for o1 and o3-mini
-        if llm_model != &LLMType::O1 && llm_model != &LLMType::O3Mini {
+        // we cannot set temperature for o1 and o3-mini-high
+        if llm_model != &LLMType::O1 && llm_model != &LLMType::O3MiniHigh {
             request_builder = request_builder.temperature(request.temperature());
         }
 
         // if its o1 or o3-mini we should set reasoning_effort to high
-        if llm_model == &LLMType::O1 || llm_model == &LLMType::O3Mini {
+        if llm_model == &LLMType::O1 || llm_model == &LLMType::O3MiniHigh {
             request_builder = request_builder.reasoning_effort(ReasoningEffort::High);
         }
 

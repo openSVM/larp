@@ -934,7 +934,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let llm_properties = message_properties
             .llm_properties()
             .clone()
-            .set_llm(LLMType::O1);
+            .set_llm(LLMType::O3MiniHigh);
         let request = LLMClientCompletionRequest::new(
             llm_properties.llm().clone(),
             vec![system_message, user_message],
