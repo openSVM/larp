@@ -323,6 +323,21 @@ impl ToolUseAgent {
 
     /// o1 message for reasoning
     fn system_message_for_o1(&self, repo_name: &str) -> String {
+        let aide_rules = match self.properties.aide_rules.clone() {
+            Some(aide_rules) => {
+                format!(
+                    "
+
+====
+
+Additional guildelines and rules the user has provided which must be followed:
+{aide_rules}
+
+===="
+                )
+            }
+            None => "".to_owned(),
+        };
         let working_directory = self.working_directory.to_owned();
         format!(
             r#"You have to assign tasks to a junior engineer and follow the user instructions.
@@ -334,6 +349,8 @@ Keep refining the plan and giving out tasks to the junior engineer until the use
 - Asking to implement a feature and has a correctness tool to use to get feedback and accomplish when the feature is finished.
 - Bug fixing
 - Understanding the codebase
+
+{aide_rules}
 
 ## Rules to follow:
 - You can not create a new branch on the repository or change the commit of the repository.
