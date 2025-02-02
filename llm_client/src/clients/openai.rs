@@ -319,6 +319,9 @@ impl LLMClient for OpenAIClient {
                     }
                     buffer = content.to_owned();
                 } else {
+                    if llm_model == &LLMType::O3MiniHigh {
+                        debug!("o3-mini-high");
+                    }
                     let mut stream = client.chat().create_stream(request).await?;
                     while let Some(response) = stream.next().await {
                         debug!("OpenAI stream response: {:?}", &response);
