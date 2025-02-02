@@ -15,7 +15,8 @@ async fn main() {
     let openai_client = AnthropicClient::new();
     let api_key = llm_client::provider::LLMProviderAPIKeys::Anthropic(AnthropicAPIKey { api_key });
     let request = LLMClientCompletionRequest::new(
-        llm_client::clients::types::LLMType::Custom("research-claude-wool".to_owned()),
+        llm_client::clients::types::LLMType::ClaudeSonnet,
+        // llm_client::clients::types::LLMType::Custom("research-claude-wool".to_owned()),
         vec![
             LLMClientMessage::system("You are an expert software engineer".to_owned()),
             LLMClientMessage::user("Who are you?".to_owned()),
