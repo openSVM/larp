@@ -516,7 +516,7 @@ impl SessionService {
                 }
 
                 let mut reasoning_instruction = reasoning_instruction.expect("is_err to hold");
-                println!("reasoning_instruction::{:?}", &reasoning_instruction);
+                println!("{}", reasoning_instruction.to_string());
 
                 // when we have no instrucions we should break
                 if reasoning_instruction.instruction().trim().is_empty() {

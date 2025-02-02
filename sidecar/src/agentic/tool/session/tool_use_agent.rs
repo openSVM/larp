@@ -92,6 +92,20 @@ impl ToolUseAgentReasoningParams {
         }
     }
 
+    pub fn to_string(&self) -> String {
+        format!(r#"<reasoning_input>
+<plan>
+{}
+</plan>
+<instruction>
+{}
+</instruction>
+<notes>
+{}
+</notes>
+</reasoning_input>"#, &self.plan, &self.instruction, &self.notes)
+    }
+
     pub fn add_previous_notes(&mut self, notes: &str) {
         if self.notes.is_empty() {
             self.notes = notes.to_owned();
