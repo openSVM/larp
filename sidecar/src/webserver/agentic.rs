@@ -1573,6 +1573,7 @@ pub async fn agent_tool_use(
         check_session_storage_path(app.config.clone(), session_id.to_string()).await;
 
     let mcts_log_directory = None;
+    let repo_name = repo_ref.name.to_owned();
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
@@ -1601,7 +1602,7 @@ pub async fn agent_tool_use(
                         true, // we are running inside the editor over here
                         semantic_search,
                         mcts_log_directory,
-                        None,
+                        Some(repo_name),
                         message_properties,
                         is_devtools_context,
                     )
