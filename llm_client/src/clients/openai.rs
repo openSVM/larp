@@ -298,7 +298,7 @@ impl LLMClient for OpenAIClient {
                 }
             }
             OpenAIClientType::OpenAIClient(client) => {
-                if true {
+                if llm_model == &LLMType::O1 {
                     let completion = client.chat().create(request).await?;
                     let response = completion
                         .choices
