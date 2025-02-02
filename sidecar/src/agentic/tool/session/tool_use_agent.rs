@@ -93,7 +93,8 @@ impl ToolUseAgentReasoningParams {
     }
 
     pub fn to_string(&self) -> String {
-        format!(r#"<reasoning_input>
+        format!(
+            r#"<reasoning_input>
 <plan>
 {}
 </plan>
@@ -103,7 +104,9 @@ impl ToolUseAgentReasoningParams {
 <notes>
 {}
 </notes>
-</reasoning_input>"#, &self.plan, &self.instruction, &self.notes)
+</reasoning_input>"#,
+            &self.plan, &self.instruction, &self.notes
+        )
     }
 
     pub fn add_previous_notes(&mut self, notes: &str) {
@@ -344,6 +347,11 @@ Study the user instruction and the current code and the repository.
 You will keep a high level plan and give out tasks to the junior engineer. 
 After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
 Keep refining the plan and giving out tasks to the junior engineer until the user instructions are finished.
+
+### Repository Information
+
+Repository Name: {repo_name}
+Working Directory: {working_directory}
 
 ## Types of user instruction:
 - Asking to implement a feature and has a correctness tool to verify and accomplish when the feature is finished.
