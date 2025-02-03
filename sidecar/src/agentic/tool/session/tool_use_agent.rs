@@ -1363,7 +1363,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        Err(SymbolError::CancelledResponseStream)
+        Err(SymbolError::FailedToGetTool)
     }
 
     async fn try_with_llm(
