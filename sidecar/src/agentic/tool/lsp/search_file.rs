@@ -323,7 +323,6 @@ impl Tool for SearchFileContentClient {
             output.push_str(&line);
             output.push('\n');
             line_count += 1;
-            println!("Line count: {}", line_count);
         }
 
         // (R1) Kill the child process to prevent deadlock
