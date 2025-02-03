@@ -1543,13 +1543,15 @@ pub async fn agent_tool_use(
 ) -> Result<impl IntoResponse> {
     // disable reasoning
     // disable reasoning
-    let reasoning =
-        if whoami::username() == "skcd".to_owned() || whoami::username() == "root".to_owned() {
-            reasoning
-        } else {
-            // gate hard for now before we push a new verwsion of the editor
-            false
-        };
+    let reasoning = if whoami::username() == "skcd".to_owned()
+        || whoami::username() == "root".to_owned()
+        || std::env::var("SIDECAR_ENABLE_REASONING").map_or(false, |v| !v.is_empty())
+    {
+        reasoning
+    } else {
+        // gate hard for now before we push a new verwsion of the editor
+        false
+    };
     let llm_provider = model_configuration
         .llm_properties_for_slow_model()
         .unwrap_or(LLMProperties::new(
