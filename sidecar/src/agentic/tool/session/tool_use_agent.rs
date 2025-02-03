@@ -1439,6 +1439,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             let thinking_for_tool = tool_use_generator.thinking;
             let tool_input_partial = tool_use_generator.tool_input_partial;
             let complete_response = tool_use_generator.answer_up_until_now;
+            println!("tool_use_agent::try_with_llm::delta_task_updater::finished");
 
             Ok((
                 thinking_for_tool,
@@ -1491,6 +1492,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         // If the loop was broken due to cancellation, return early with CancelledResponseStream
         if cancellation_token.is_cancelled() {
+            println!("tool_use_agent::try_with_llm::cancellation_token::is_cancelled");
             return Err(SymbolError::CancelledResponseStream);
         }
 
