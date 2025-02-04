@@ -165,6 +165,29 @@ impl ToolUseAgentReasoningParams {
     }
 }
 
+/// When we crunch the context we need to generate the new instruction for the
+/// llm to follow
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
+pub struct ContextCrunchingInputPartial {
+    summary: String,
+    instruction: String,
+}
+
+impl ContextCrunchingInputPartial {
+    /// TODO(skcd): We do not really need this
+    pub fn to_string(&self) -> String {
+        "".to_owned()
+    }
+
+    pub fn summary(&self) -> &str {
+        &self.summary
+    }
+
+    pub fn instruction(&self) -> &str {
+        &self.instruction
+    }
+}
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct ToolUseAgentReasoningParamsPartial {
     user_instruction: String,
@@ -186,6 +209,27 @@ impl ToolUseAgentReasoningParamsPartial {
             user_instruction,
             action_nodes: vec![],
             params,
+        }
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct ToolUseAgentContextCrunchingInput {
+    user_instruction: String,
+    action_nodes: Vec<ActionNode>,
+    symbol_event_message_properties: SymbolEventMessageProperties,
+}
+
+impl ToolUseAgentContextCrunchingInput {
+    pub fn new(
+        user_instruction: String,
+        action_nodes: Vec<ActionNode>,
+        symbol_event_message_properties: SymbolEventMessageProperties,
+    ) -> Self {
+        Self {
+            user_instruction,
+            action_nodes,
+            symbol_event_message_properties,
         }
     }
 }
@@ -673,133 +717,89 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         )
     }
 
-    fn _system_message_for_swe_bench(
-        &self,
-        context: &ToolUseAgentInput,
-        repo_name: &str,
-    ) -> String {
-        let tool_descriptions = context.tool_descriptions.join("\n");
+    fn system_message_for_context_crunching(&self) -> String {
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
         let default_shell = self.shell.to_owned();
+        let repo_name = self
+            .properties
+            .repo_name
+            .clone()
+            .unwrap_or("not provided".to_owned());
         format!(
-            r#"You are an expert software engineer tasked with solving Github issues which the user will provide. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the issue.
-I have already taken care of all changes to any test files described in {working_directory}. This means you DON'T have to modify the testing logic or any of the tests in any way!
-Your task is to make the minimal changes to non-tests files in the {working_directory} directory to ensure the Github Issue is satisfied.
-====
+            r#"You are a senior engineer who is going to summarise what an AI agent has done up until now, this is done to make sure that the engineer does not go off the rails when working on the task.
+- You will be provided with each step the agent has taken up until now
+- You will be provided with the output of each step the agent has taken in <step></step> section.
 
-TOOL USE
+=== SYSTEM INFORMATION for the AI agent ===
 
-You have access to a set of tools. You can use one tool per message (and only one), and you will receive the result of the tool use from the user. You should use the tools step-by-step to accomplish the user task.
-You use the previous information which you get from using the tools to inform your next tool usage.
-You should always output the <thinking></thinking> section before using a tool and we are showing you an example
+REPO NAME: {repo_name}
+OPERATING SYSTEM: {operating_system}
+WORKING DIRECTORY: {working_directory}
+SHELL: {default_shell}
 
-# Tool Use Formatting
+**Your role is to:**
+    * Summarise the work: Combine your understanding of the task with insights and steps the AI agent has taken along the way.
+    * Provide Feedback: Offer strategic guidance that help the agent move forward with the task.
+    * Avoid Duplicates: Strongly discourage repeating any work which would be considered as duplicate and help kick the agent out of doom looping if the agent is stuck in that.
 
-Tool use is formatted using XML-style tags. The tool name is enclosed in opening and closing tags, and each parameter is similarly enclosed within its own set of tags. Each tag is on a new line. Here's the structure:
+**Your output:**
+    * Think for a bit: First think for a bit before generating the summary, analysing everything the agent has done up until now.
+    * Generate a summary: Generate a summary for the AI agent so it does not forget the work it was doing or was in the middle of.
+    * Enrich the new instruction for the AI agent: After you have summarized, modify and enrich the original user instruction (ONLY IF NECESSARY).
 
-<tool_name>
-<parameter1_name>
-value1
-</parameter1_name>
-<parameter2_name>
-value2
-</parameter2_name>
-{{rest of the parameters}}
-</tool_name>
-
-As an example:
+**Your output format:**
+The output format is strictly in the following format:
 <thinking>
-I want to read the content of bin/main.rs
+{{Your thoughts over here of what the agent has been upto}}
 </thinking>
-<read_file>
-<fs_file_path>
-bin/main.rs
-</fs_file_path>
-<start_line>
-1
-</start_line>
-<end_line>
-250
-</end_line>
-</read_file>
+<summarize>
+<summary>
+{{The summary of the steps the agent has already taken and worked on}}
+</summary>
+<instruction>
+{{The original or the modified instruction for the AI agent}}
+</instruction>
+</summarize>"#
+        )
+    }
 
-Always adhere to this format for the tool use to ensure proper parsing and execution from the tool use.
-
-# Tools - do not use tools which are not listed here
-
-{tool_descriptions}
-
-# Tool Use Guidelines
-
-1. In <thinking> tags, assess what information you already have and what information you need to proceed with the task. Your thinking should be thorough and so it's fine if it's very long.
-2. Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like \`ls\` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.
-3. If multiple actions are needed, use one tool at a time per message to accomplish the task iteratively, with each tool use being informed by the result of the previous tool use. Do not assume the outcome of any tool use. Each step must be informed by the previous step's result.
-4. Formulate your tool use using the XML format specified for each tool.
-5. After each tool use, the user will respond with the result of that tool use. This result will provide you with the necessary information to continue your task or make further decisions. This response may include:
-  - Information about whether the tool succeeded or failed, along with any reasons for failure.
-  - Any other relevant feedback or information related to the tool use.
-
-It is crucial to proceed step-by-step, waiting for the user's message after each tool use before moving forward with the task.
-
-By waiting for and carefully considering the user's response after each tool use, you can react accordingly and make informed decisions about how to proceed with the task. This iterative process helps ensure the overall success and accuracy of your work.
-
-====
-
-CAPABILITIES
-
-- You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
-- The code_edit tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
-- You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
-- To search for files, use execute_command to run a command like `find . -name '*.rs' | grep -i 'pattern'`
-
-====
-
-RULES
-
-- Your current working directory is: {working_directory}
-- When using the search_files tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, TODO comments, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
-- When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.
-- Use the tools provided to accomplish the Github Issue efficiently and effectively. When you've completed solving the issue, you must use the attempt_completion tool to present the result to the user.
-- Your goal is to solve the Github Issue be laser focussed on that.
-- NEVER end attempt_completion result with a question or request to engage in further conversation! Formulate the end of your result in a way that is final and does not require further input from the user.
-- ALWAYS start your tool use with the <thinking></thinking> section.
-- ONLY USE A SINGLE tool at a time, never use multiple tools in the same response.
-- VERY IMPORTANT: Each xml tag should be on a new line. This is important because we are parsing the input line by line.
-
-====
-
-SYSTEM INFORMATION
-
-Operating System: {operating_system}
-Default Shell: {default_shell}
-Current Working Directory: {working_directory}
-Current Repo Name: {repo_name}
-
-====
-
-OBJECTIVE
-
-You are an expert software engineer taked with solving Github issues which the user will provide, breaking it down into clear steps and working through them methodically.
-Your first goal should be to reproduce the issue which you can then run using `python reproduce_error.py` using the execute_command to confirm the error, you can put prints to deeply understand the issue.
-You are an expert in {repo_name} and know in detail everything about this repository and all the different code structures which are present in it source code for it.
-
-
-You are NOT ALLOWED to create or edit any of the test-files. You can only run them to check for regressions.
-You are NOT ALLOWED to install any new packages. The dev environment has already been setup for you before you run any command or the reproduce_error.py script.
-
-1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
-2. Create a script to reproduce the error and execute it with `python reproduce_error.py` using the execute_command (which uses bash internally), to confirm the error
-3. Edit the sourcecode of the repo to resolve the issue
-4. Rerun your reproduce script and confirm that the error is fixed!
-5. Think about edgecases and make sure your fix handles them as well.
-6. You can ONLY USE 1 TOOL in each step and not multiple tools, using multiple tools is not allowed.
-7. ONLY ATTEMPT COMPLETION if you have finished with your round of edits.
-9. TEST files need to be run using the test_runner command, while the reproduce_error script can be run only using the execute_command tool.
-8. Run test files at the very end so you can catch any regressions in your solution. Some test output might be wrong or conflict the Github Issue so carefully understand the test file and the outcome before commiting to making more changes based on the test output.
-10. All the XML sections for the tool use format should be in a new line, this is important because we parese the tool output line by line.
-11. NEVER forget to include the <thinking></thinking> section before using a tool. We will not be able to invoke the tool properly if you forget it.
-"#
+    fn user_message_for_context_crunching(
+        &self,
+        context: &ToolUseAgentContextCrunchingInput,
+    ) -> String {
+        let user_instruction = context.user_instruction.to_owned();
+        let steps = context
+            .action_nodes
+            .iter()
+            .filter_map(|action_node| {
+                let action_input = action_node.action();
+                let observation = action_node.observation();
+                match (action_input, observation) {
+                    (Some(input), Some(output)) => Some(format!(
+                        r#"<step>
+<tool_input>
+{}
+</tool_input>
+<tool_output>
+{}
+</tool_output>
+</step>"#,
+                        input.to_string(),
+                        output.message()
+                    )),
+                    _ => None,
+                }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+        format!(
+            "<user_instruction>
+{user_instruction}
+</user_instruction>
+<steps>
+{steps}
+</steps>"
         )
     }
 
@@ -1208,6 +1208,43 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         }
     }
 
+    pub async fn context_crunching(
+        &self,
+        input: ToolUseAgentContextCrunchingInput,
+    ) -> Result<ToolUseAgentOutput, SymbolError> {
+        let system_message =
+            LLMClientMessage::system(self.system_message_for_context_crunching()).cache_point();
+        let user_message = LLMClientMessage::user(self.user_message_for_context_crunching(&input));
+        let llm_properties = input
+            .symbol_event_message_properties
+            .llm_properties()
+            .clone();
+
+        let message_properties = input.symbol_event_message_properties.clone();
+        if let Some(result) = self
+            .try_with_llm(
+                llm_properties,
+                message_properties.cancellation_token().clone(),
+                message_properties.root_request_id().to_owned(),
+                message_properties.ui_sender().clone(),
+                message_properties.request_id_str(),
+                vec![system_message, user_message],
+            )
+            .await?
+        {
+            if matches!(
+                result,
+                ToolUseAgentOutput {
+                    r#type: ToolUseAgentOutputType::Success(_),
+                    usage_statistics: _,
+                }
+            ) {
+                return Ok(result);
+            }
+        }
+        Err(SymbolError::FailedToGetTool)
+    }
+
     pub async fn invoke(
         &self,
         input: ToolUseAgentInput,
@@ -1525,6 +1562,7 @@ enum ToolBlockStatus {
     // these are all the different attributes of the tool input
     FilePathFound,
     InstructionFound,
+    SummaryFound,
     DirectoryPathFound,
     RecursiveFound,
     RegexPatternFound,
@@ -1588,6 +1626,7 @@ struct ToolUseGenerator {
     question: Option<String>,
     result: Option<String>,
     wait_for_exit: Option<bool>,
+    summary: Option<String>,
     start_line: Option<usize>,
     end_line: Option<usize>,
     tool_input_partial: Option<ToolInputPartial>,
@@ -1611,6 +1650,7 @@ impl ToolUseGenerator {
             regex_pattern_found: None,
             file_pattern: None,
             command: None,
+            summary: None,
             question: None,
             result: None,
             wait_for_exit: None,
@@ -1681,7 +1721,13 @@ impl ToolUseGenerator {
                     }
                 }
                 ToolBlockStatus::ToolUseFind => {
-                    if answer_line_at_index == "<semantic_search>" {
+                    if answer_line_at_index == "<summarize>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                        self.tool_type_possible = Some(ToolType::ContextCrunching);
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::ContextCrunching));
+                    } else if answer_line_at_index == "<semantic_search>" {
                         self.tool_block_status = ToolBlockStatus::ToolFound;
                         self.tool_type_possible = Some(ToolType::SemanticSearch);
                         let _ = self
@@ -1975,6 +2021,41 @@ impl ToolUseGenerator {
                                 ));
                             }
                         }
+                    } else if answer_line_at_index.starts_with("<summary>")
+                        && answer_line_at_index.ends_with("</summary>")
+                    {
+                        if let Some(prefix_removed) = answer_line_at_index.strip_prefix("<summary>")
+                        {
+                            if let Some(suffix_removed) = prefix_removed.strip_suffix("</summary>")
+                            {
+                                match self.summary.clone() {
+                                    Some(summary) => {
+                                        let new_summary = summary.clone() + "\n" + suffix_removed;
+                                        let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                            ToolParameters {
+                                                field_name: "summary".to_owned(),
+                                                field_content_up_until_now: new_summary.clone(),
+                                                field_content_delta: suffix_removed.to_owned(),
+                                            },
+                                        ));
+                                        self.summary = Some(new_summary);
+                                    }
+                                    None => {
+                                        self.summary = Some(suffix_removed.to_owned());
+                                        let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                            ToolParameters {
+                                                field_name: "summary".to_owned(),
+                                                field_content_up_until_now: suffix_removed
+                                                    .to_owned(),
+                                                field_content_delta: suffix_removed.to_owned(),
+                                            },
+                                        ));
+                                    }
+                                }
+                            }
+                        }
+                    } else if answer_line_at_index == "<summary>" {
+                        self.tool_block_status = ToolBlockStatus::SummaryFound;
                     } else if answer_line_at_index == "<pattern>" {
                         self.tool_block_status = ToolBlockStatus::GlobPatternFound;
                     } else if answer_line_at_index == "<fs_file_path>" {
@@ -1997,6 +2078,21 @@ impl ToolUseGenerator {
                         self.tool_block_status = ToolBlockStatus::ResultFound;
                     } else if answer_line_at_index == "<fs_file_paths>" {
                         self.tool_block_status = ToolBlockStatus::FilePathsFound;
+                    } else if answer_line_at_index == "</summarize>" {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        match (self.instruction.clone(), self.summary.clone()) {
+                            (Some(instruction), Some(summary)) => {
+                                self.tool_input_partial = Some(ToolInputPartial::ContextCrunching(
+                                    ContextCrunchingInputPartial {
+                                        summary,
+                                        instruction,
+                                    },
+                                ));
+                                let _ = self.sender.send(ToolBlockEvent::ToolWithParametersFound);
+                            }
+                            _ => {}
+                        }
+                        self.tool_type_possible = None;
                     } else if answer_line_at_index == "</grep_string>" {
                         self.tool_block_status = ToolBlockStatus::NoBlock;
                         match (
@@ -2463,6 +2559,35 @@ impl ToolUseGenerator {
                                 field_content_up_until_now: answer_line_at_index.to_owned(),
                                 field_content_delta: answer_line_at_index.to_owned(),
                             }));
+                    }
+                }
+                ToolBlockStatus::SummaryFound => {
+                    if answer_line_at_index == "</summary>" {
+                        self.tool_block_status = ToolBlockStatus::ToolFound;
+                    } else {
+                        match self.summary.clone() {
+                            Some(summary) => {
+                                let new_summary = summary.clone() + "\n" + answer_line_at_index;
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters {
+                                        field_name: "summary".to_owned(),
+                                        field_content_up_until_now: new_summary.clone(),
+                                        field_content_delta: answer_line_at_index.to_owned(),
+                                    },
+                                ));
+                                self.summary = Some(new_summary);
+                            }
+                            None => {
+                                self.summary = Some(answer_line_at_index.to_owned());
+                                let _ = self.sender.send(ToolBlockEvent::ToolParameters(
+                                    ToolParameters {
+                                        field_name: "summary".to_owned(),
+                                        field_content_up_until_now: answer_line_at_index.to_owned(),
+                                        field_content_delta: answer_line_at_index.to_owned(),
+                                    },
+                                ));
+                            }
+                        }
                     }
                 }
             }

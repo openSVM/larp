@@ -168,6 +168,11 @@ impl ActionToolParameters {
     }
 }
 
+/// Defaults to true for the is_active_on_trajectory
+fn is_active_on_trajectory() -> bool {
+    true
+}
+
 /// how do we get the action nodes to be part of the llm inference where we can generate
 /// more steps if required etc, thats the important bit here
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -192,6 +197,9 @@ pub struct ActionNode {
     message: Option<String>,
     // the reward value for the node
     reward_value: f32,
+    // is still tracked on the active trajectory
+    #[serde(default = "is_active_on_trajectory")]
+    is_active_on_trajectory: bool,
 }
 
 impl ActionNode {
@@ -211,6 +219,7 @@ impl ActionNode {
             user_context: UserContext::default(),
             message: None,
             reward_value: 0.0,
+            is_active_on_trajectory: true,
         }
     }
 
@@ -1972,6 +1981,9 @@ impl SearchTree {
                         }
                         ToolInputPartial::TestRunner(_) => tool_type.to_string().red().to_string(),
                         ToolInputPartial::Reasoning(_) => {
+                            tool_type.to_string().bright_blue().to_string()
+                        }
+                        ToolInputPartial::ContextCrunching(_) => {
                             tool_type.to_string().bright_blue().to_string()
                         }
                         ToolInputPartial::RequestScreenshot(_) => {
