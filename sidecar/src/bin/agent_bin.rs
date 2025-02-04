@@ -94,6 +94,8 @@ struct CliArgs {
     model_name: Option<String>,
 }
 
+/// can you see me?
+
 /// Define the SWEbenchInstance struct for serialization
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct SWEbenchInstance {
