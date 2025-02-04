@@ -291,6 +291,12 @@ impl LLMClient for GeminiProClient {
             .send()
             .await?;
 
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Gemini Pro API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
         if !response.status().is_success() {
             error!(
                 "Failed to get successful response: {:?}",

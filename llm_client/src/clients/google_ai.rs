@@ -308,6 +308,13 @@ impl LLMClient for GoogleAIStdioClient {
             .json(&request)
             .send()
             .await?;
+
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Google AI API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
         if !response.status().is_success() {
             let status = response.status();
             let error_body = response.text().await?;

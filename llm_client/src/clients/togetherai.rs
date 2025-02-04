@@ -248,15 +248,21 @@ impl LLMClient for TogetherAIClient {
             return Err(LLMClientError::FailedToGetResponse);
         }
         let together_ai_request = TogetherAIRequestMessages::from_request(request);
-        let mut response_stream = self
+        let response = self
             .client
             .post(self.completion_endpoint())
             .bearer_auth(self.generate_together_ai_bearer_key(api_key)?.to_owned())
             .json(&together_ai_request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Together AI API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
 
         let mut buffered_string = "".to_owned();
         while let Some(event) = response_stream.next().await {

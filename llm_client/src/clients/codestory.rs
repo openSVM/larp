@@ -371,16 +371,22 @@ impl LLMClient for CodeStoryClient {
         // get access token from api_key
         let access_token = self.access_token(api_key)?;
         let request = OpenRouterRequest::from_chat_request(request, model.to_owned());
-        let mut response_stream = self
+        let response = self
             .client
             .post(endpoint)
             .header("X-Accel-Buffering", "no")
             .header("Authorization", format!("Bearer {}", access_token))
             .json(&request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for 401 Unauthorized status
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Codestory API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
 
         let mut buffered_stream = "".to_owned();
         while let Some(event) = response_stream.next().await {

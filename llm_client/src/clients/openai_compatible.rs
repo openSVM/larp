@@ -284,7 +284,7 @@ impl LLMClient for OpenAICompatibleClient {
         let request = request_builder.build()?;
         let mut buffer = String::new();
         let client = self.generate_completion_openai_client(api_key, llm_model)?;
-        let mut stream = client.completions().create_stream(request).await?;
+        let mut stream = client.completions().create_stream(request).await.map_err(Self::map_openai_error)?;
         while let Some(response) = stream.next().await {
             match response {
                 Ok(response) => {

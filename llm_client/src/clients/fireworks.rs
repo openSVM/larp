@@ -245,15 +245,21 @@ impl LLMClient for FireworksAIClient {
             .ok_or(LLMClientError::UnSupportedModel)?;
         let bearer_token = self.generate_fireworks_ai_bearer_token(api_key)?;
         let request = FireworksAIRequestChat::from_message(request);
-        let mut response_stream = self
+        let response = self
             .client
             .post(&self.chat_endpoint())
             .bearer_auth(bearer_token)
             .json(&request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Fireworks AI API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
 
         let mut buffered_string = "".to_owned();
         while let Some(event) = response_stream.next().await {
