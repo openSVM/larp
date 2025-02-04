@@ -105,7 +105,7 @@ use crate::agentic::tool::plan::add_steps::PlanAddRequest;
 use crate::agentic::tool::plan::generator::{StepGeneratorRequest, StepSenderEvent};
 use crate::agentic::tool::plan::plan_step::PlanStep;
 use crate::agentic::tool::plan::reasoning::ReasoningRequest;
-use crate::agentic::tool::r#type::Tool;
+use crate::agentic::tool::r#type::{Tool, ToolType};
 use crate::agentic::tool::ref_filter::ref_filter::ReferenceFilterRequest;
 use crate::agentic::tool::session::chat::SessionChatMessage;
 use crate::agentic::tool::session::exchange::SessionExchangeNewRequest;
@@ -159,6 +159,10 @@ impl ToolBox {
 
     pub fn tools(&self) -> Arc<ToolBroker> {
         self.tools.clone()
+    }
+
+    pub fn mcp_tools(&self) -> Box<[ToolType]> {
+        self.tools.mcp_tools.clone()
     }
 
     /// sends the user query to the scratch-pad agent
