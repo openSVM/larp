@@ -113,35 +113,11 @@ struct SWEbenchInstance {
     environment_setup_commit: String,
 }
 
-/// Groups the git directory name and benchmark instance together.
-/// Serves as the main input structure for the agent processing system.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct InputParts {
-    /// Directory name containing the git repository
     git_drname: String,
-    /// The benchmark instance to be processed
     instance: SWEbenchInstance,
 }
-
-/// Main entry point for the agent runner
-///
-/// Orchestrates the entire agent execution workflow:
-/// 1. Parses and validates command line arguments
-/// 2. Sets up application configuration and logging
-/// 3. Initializes the LLM provider and message handling system
-/// 4. Configures the session storage and services
-/// 5. Processes input data and problem statement
-/// 6. Executes the agent's tool use loop for problem solving
-///
-/// The function performs several key operations:
-/// - Configures direct application of edits
-/// - Sets up logging and scratch pad directories
-/// - Initializes the LLM model based on provided configuration
-/// - Creates necessary communication channels and tokens
-/// - Processes the input problem and executes the agent
-///
-/// # Returns
-/// Result indicating success or containing an error if the execution failed
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
