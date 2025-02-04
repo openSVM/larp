@@ -1,0 +1,28 @@
+Fixed token counting in Anthropic client by removing duplicate counting of cached input tokens. Previously, cache_read_input_tokens were being added to both input_tokens and input_cached_tokens counters. Now cache_read_input_tokens are only tracked in input_cached_tokens, while input_tokens only counts the actual input tokens.
+
+1. Core Token Structures (llm_client/src/clients/types.rs):
+- LLMClientUsageStatistics struct contains:
+  - input_tokens: Option<u32>
+  - output_tokens: Option<u32>
+  - cached_input_tokens: Option<u32>
+
+2. Token Computation Implementation (llm_client/src/clients/anthropic.rs):
+- Token counting is implemented in message processing:
+  - Tracks three main metrics:
+    * input_tokens (regular input tokens)
+    * output_tokens (response tokens)
+    * input_cached_tokens (cached token usage)
+  - Updates happen in two main events:
+    * AnthropicEvent::MessageStart
+    * AnthropicEvent::MessageDelta
+
+3. Token Usage in Service Layer (sidecar/src/agentic/tool/session/service.rs):
+- Combines input and cached tokens for reporting:
+  - Total input = input_tokens + cached_input_tokens
+  - Reports both input and output token counts in logs
+
+Key Computation Points:
+1. Regular input tokens are accumulated from message.usage.input_tokens
+2. Cached tokens are tracked via message.usage.cache_read_input_tokens
+3. Output tokens are counted from message.usage.output_tokens
+4. All token counts are wrapped in Option<u32> with unwrap_or_default() used for safe computation
