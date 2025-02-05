@@ -495,15 +495,13 @@ impl ToolBroker {
 
         let mut mcp_tools = Vec::new();
 
-        if !cfg!(test) {
-            for tool in discover_mcp_tools().await.unwrap_or_else(|e| {
-                error!("Failed to discover MCP tools: {}", e);
-                Vec::new()
-            }) {
-                let tool_type = ToolType::McpTool(tool.full_name.clone());
-                tools.insert(tool_type.clone(), Box::new(tool));
-                mcp_tools.push(tool_type);
-            }
+        for tool in discover_mcp_tools().await.unwrap_or_else(|e| {
+            error!("Failed to discover MCP tools: {}", e);
+            Vec::new()
+        }) {
+            let tool_type = ToolType::McpTool(tool.full_name.clone());
+            tools.insert(tool_type.clone(), Box::new(tool));
+            mcp_tools.push(tool_type);
         }
 
         // we also want to add the re-ranking tool here, so we invoke it freely
