@@ -1507,7 +1507,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 };
                 Ok(Some(ToolUseAgentOutput::new(final_output?, llm_statistics)))
             }
-            Ok(Err(_)) | Err(_) => Err(SymbolError::CancelledResponseStream),
+            Ok(Err(e)) => Err(e),
+            Err(_) => Err(SymbolError::CancelledResponseStream),
         }
     }
 }
