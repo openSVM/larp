@@ -75,6 +75,8 @@ pub enum LLMType {
     GeminiPro,
     /// Gemini Pro Flash model
     GeminiProFlash,
+    /// Gemini 2.0 Flash model
+    Gemini2_0Flash,
     /// Gemini 2.0 Flash experimental
     Gemini2_0FlashExperimental,
     /// Gemini 2.0 Flash thinking experimental
@@ -193,7 +195,10 @@ impl LLMType {
     }
 
     pub fn is_gemini_model(&self) -> bool {
-        self == &LLMType::GeminiPro || self == &LLMType::GeminiProFlash
+        matches!(
+            self,
+            LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash
+        )
     }
 
     pub fn is_gemini_pro(&self) -> bool {
@@ -233,13 +238,14 @@ impl fmt::Display for LLMType {
             LLMType::CohereRerankV3 => write!(f, "CohereRerankV3"),
             LLMType::Llama3_8bInstruct => write!(f, "Llama3_8bInstruct"),
             LLMType::GeminiPro => write!(f, "GeminiPro1.5"),
+            LLMType::GeminiProFlash => write!(f, "GeminiProFlash"),
+            LLMType::Gemini2_0Flash => write!(f, "gemini-2.0-flash"),
             LLMType::Gemini2_0FlashExperimental => write!(f, "gemini-2.0-flash-exp"),
             LLMType::Gemini2_0FlashThinkingExperimental => {
                 write!(f, "gemini-2.0-flash-thinking-exp-1219")
             }
             LLMType::DeepSeekR1 => write!(f, "deepseek/deepseek-r1"),
             LLMType::Gpt4O => write!(f, "Gpt4O"),
-            LLMType::GeminiProFlash => write!(f, "GeminiProFlash"),
             LLMType::DeepSeekCoderV2 => write!(f, "DeepSeekCoderV2"),
             LLMType::Llama3_1_8bInstruct => write!(f, "Llama3_1_8bInstruct"),
             LLMType::Llama3_1_70bInstruct => write!(f, "Llama3_1_70bInstruct"),
