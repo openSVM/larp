@@ -983,6 +983,9 @@ pub enum LLMClientError {
 
     #[error("Gemini pro does not support prompt completion")]
     GeminiProDoesNotSupportPromptCompletion,
+
+    #[error("Unauthorized access to API")]
+    UnauthorizedAccess,
 }
 
 #[async_trait]

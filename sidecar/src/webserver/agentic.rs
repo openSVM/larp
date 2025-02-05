@@ -1623,9 +1623,15 @@ pub async fn agent_tool_use(
                 Ok(Ok(_)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
+                    let error_msg = match e {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                            "Unauthorized access. Please check your API key and try again.".to_string()
+                        }
+                        _ => format!("Internal server error: {}", e),
+                    };
                     let _ = sender.send(UIEventWithID::error(
                         session_id.clone(),
-                        format!("Internal server error: {}", e),
+                        error_msg,
                     ));
                 }
                 Err(e) => {

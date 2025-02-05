@@ -143,14 +143,20 @@ impl LLMClient for LMStudioClient {
         let endpoint = self.chat_endpoint(&base_url);
 
         let request = LMStudioRequest::from_chat_request(request);
-        let mut response_stream = self
+        let response = self
             .client
             .post(endpoint)
             .json(&request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to LM Studio API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
 
         let mut buffered_stream = "".to_owned();
         while let Some(event) = response_stream.next().await {

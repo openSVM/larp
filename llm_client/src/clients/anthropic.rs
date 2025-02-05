@@ -448,6 +448,12 @@ impl AnthropicClient {
                 e
             })?;
 
+        // Check for 401 Unauthorized status
+        if response_stream.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Anthropic API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
         let mut event_source = response_stream.bytes_stream().eventsource();
 
         // let event_next = event_source.next().await;
@@ -715,6 +721,12 @@ impl LLMClient for AnthropicClient {
                 e
             })?;
 
+        // Check for 401 Unauthorized status
+        if response_stream.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Anthropic API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
         let mut event_source = response_stream.bytes_stream().eventsource();
 
         let mut input_tokens = 0;
@@ -831,7 +843,7 @@ impl LLMClient for AnthropicClient {
         let anthropic_request =
             AnthropicRequest::from_client_string_request(request, model_str.to_owned());
 
-        let mut response_stream = self
+        let response = self
             .client
             .post(endpoint)
             .header(
@@ -846,9 +858,15 @@ impl LLMClient for AnthropicClient {
             .header("content-type".to_owned(), "application/json".to_owned())
             .json(&anthropic_request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for 401 Unauthorized status
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Anthropic API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
 
         let mut buffered_string = "".to_owned();
         while let Some(Ok(event)) = response_stream.next().await {

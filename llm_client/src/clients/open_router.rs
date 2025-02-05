@@ -400,7 +400,7 @@ impl OpenRouterClient {
         let auth_key = self.generate_auth_key(api_key)?;
         let request = OpenRouterRequest::from_chat_request(request, model.to_owned());
         debug!("tool_use_request: {}", serde_json::to_string(&request)?);
-        let mut response_stream = self
+        let response = self
             .client
             .post(base_url)
             .bearer_auth(auth_key)
@@ -408,9 +408,15 @@ impl OpenRouterClient {
             .header("X-Title", "aide")
             .json(&request)
             .send()
-            .await?
-            .bytes_stream()
-            .eventsource();
+            .await?;
+
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Open Router API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
+        let mut response_stream = response.bytes_stream().eventsource();
         let mut buffered_stream = "".to_owned();
         // controls which tool we will be using if any
         let mut tool_use_indication: Vec<(String, (String, String))> = vec![];

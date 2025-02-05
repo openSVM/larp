@@ -189,6 +189,12 @@ impl LLMClient for OllamaClient {
             .send()
             .await?;
 
+        // Check for unauthorized access
+        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
+            error!("Unauthorized access to Ollama API");
+            return Err(LLMClientError::UnauthorizedAccess);
+        }
+
         let mut buffered_string = "".to_owned();
         while let Some(chunk) = response.chunk().await? {
             let value = match serde_json::from_slice::<OllamaResponse>(chunk.to_vec().as_slice()) {
