@@ -259,9 +259,9 @@ impl LLMClient for OpenAIClient {
         // just works and we need it right now
         match client {
             OpenAIClientType::AzureClient(client) => {
-                let stream_maybe = client.chat().create_stream(request).await.map_err(Self::map_openai_error);
+                let stream_maybe = client.chat().create_stream(request).await;
                 if stream_maybe.is_err() {
-                    return Err(stream_maybe.err().unwrap());
+                    return Err(LLMClientError::OpenAPIError(stream_maybe.err().unwrap()));
                 } else {
                     debug!("Stream created successfully");
                 }
@@ -322,7 +322,7 @@ impl LLMClient for OpenAIClient {
                     if llm_model == &LLMType::O3MiniHigh {
                         debug!("o3-mini-high");
                     }
-                    let mut stream = client.chat().create_stream(request).await.map_err(Self::map_openai_error)?;
+                    let mut stream = client.chat().create_stream(request).await?;
                     while let Some(response) = stream.next().await {
                         debug!("OpenAI stream response: {:?}", &response);
                         match response {
