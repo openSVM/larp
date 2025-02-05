@@ -80,9 +80,6 @@ pub enum SymbolError {
     #[error("User context error: {0}")]
     UserContextError(UserContextError),
 
-    #[error("Plan service error")]
-    PlanServiceError,
-
     #[error("LLM Client error: {0}")]
     LLMClientError(LLMClientError),
 

@@ -28,24 +28,14 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            devtools::screenshot::RequestScreenshotInput,
-            file::semantic_search::SemanticSearchRequest,
-            helpers::diff_recent_changes::DiffFileContent,
-            input::{ToolInput, ToolInputPartial},
-            lsp::{
+            devtools::screenshot::RequestScreenshotInput, errors::ToolError, file::semantic_search::SemanticSearchRequest, helpers::diff_recent_changes::DiffFileContent, input::{ToolInput, ToolInputPartial}, lsp::{
                 file_diagnostics::DiagnosticMap, find_files::FindFilesRequest,
                 list_files::ListFilesInput, open_file::OpenFileRequest,
                 search_file::SearchFileContentInput,
-            },
-            plan::{
+            }, plan::{
                 generator::{Step, StepSenderEvent},
-                service::PlanService,
-            },
-            r#type::{Tool, ToolType},
-            repo_map::generator::RepoMapGeneratorRequest,
-            session::tool_use_agent::ToolUseAgentContextCrunchingInput,
-            terminal::terminal::TerminalInput,
-            test_runner::runner::TestRunnerRequest,
+                service::{PlanService, PlanServiceError},
+            }, repo_map::generator::RepoMapGeneratorRequest, session::tool_use_agent::ToolUseAgentContextCrunchingInput, terminal::terminal::TerminalInput, test_runner::runner::TestRunnerRequest, r#type::{Tool, ToolType}
         },
     },
     chunking::text_document::{Position, Range},
@@ -1735,7 +1725,7 @@ impl Session {
         let cloned_plan_service = plan_service.clone();
         let global_running_context = self.global_running_user_context.clone();
         let cloned_aide_rules = aide_rules.clone();
-        let _plan = tokio::spawn(async move {
+        let plan = tokio::spawn(async move {
             cloned_plan_service
                 .create_plan(
                     plan_id,
@@ -1926,6 +1916,26 @@ impl Session {
                     message_properties.root_request_id().to_owned(),
                     message_properties.request_id_str().to_owned(),
                 ));
+        }
+
+        match plan.await {
+            // only return actively when we have an llm client error
+            // this is because we are throwing a 401 on the llm client when we have an unauthroized request
+            // which we should catch and bubble up
+            Ok(Err(e)) => {
+                match e {
+                    PlanServiceError::ToolError(tool_error) => {
+                        match tool_error {
+                            ToolError::LLMClientError(llm_client_error) => {
+                                return Err(SymbolError::LLMClientError(llm_client_error));
+                            }
+                            _ => {}
+                        }
+                    }
+                    _ => {}
+                }
+            }
+            _ => {}
         }
         Ok(self)
     }
