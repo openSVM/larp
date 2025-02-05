@@ -2791,11 +2791,17 @@ reason: {}"#,
                     .tools()
                     .invoke(input)
                     .await
-                    .map_err(|e| SymbolError::ToolError(e))?
-                    .get_search_file_content_with_regex()
-                    .ok_or(SymbolError::WrongToolOutput)?;
+                    .map_err(|e| SymbolError::ToolError(e))
+                    .map(|output| output.get_search_file_content_with_regex());
 
-                let response = response.response();
+                // do not early fail when search file content with regex fails
+                let response = match response {
+                    Ok(Some(search_result_output)) => search_result_output.response().to_owned(),
+                    Err(e) => e.to_string(),
+                    Ok(None) => {
+                        return Err(SymbolError::WrongToolOutput);
+                    }
+                };
 
                 // we have the tool output over here
                 if let Some(action_node) = self.action_nodes.last_mut() {
