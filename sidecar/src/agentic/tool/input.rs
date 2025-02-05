@@ -77,9 +77,11 @@ use super::{
     search::big_search::BigSearchRequest,
     session::{
         ask_followup_question::AskFollowupQuestionsRequest,
-        attempt_completion::AttemptCompletionClientRequest, chat::SessionChatClientRequest,
-        exchange::SessionExchangeNewRequest, hot_streak::SessionHotStreakRequest,
-        tool_use_agent::ToolUseAgentReasoningParamsPartial,
+        attempt_completion::AttemptCompletionClientRequest,
+        chat::SessionChatClientRequest,
+        exchange::SessionExchangeNewRequest,
+        hot_streak::SessionHotStreakRequest,
+        tool_use_agent::{ContextCrunchingInputPartial, ToolUseAgentReasoningParamsPartial},
     },
     swe_bench::test_tool::SWEBenchTestRequest,
     terminal::terminal::{TerminalInput, TerminalInputPartial},
@@ -103,6 +105,7 @@ pub enum ToolInputPartial {
     Reasoning(ToolUseAgentReasoningParamsPartial),
     FindFile(FindFileInputPartial),
     RequestScreenshot(RequestScreenshotInputPartial),
+    ContextCrunching(ContextCrunchingInputPartial),
     McpTool(McpToolPartial),
 }
 
@@ -124,6 +127,7 @@ impl ToolInputPartial {
             Self::Reasoning(_) => ToolType::Reasoning,
             Self::FindFile(_) => ToolType::FindFiles,
             Self::RequestScreenshot(_) => ToolType::RequestScreenshot,
+            Self::ContextCrunching(_) => ToolType::ContextCrunching,
             Self::McpTool(partial) => ToolType::McpTool(partial.full_name.clone()),
         }
     }
@@ -151,6 +155,7 @@ impl ToolInputPartial {
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
             Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(),
             Self::RequestScreenshot(request_screenshot) => request_screenshot.to_string(),
+            Self::ContextCrunching(context_crunching) => context_crunching.to_string(),
             Self::McpTool(mcp_partial) => mcp_partial.to_string(),
         }
     }
@@ -187,6 +192,9 @@ impl ToolInputPartial {
             Self::FindFile(find_file_parameters) => serde_json::to_value(find_file_parameters).ok(),
             Self::RequestScreenshot(request_screenshot) => {
                 serde_json::to_value(request_screenshot).ok()
+            }
+            Self::ContextCrunching(context_crunching) => {
+                serde_json::to_value(context_crunching).ok()
             }
             Self::McpTool(mcp_partial) => serde_json::to_value(mcp_partial).ok(),
         }

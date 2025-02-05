@@ -43,6 +43,7 @@ use crate::{
             },
             r#type::{Tool, ToolType},
             repo_map::generator::RepoMapGeneratorRequest,
+            session::tool_use_agent::ToolUseAgentContextCrunchingInput,
             terminal::terminal::TerminalInput,
             test_runner::runner::TestRunnerRequest,
         },
@@ -60,8 +61,8 @@ use super::{
     },
     hot_streak::SessionHotStreakRequest,
     tool_use_agent::{
-        ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutputType, ToolUseAgentReasoningInput,
-        ToolUseAgentReasoningParams,
+        ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutput, ToolUseAgentOutputType,
+        ToolUseAgentReasoningInput, ToolUseAgentReasoningParams,
     },
 };
 
@@ -783,6 +784,22 @@ impl Session {
         }
     }
 
+    pub fn last_reasoning_node_if_any(&self) -> Option<usize> {
+        self.action_nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| {
+                // finds the last node which was a reasoning node
+                node.action()
+                    .map(|action| action.to_tool_type())
+                    .flatten()
+                    .map(|tool_type| tool_type == ToolType::Reasoning)
+                    .unwrap_or_default()
+            })
+            .map(|(idx, _)| idx)
+            .last()
+    }
+
     pub fn repo_ref(&self) -> &RepoRef {
         &self.repo_ref
     }
@@ -1185,6 +1202,29 @@ impl Session {
         Ok(self)
     }
 
+    pub async fn context_crunching(
+        &self,
+        tool_use_agent: ToolUseAgent,
+        original_user_instruction: String,
+        action_nodes_from: usize,
+        message_properties: SymbolEventMessageProperties,
+    ) -> Result<ToolUseAgentOutput, SymbolError> {
+        let action_nodes = self.action_nodes[action_nodes_from..]
+            .into_iter()
+            .map(|action_node| action_node.clone())
+            .collect::<Vec<_>>();
+
+        let context_crunching_input = ToolUseAgentContextCrunchingInput::new(
+            original_user_instruction,
+            action_nodes,
+            message_properties,
+        );
+
+        tool_use_agent
+            .context_crunching(context_crunching_input)
+            .await
+    }
+
     /// We perform the reasoning here on the agent and grab the output and pass that
     /// as the new instruction for the agent
     pub async fn get_reasoning_instruction(
@@ -1229,10 +1269,6 @@ impl Session {
                 converted_messages.push(converted_message);
             }
         }
-
-        // decay the content of the messages depending on the decay condition
-        // so we can keep the context smaller and more relevant
-        // converted_messages = self.decay_messages(self.exchanges.as_slice(), converted_messages);
 
         // grab the terminal output if anything is present and pass it as part of the
         // agent input
@@ -2906,6 +2942,9 @@ reason: {}"#,
                     UserContext::default(),
                     exchange_id.to_owned(),
                 );
+            }
+            ToolInputPartial::ContextCrunching(_context_crunching) => {
+                // we do not call this as a tool explicitly
             }
             ToolInputPartial::CodeEditorParameters(_code_editor_parameters) => {
                 // we do not use this tool via the session.invoke_tool flow at all

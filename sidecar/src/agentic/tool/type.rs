@@ -156,6 +156,8 @@ pub enum ToolType {
     FindFiles,
     // Request browser screenshot for web applications
     RequestScreenshot,
+    // Context crunching
+    ContextCrunching,
     // dynamically configured MCP servers
     McpTool(String),
 }
@@ -261,6 +263,7 @@ impl std::fmt::Display for ToolType {
             ToolType::SemanticSearch => write!(f, "semantic_search"),
             ToolType::FindFiles => write!(f, "find_file"),
             ToolType::RequestScreenshot => write!(f, "request_screenshot"),
+            ToolType::ContextCrunching => write!(f, "context_crunching"),
             ToolType::McpTool(name) => write!(f, "{}", name),
         }
     }
