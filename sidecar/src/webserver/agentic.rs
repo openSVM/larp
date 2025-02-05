@@ -31,6 +31,7 @@ use crate::agentic::symbol::scratch_pad::ScratchPadAgent;
 use crate::agentic::symbol::tool_properties::ToolProperties;
 use crate::agentic::symbol::toolbox::helpers::SymbolChangeSet;
 use crate::agentic::symbol::ui_event::{RelevantReference, UIEventWithID};
+use crate::agentic::tool::errors::ToolError;
 use crate::agentic::tool::lsp::open_file::OpenFileResponse;
 use crate::agentic::tool::plan::service::PlanService;
 use crate::agentic::tool::session::session::AideAgentMode;
@@ -1782,7 +1783,7 @@ pub async fn agent_session_plan_iterate(
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
                     let error_msg = match e {
-                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) | SymbolError::ToolError(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess)) => {
                             "Unauthorized access. Please check your API key and try again."
                                 .to_string()
                         }
