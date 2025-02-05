@@ -1900,24 +1900,6 @@ impl Session {
         // set_exchange_as_cancelled, which also saves to storage.
         self.save_to_storage().await?;
 
-        // send a message over here that the request is in review now
-        // since we generated something for the plan
-        if !message_properties.cancellation_token().is_cancelled() {
-            println!("session::perform_plan_generation::cancellation_token::not_cancelled");
-            let _ = message_properties
-                .ui_sender()
-                .send(UIEventWithID::request_review(
-                    message_properties.root_request_id().to_owned(),
-                    message_properties.request_id_str().to_owned(),
-                ));
-            let _ = message_properties
-                .ui_sender()
-                .send(UIEventWithID::plan_as_finished(
-                    message_properties.root_request_id().to_owned(),
-                    message_properties.request_id_str().to_owned(),
-                ));
-        }
-
         match plan.await {
             // only return actively when we have an llm client error
             // this is because we are throwing a 401 on the llm client when we have an unauthroized request
@@ -1936,6 +1918,24 @@ impl Session {
                 }
             }
             _ => {}
+        }
+
+        // send a message over here that the request is in review now
+        // since we generated something for the plan
+        if !message_properties.cancellation_token().is_cancelled() {
+            println!("session::perform_plan_generation::cancellation_token::not_cancelled");
+            let _ = message_properties
+                .ui_sender()
+                .send(UIEventWithID::request_review(
+                    message_properties.root_request_id().to_owned(),
+                    message_properties.request_id_str().to_owned(),
+                ));
+            let _ = message_properties
+                .ui_sender()
+                .send(UIEventWithID::plan_as_finished(
+                    message_properties.root_request_id().to_owned(),
+                    message_properties.request_id_str().to_owned(),
+                ));
         }
         Ok(self)
     }
