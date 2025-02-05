@@ -727,38 +727,46 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
             .clone()
             .unwrap_or("not provided".to_owned());
         format!(
-            r#"You are a senior engineer who is going to summarise what an AI agent has done up until now, this is done to make sure that the engineer does not go off the rails when working on the task.
-- You will be provided with each step the agent has taken up until now
-- You will be provided with the output of each step the agent has taken in <step></step> section.
+            r#"**Role:**
+You are a senior engineer tasked with reviewing and summarizing the work an AI agent has completed so far. Your summary ensures that you remain on track with the task.
 
-=== SYSTEM INFORMATION for the AI agent ===
+**Task Objectives:**
+- **Summarize the Work:** Combine your understanding of the task with insights and steps the AI agent has taken. Ensure the summary is detailed and accurate.
+- **Provide Feedback:** Offer strategic guidance to help the agent move forward effectively.
+- **Avoid Duplicates:** Strongly discourage repeating any work that might be considered a duplicate and help the agent avoid getting stuck in repetitive loops.
 
-REPO NAME: {repo_name}
-OPERATING SYSTEM: {operating_system}
-WORKING DIRECTORY: {working_directory}
-SHELL: {default_shell}
+**Context Information:**
+- The AI agent’s progress is provided in individual steps.
+- Each step’s output is enclosed in `<step></step>` tags.
+- The repository name is {repo_name}.
+- The operating system is {operating_system}.
+- The working directory is {working_directory}.
+- The shell used is {default_shell}.
 
-**Your role is to:**
-    * Summarise the work: Combine your understanding of the task with insights and steps the AI agent has taken along the way.
-    * Provide Feedback: Offer strategic guidance that help the agent move forward with the task.
-    * Avoid Duplicates: Strongly discourage repeating any work which would be considered as duplicate and help kick the agent out of doom looping if the agent is stuck in that.
+**Instructions:**
+1. **Think First:** Take a moment to reflect on all the provided details regarding the agent’s progress.
+2. **Generate a Detailed Summary:** Create a comprehensive summary that captures:
+    - The work the agent has completed so far.
+    - Key steps and insights from the agent’s outputs.
+    - Any potential areas where the agent might be duplicating work or getting stuck in loops.
+    - The current state of the task.
+3. **Enrich the Instructions:** Based on your summary, modify or enrich the original user instruction if necessary. The revised instructions must:
+    - Provide clear guidance for the agent to continue effectively.
+    - Avoid any duplication or repetitive cycles.
+    - Remain faithful to the original task's essence.
 
-**Your output:**
-    * Think for a bit: First think for a bit before generating the summary, analysing everything the agent has done up until now.
-    * Generate a summary: Generate a summary for the AI agent so it does not forget the work it was doing or was in the middle of.
-    * Enrich the new instruction for the AI agent: After you have summarized, modify and enrich the original user instruction (ONLY IF NECESSARY).
+**Output Format:**
+Your final output must strictly adhere to the following format:
 
-**Your output format:**
-The output format is strictly in the following format:
 <thinking>
-{{Your thoughts over here of what the agent has been upto}}
+{{Your thoughts on the agent’s progress}}
 </thinking>
 <summarize>
 <summary>
-{{The summary of the steps the agent has already taken and worked on}}
+{{A comprehensive summary of the steps taken by the agent}}
 </summary>
 <instruction>
-{{The original or the modified instruction for the AI agent}}
+{{Revised or enriched instructions for the AI agent, ensuring the task’s original intent remains unchanged}}
 </instruction>
 </summarize>"#
         )
@@ -1215,10 +1223,14 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let system_message =
             LLMClientMessage::system(self.system_message_for_context_crunching()).cache_point();
         let user_message = LLMClientMessage::user(self.user_message_for_context_crunching(&input));
-        let llm_properties = input
-            .symbol_event_message_properties
-            .llm_properties()
-            .clone();
+
+        let llm_properties = LLMProperties::new(
+            LLMType::O3MiniHigh,
+            llm_client::provider::LLMProvider::OpenAI,
+            llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
+                std::env::var("OPENAI_API_KEY").expect("env var to be present"),
+            ))
+        );
 
         let message_properties = input.symbol_event_message_properties.clone();
         if let Some(result) = self

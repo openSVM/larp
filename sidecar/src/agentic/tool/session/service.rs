@@ -656,12 +656,11 @@ impl SessionService {
                 .last()
                 .map(|action_node| action_node.get_llm_usage_statistics())
                 .flatten()
-                .map(|llm_stats| llm_stats.input_tokens())
-                .flatten()
+                .map(|llm_stats| llm_stats.input_tokens().unwrap_or_default() + llm_stats.cached_input_tokens().unwrap_or_default())
             {
                 // if the input tokens are greater than 150k then do context crunching
                 // over here and lighten the context for the agent
-                if input_tokens >= 150_000 {
+                if input_tokens >= 60_000 {
                     println!("context_crunching");
                     // the right way to do this would be since the last reasoning node which was present here
                     let last_reasoning_node_index =

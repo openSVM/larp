@@ -739,11 +739,11 @@ impl LLMClient for AnthropicClient {
                                     Some(text),
                                     model_str.to_owned(),
                                 )
-                                .set_usage_statistics(dbg!(
+                                .set_usage_statistics(
                                     LLMClientUsageStatistics::new()
                                         .set_input_tokens(input_tokens)
                                         .set_output_tokens(output_tokens)
-                                )),
+                                ),
                             ) {
                                 error!("Failed to send completion response: {}", e);
                                 return Err(LLMClientError::SendError(e));
