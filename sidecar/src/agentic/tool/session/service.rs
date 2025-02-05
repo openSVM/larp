@@ -651,76 +651,84 @@ impl SessionService {
             )
             .await;
 
-            if let Some(input_tokens) = session
-                .action_nodes()
-                .last()
-                .map(|action_node| action_node.get_llm_usage_statistics())
-                .flatten()
-                .map(|llm_stats| llm_stats.input_tokens().unwrap_or_default() + llm_stats.cached_input_tokens().unwrap_or_default())
-            {
-                // if the input tokens are greater than 150k then do context crunching
-                // over here and lighten the context for the agent
-                if input_tokens >= 60_000 {
-                    println!("context_crunching");
-                    // the right way to do this would be since the last reasoning node which was present here
-                    let last_reasoning_node_index =
-                        session.last_reasoning_node_if_any().unwrap_or_default();
-                    // we also need the original human message over here, but what if there are multiple human messages??
-                    // no we can just assume that the context crunching will keep the essence of the original human message for now
-                    // TODO(skcd): Pick up from here
-                    let context_crunching_output = session
-                        .context_crunching(
-                            tool_agent.clone(),
-                            original_user_message.to_owned(),
-                            last_reasoning_node_index,
-                            message_properties.clone(),
-                        )
-                        .await?;
+            // this enables context crunching selectively
+            let context_crunching = whoami::username() == "skcd".to_owned()
+                || whoami::username() == "root".to_owned()
+                || std::env::var("SIDECAR_ENABLE_REASONING").map_or(false, |v| !v.is_empty());
 
-                    let output = context_crunching_output.output_type();
-                    match output {
-                        ToolUseAgentOutputType::Success((tool_input_partial, _thinking)) => {
-                            match tool_input_partial {
-                                ToolInputPartial::ContextCrunching(context_crunching) => {
-                                    // add the context crunching to our action nodes
-                                    session.add_action_node(
-                                        ActionNode::default_with_index(
-                                            session.action_nodes().len(),
-                                        )
-                                        .set_action_tools(
-                                            ToolInputPartial::ContextCrunching(
+            if context_crunching {
+                if let Some(input_tokens) = session
+                    .action_nodes()
+                    .last()
+                    .map(|action_node| action_node.get_llm_usage_statistics())
+                    .flatten()
+                    .map(|llm_stats| {
+                        llm_stats.input_tokens().unwrap_or_default()
+                            + llm_stats.cached_input_tokens().unwrap_or_default()
+                    })
+                {
+                    // if the input tokens are greater than 150k then do context crunching
+                    // over here and lighten the context for the agent
+                    if input_tokens >= 60_000 {
+                        println!("context_crunching");
+                        // the right way to do this would be since the last reasoning node which was present here
+                        let last_reasoning_node_index =
+                            session.last_reasoning_node_if_any().unwrap_or_default();
+                        // we also need the original human message over here, but what if there are multiple human messages??
+                        // no we can just assume that the context crunching will keep the essence of the original human message for now
+                        // TODO(skcd): Pick up from here
+                        let context_crunching_output = session
+                            .context_crunching(
+                                tool_agent.clone(),
+                                original_user_message.to_owned(),
+                                last_reasoning_node_index,
+                                message_properties.clone(),
+                            )
+                            .await?;
+
+                        let output = context_crunching_output.output_type();
+                        match output {
+                            ToolUseAgentOutputType::Success((tool_input_partial, _thinking)) => {
+                                match tool_input_partial {
+                                    ToolInputPartial::ContextCrunching(context_crunching) => {
+                                        // add the context crunching to our action nodes
+                                        session.add_action_node(
+                                            ActionNode::default_with_index(
+                                                session.action_nodes().len(),
+                                            )
+                                            .set_action_tools(ToolInputPartial::ContextCrunching(
                                                 context_crunching.clone(),
-                                            ),
-                                        ),
-                                    );
+                                            )),
+                                        );
 
-                                    // reset all the exchanges from before, this is the new starting point
-                                    session.reset_exchanges();
+                                        // reset all the exchanges from before, this is the new starting point
+                                        session.reset_exchanges();
 
-                                    // now add a new human message for the context compression
-                                    session = session
-                                        .human_message_tool_use(
-                                            tool_exchange_id.to_owned(),
-                                            context_crunching.instruction().to_owned(),
-                                            vec![],
-                                            vec![],
-                                            shell.to_owned(),
-                                            user_context.clone(),
-                                        )
-                                        .await;
+                                        // now add a new human message for the context compression
+                                        session = session
+                                            .human_message_tool_use(
+                                                tool_exchange_id.to_owned(),
+                                                context_crunching.instruction().to_owned(),
+                                                vec![],
+                                                vec![],
+                                                shell.to_owned(),
+                                                user_context.clone(),
+                                            )
+                                            .await;
 
-                                    let _ = self
-                                        .save_to_storage(&session, mcts_log_directory.clone())
-                                        .await;
+                                        let _ = self
+                                            .save_to_storage(&session, mcts_log_directory.clone())
+                                            .await;
 
-                                    // now we try to start the loop again, with the assumption
-                                    // that we won't be exceeding the context window anymore
-                                    continue;
+                                        // now we try to start the loop again, with the assumption
+                                        // that we won't be exceeding the context window anymore
+                                        continue;
+                                    }
+                                    _ => {}
                                 }
-                                _ => {}
                             }
+                            _ => {}
                         }
-                        _ => {}
                     }
                 }
             }
