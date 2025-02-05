@@ -1431,7 +1431,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cloned_root_request_id = root_request_id.clone();
         let cloned_cancellation_token = cancellation_token.clone();
 
-        let _ = run_with_cancellation(
+        let llm_stream_handle = run_with_cancellation(
             cancellation_token.clone(),
             tokio::spawn(async move {
                 cloned_llm_client
@@ -1545,7 +1545,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             return Err(SymbolError::CancelledResponseStream);
         }
 
-        match delta_updater_task.await {
+        let result = match delta_updater_task.await {
             Ok(Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response))) => {
                 let final_output = match tool_input_partial {
                     Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
@@ -1558,6 +1558,14 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
             Ok(Err(e)) => Err(e),
             Err(_) => Err(SymbolError::CancelledResponseStream),
+        };
+
+        match llm_stream_handle.await {
+            // The task completed successfully.
+            Some(Ok(Err(e))) => {
+                Err(SymbolError::LLMClientError(e))
+            }
+            _ => result
         }
     }
 }
