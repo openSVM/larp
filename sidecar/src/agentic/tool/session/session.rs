@@ -1906,7 +1906,8 @@ impl Session {
             // which we should catch and bubble up
             Ok(Err(e)) => {
                 match e {
-                    PlanServiceError::ToolError(tool_error) => {
+                    PlanServiceError::SymbolError(SymbolError::ToolError(tool_error))
+                    | PlanServiceError::ToolError(tool_error) => {
                         match tool_error {
                             ToolError::LLMClientError(llm_client_error) => {
                                 return Err(SymbolError::LLMClientError(llm_client_error));

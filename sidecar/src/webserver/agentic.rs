@@ -1937,7 +1937,7 @@ pub async fn agent_session_plan(
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
                     let error_msg = match e {
-                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) | SymbolError::ToolError(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess)) => {
                             "Unauthorized access. Please check your API key and try again."
                                 .to_string()
                         }
@@ -1977,7 +1977,7 @@ pub async fn agent_session_plan(
     // We know the stream is unwind safe as it doesn't use synchronization primitives like locks.
     let answer_stream = ui_event_stream.map(|ui_event: UIEventWithID| {
         sse::Event::default()
-            .json_data(ui_event)
+            .json_data(dbg!(ui_event))
             .map_err(anyhow::Error::new)
     });
 
