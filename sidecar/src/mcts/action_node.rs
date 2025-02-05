@@ -145,6 +145,17 @@ impl ActionToolParameters {
         Self::Errored(error_str)
     }
 
+    /// Returns the context crunching summary if the action node carries that value
+    pub fn context_crunching_summary(&self) -> Option<String> {
+        match self {
+            Self::Tool(ActionToolInputPartial {
+                tool_use_id: _,
+                tool_input_partial: ToolInputPartial::ContextCrunching(context_crunching),
+            }) => Some(context_crunching.summary().to_owned()),
+            _ => None,
+        }
+    }
+
     pub fn tool(tool_use_id: String, tool_input: ToolInputPartial) -> Self {
         Self::Tool(ActionToolInputPartial::new(tool_use_id, tool_input))
     }
@@ -293,6 +304,10 @@ impl ActionNode {
             false,
         ));
         self
+    }
+
+    pub fn tool_type(&self) -> Option<ToolType> {
+        self.action().map(|action| action.to_tool_type()).flatten()
     }
 
     pub fn index(&self) -> usize {

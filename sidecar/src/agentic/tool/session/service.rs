@@ -667,13 +667,15 @@ impl SessionService {
                             + llm_stats.cached_input_tokens().unwrap_or_default()
                     })
                 {
-                    // if the input tokens are greater than 150k then do context crunching
+                    // if the input tokens are greater than 60k then do context crunching
                     // over here and lighten the context for the agent
                     if input_tokens >= 60_000 {
                         println!("context_crunching");
                         // the right way to do this would be since the last reasoning node which was present here
                         let last_reasoning_node_index =
                             session.last_reasoning_node_if_any().unwrap_or_default();
+
+                        let last_reasoning_list_list = session.last_reasoning_node_list();
                         // we also need the original human message over here, but what if there are multiple human messages??
                         // no we can just assume that the context crunching will keep the essence of the original human message for now
                         // TODO(skcd): Pick up from here
@@ -682,6 +684,7 @@ impl SessionService {
                                 tool_agent.clone(),
                                 original_user_message.to_owned(),
                                 last_reasoning_node_index,
+                                last_reasoning_list_list,
                                 message_properties.clone(),
                             )
                             .await?;

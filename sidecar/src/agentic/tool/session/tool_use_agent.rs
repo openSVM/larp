@@ -217,6 +217,7 @@ impl ToolUseAgentReasoningParamsPartial {
 pub struct ToolUseAgentContextCrunchingInput {
     user_instruction: String,
     action_nodes: Vec<ActionNode>,
+    reasoning_action_nodes: Vec<ActionNode>,
     symbol_event_message_properties: SymbolEventMessageProperties,
 }
 
@@ -224,11 +225,13 @@ impl ToolUseAgentContextCrunchingInput {
     pub fn new(
         user_instruction: String,
         action_nodes: Vec<ActionNode>,
+        reasoning_action_nodes: Vec<ActionNode>,
         symbol_event_message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
             user_instruction,
             action_nodes,
+            reasoning_action_nodes,
             symbol_event_message_properties,
         }
     }
@@ -738,6 +741,9 @@ You are a senior engineer tasked with reviewing and summarizing the work an AI a
 **Context Information:**
 - The AI agent’s progress is provided in individual steps.
 - Each step’s output is enclosed in `<step></step>` tags.
+= You write summary everytime the AI agent shows you their work, the history of the summary is present in <previous_summary></previous_summary>
+- Each item inside <previous_summary> is indexed by the order in which you wrote them.
+- The current AI agent's steps are based on your LAST summary.
 - The repository name is {repo_name}.
 - The operating system is {operating_system}.
 - The working directory is {working_directory}.
@@ -753,7 +759,8 @@ You are a senior engineer tasked with reviewing and summarizing the work an AI a
 3. **Enrich the Instructions:** Based on your summary, modify or enrich the original user instruction if necessary. The revised instructions must:
     - Provide clear guidance for the agent to continue effectively.
     - Avoid any duplication or repetitive cycles.
-    - Remain faithful to the original task's essence.
+    - Remain faithful to the original user task.
+    - If the original user task asks to iterate against a `test`, `linter error` or a `binary` make sure that the binary exits with the right condition when the agent works on your instructions
 
 **Output Format:**
 Your final output must strictly adhere to the following format:
@@ -777,6 +784,36 @@ Your final output must strictly adhere to the following format:
         context: &ToolUseAgentContextCrunchingInput,
     ) -> String {
         let user_instruction = context.user_instruction.to_owned();
+        let running_summary = context
+            .reasoning_action_nodes
+            .iter()
+            // make everything type safe over here
+            .filter_map(|action_node| {
+                if action_node
+                    .action()
+                    .map(|action| action.to_tool_type())
+                    .flatten()
+                    == Some(ToolType::ContextCrunching)
+                {
+                    action_node
+                        .action()
+                        .map(|action| action.context_crunching_summary())
+                        .flatten()
+                } else {
+                    None
+                }
+            })
+            .enumerate()
+            .map(|(idx, action_node)| {
+                format!(
+                    r#"<summary idx={}>
+{}
+</summary>"#,
+                    idx, action_node
+                )
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
         let steps = context
             .action_nodes
             .iter()
@@ -805,6 +842,11 @@ Your final output must strictly adhere to the following format:
             "<user_instruction>
 {user_instruction}
 </user_instruction>
+
+<previous_summary>
+{running_summary}
+</previous_summary>
+
 <steps>
 {steps}
 </steps>"
@@ -1229,7 +1271,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             llm_client::provider::LLMProvider::OpenAI,
             llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
                 std::env::var("OPENAI_API_KEY").expect("env var to be present"),
-            ))
+            )),
         );
 
         let message_properties = input.symbol_event_message_properties.clone();
@@ -1562,10 +1604,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         match llm_stream_handle.await {
             // The task completed successfully.
-            Some(Ok(Err(e))) => {
-                Err(SymbolError::LLMClientError(e))
-            }
-            _ => result
+            Some(Ok(Err(e))) => Err(SymbolError::LLMClientError(e)),
+            _ => result,
         }
     }
 }

@@ -28,14 +28,25 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            devtools::screenshot::RequestScreenshotInput, errors::ToolError, file::semantic_search::SemanticSearchRequest, helpers::diff_recent_changes::DiffFileContent, input::{ToolInput, ToolInputPartial}, lsp::{
+            devtools::screenshot::RequestScreenshotInput,
+            errors::ToolError,
+            file::semantic_search::SemanticSearchRequest,
+            helpers::diff_recent_changes::DiffFileContent,
+            input::{ToolInput, ToolInputPartial},
+            lsp::{
                 file_diagnostics::DiagnosticMap, find_files::FindFilesRequest,
                 list_files::ListFilesInput, open_file::OpenFileRequest,
                 search_file::SearchFileContentInput,
-            }, plan::{
+            },
+            plan::{
                 generator::{Step, StepSenderEvent},
                 service::{PlanService, PlanServiceError},
-            }, repo_map::generator::RepoMapGeneratorRequest, session::tool_use_agent::ToolUseAgentContextCrunchingInput, terminal::terminal::TerminalInput, test_runner::runner::TestRunnerRequest, r#type::{Tool, ToolType}
+            },
+            r#type::{Tool, ToolType},
+            repo_map::generator::RepoMapGeneratorRequest,
+            session::tool_use_agent::ToolUseAgentContextCrunchingInput,
+            terminal::terminal::TerminalInput,
+            test_runner::runner::TestRunnerRequest,
         },
     },
     chunking::text_document::{Position, Range},
@@ -774,6 +785,22 @@ impl Session {
         }
     }
 
+    pub fn last_reasoning_node_list(&self) -> Vec<&ActionNode> {
+        self.action_nodes
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| {
+                // finds the last node which was a reasoning node
+                node.action()
+                    .map(|action| action.to_tool_type())
+                    .flatten()
+                    .map(|tool_type| tool_type == ToolType::Reasoning)
+                    .unwrap_or_default()
+            })
+            .map(|(_idx, action_node)| action_node)
+            .collect()
+    }
+
     pub fn last_reasoning_node_if_any(&self) -> Option<usize> {
         self.action_nodes
             .iter()
@@ -1196,17 +1223,37 @@ impl Session {
         &self,
         tool_use_agent: ToolUseAgent,
         original_user_instruction: String,
-        action_nodes_from: usize,
+        // where is the current agent iteration starting from
+        last_reasoning_action_node_from: usize,
+        // reasoning action nodes
+        reasoning_action_nodes: Vec<&ActionNode>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<ToolUseAgentOutput, SymbolError> {
-        let action_nodes = self.action_nodes[action_nodes_from..]
+        let mut agent_action_nodes = self.action_nodes[last_reasoning_action_node_from..]
             .into_iter()
             .map(|action_node| action_node.clone())
             .collect::<Vec<_>>();
 
+        // remove the first node from agent_action_nodes if it is a reasoning node
+        // since we are starting from the last_reasoning_action_node_from
+        if agent_action_nodes
+            .first()
+            .map(|action_node| action_node.tool_type() == Some(ToolType::ContextCrunching))
+            .unwrap_or_default()
+        {
+            if !agent_action_nodes.is_empty() {
+                // this removes the first element if it is present
+                agent_action_nodes.remove(0);
+            }
+        }
+
         let context_crunching_input = ToolUseAgentContextCrunchingInput::new(
             original_user_instruction,
-            action_nodes,
+            agent_action_nodes,
+            reasoning_action_nodes
+                .into_iter()
+                .map(|action_node| action_node.clone())
+                .collect(),
             message_properties,
         );
 
@@ -1904,20 +1951,16 @@ impl Session {
             // only return actively when we have an llm client error
             // this is because we are throwing a 401 on the llm client when we have an unauthroized request
             // which we should catch and bubble up
-            Ok(Err(e)) => {
-                match e {
-                    PlanServiceError::SymbolError(SymbolError::ToolError(tool_error))
-                    | PlanServiceError::ToolError(tool_error) => {
-                        match tool_error {
-                            ToolError::LLMClientError(llm_client_error) => {
-                                return Err(SymbolError::LLMClientError(llm_client_error));
-                            }
-                            _ => {}
-                        }
+            Ok(Err(e)) => match e {
+                PlanServiceError::SymbolError(SymbolError::ToolError(tool_error))
+                | PlanServiceError::ToolError(tool_error) => match tool_error {
+                    ToolError::LLMClientError(llm_client_error) => {
+                        return Err(SymbolError::LLMClientError(llm_client_error));
                     }
                     _ => {}
-                }
-            }
+                },
+                _ => {}
+            },
             _ => {}
         }
 
