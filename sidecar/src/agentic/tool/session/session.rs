@@ -2988,6 +2988,9 @@ reason: {}"#,
                     exchange_id.to_owned(),
                 );
             }
+            ToolInputPartial::McpTool(_) => {
+                todo!("MCP tool implementation is not yet complete");
+            }
         }
         Ok(self)
     }

@@ -1,6 +1,7 @@
 //! Contains the output of a tool which can be used by any of the callers
 
 use crate::agentic::symbol::ui_event::RelevantReference;
+use crate::agentic::tool::mcp::integration_tool::McpToolResponse;
 
 use super::{
     code_edit::{
@@ -234,6 +235,19 @@ pub enum ToolOutput {
     FindFiles(FindFilesResponse),
     // Request screenshot output
     RequestScreenshot(RequestScreenshotOutput),
+    // dynamically configured MCP servers
+    McpTool(McpToolResponse),
+}
+
+macro_rules! impl_output {
+    ($name:ident, $variant:ident, $type:ty) => {
+        pub fn $name(self) -> Option<$type> {
+            match self {
+                ToolOutput::$variant(response) => Some(response),
+                _ => None,
+            }
+        }
+    };
 }
 
 impl ToolOutput {
@@ -916,4 +930,6 @@ impl ToolOutput {
             _ => None,
         }
     }
+
+    impl_output!(get_mcp_response, McpTool, McpToolResponse);
 }

@@ -114,18 +114,21 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
     let llm_broker = Arc::new(LLMBroker::new().await.expect("to initialize properly"));
-    let tool_broker = Arc::new(ToolBroker::new(
-        llm_broker.clone(),
-        Arc::new(CodeEditBroker::new()),
-        symbol_broker.clone(),
-        Arc::new(TSLanguageParsing::init()),
-        ToolBrokerConfiguration::new(None, true),
-        LLMProperties::new(
-            LLMType::GeminiPro,
-            LLMProvider::GoogleAIStudio,
-            LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new("".to_owned())),
-        ),
-    ));
+    let tool_broker = Arc::new(
+        ToolBroker::new(
+            llm_broker.clone(),
+            Arc::new(CodeEditBroker::new()),
+            symbol_broker.clone(),
+            Arc::new(TSLanguageParsing::init()),
+            ToolBrokerConfiguration::new(None, true),
+            LLMProperties::new(
+                LLMType::GeminiPro,
+                LLMProvider::GoogleAIStudio,
+                LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new("".to_owned())),
+            ),
+        )
+        .await,
+    );
 
     let tool_box = Arc::new(ToolBox::new(tool_broker, symbol_broker, editor_parsing));
 

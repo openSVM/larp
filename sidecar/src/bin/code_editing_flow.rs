@@ -54,25 +54,28 @@ async fn main() {
         LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new("".to_owned()));
     let editor_parsing = Arc::new(EditorParsing::default());
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
-    let tool_broker = Arc::new(ToolBroker::new(
-        Arc::new(LLMBroker::new().await.expect("to initialize properly")),
-        Arc::new(CodeEditBroker::new()),
-        symbol_broker.clone(),
-        Arc::new(TSLanguageParsing::init()),
-        // for our testing workflow we want to apply the edits directly
-        ToolBrokerConfiguration::new(None, true),
-        LLMProperties::new(
-            LLMType::Gpt4O,
-            LLMProvider::OpenAI,
-            LLMProviderAPIKeys::OpenAI(OpenAIProvider::new("".to_owned())),
-        ), // LLMProperties::new(
-           //     LLMType::GeminiPro,
-           //     LLMProvider::GoogleAIStudio,
-           //     LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new(
-           //         "".to_owned(),
-           //     )),
-           // ),
-    ));
+    let tool_broker = Arc::new(
+        ToolBroker::new(
+            Arc::new(LLMBroker::new().await.expect("to initialize properly")),
+            Arc::new(CodeEditBroker::new()),
+            symbol_broker.clone(),
+            Arc::new(TSLanguageParsing::init()),
+            // for our testing workflow we want to apply the edits directly
+            ToolBrokerConfiguration::new(None, true),
+            LLMProperties::new(
+                LLMType::Gpt4O,
+                LLMProvider::OpenAI,
+                LLMProviderAPIKeys::OpenAI(OpenAIProvider::new("".to_owned())),
+            ), // LLMProperties::new(
+               //     LLMType::GeminiPro,
+               //     LLMProvider::GoogleAIStudio,
+               //     LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new(
+               //         "".to_owned(),
+               //     )),
+               // ),
+        )
+        .await,
+    );
 
     // let file_path = "/Users/skcd/test_repo/sidecar/llm_client/src/provider.rs";
     // let _file_paths =

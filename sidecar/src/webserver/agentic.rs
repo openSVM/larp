@@ -6,7 +6,7 @@ use super::types::json as json_result;
 use axum::response::{sse, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
-use llm_client::clients::types::LLMType;
+use llm_client::clients::types::{LLMClientError, LLMType};
 use llm_client::provider::{
     CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
 };
@@ -20,6 +20,7 @@ use tracing::error;
 
 use super::types::Result;
 use crate::agentic::symbol::anchored::AnchoredSymbol;
+use crate::agentic::symbol::errors::SymbolError;
 use crate::agentic::symbol::events::environment_event::{EnvironmentEvent, EnvironmentEventType};
 use crate::agentic::symbol::events::input::SymbolEventRequestId;
 use crate::agentic::symbol::events::lsp::LSPDiagnosticError;
@@ -1076,11 +1077,15 @@ pub async fn agent_session_chat(
             match result {
                 Ok(Ok(_)) => (),
                 Ok(Err(e)) => {
-                    error!("Error in agent_session_chat: {:?}", e);
-                    let _ = sender.send(UIEventWithID::error(
-                        session_id.clone(),
-                        format!("Internal server error: {}", e),
-                    ));
+                    error!("Error in agent_tool_use: {:?}", e);
+                    let error_msg = match e {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                            "Unauthorized access. Please check your API key and try again."
+                                .to_string()
+                        }
+                        _ => format!("Internal server error: {}", e),
+                    };
+                    let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
                     error!("Task panicked: {:?}", e);
@@ -1623,10 +1628,14 @@ pub async fn agent_tool_use(
                 Ok(Ok(_)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
-                    let _ = sender.send(UIEventWithID::error(
-                        session_id.clone(),
-                        format!("Internal server error: {}", e),
-                    ));
+                    let error_msg = match e {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                            "Unauthorized access. Please check your API key and try again."
+                                .to_string()
+                        }
+                        _ => format!("Internal server error: {}", e),
+                    };
+                    let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
                     error!("Task panicked: {:?}", e);
@@ -1771,11 +1780,15 @@ pub async fn agent_session_plan_iterate(
             match result {
                 Ok(Ok(_)) => (),
                 Ok(Err(e)) => {
-                    error!("Error in agent_session_plan_iterate: {:?}", e);
-                    let _ = sender.send(UIEventWithID::error(
-                        session_id.clone(),
-                        format!("Internal server error: {}", e),
-                    ));
+                    error!("Error in agent_tool_use: {:?}", e);
+                    let error_msg = match e {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                            "Unauthorized access. Please check your API key and try again."
+                                .to_string()
+                        }
+                        _ => format!("Internal server error: {}", e),
+                    };
+                    let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
                     error!("Task panicked: {:?}", e);

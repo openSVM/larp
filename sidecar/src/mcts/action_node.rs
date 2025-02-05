@@ -1989,6 +1989,7 @@ impl SearchTree {
                         ToolInputPartial::RequestScreenshot(_) => {
                             tool_type.to_string().bright_white().to_string()
                         }
+                        ToolInputPartial::McpTool(_) => tool_type.to_string().cyan().to_string(),
                     };
                     state_params.push(tool_str);
                 }

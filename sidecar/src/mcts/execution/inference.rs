@@ -576,6 +576,9 @@ Always include the <thinking></thinking> section before using the tool."#
             ToolInputPartial::CodeEditing(_) => {
                 todo!("code editing is not supported with the inference engine for code editing, use anthropic computer use api instead")
             }
+            ToolInputPartial::McpTool(_) => {
+                todo!("MCP tools are not supported with the inference engine")
+            }
             ToolInputPartial::LSPDiagnostics(_) => {
                 todo!("LSP diagnostics are not supported right now")
             }
@@ -742,7 +745,7 @@ Terminal output: {}"#,
                 let message = format!(
                     r#"Here's the result of running the tests on the following files:
 {}
-                
+
 Test Output from the script (we also have to setup the test runner):
 Exit code: {}
 Output:
