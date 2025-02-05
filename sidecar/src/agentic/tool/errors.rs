@@ -91,4 +91,10 @@ pub enum ToolError {
 
     #[error("Cancelled by user")]
     UserCancellation,
+
+    #[error("Invalid input: {0}")]
+    InvalidInput(String),
+
+    #[error("Invocation error: {0}")]
+    InvocationError(String),
 }

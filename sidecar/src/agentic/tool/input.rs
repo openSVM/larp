@@ -64,6 +64,7 @@ use super::{
         subprocess_spawned_output::SubProcessSpawnedPendingOutputRequest,
         undo_changes::UndoChangesMadeDuringExchangeRequest,
     },
+    mcp::input::{McpToolInput, McpToolPartial},
     plan::{
         add_steps::PlanAddRequest, generator::StepGeneratorRequest, reasoning::ReasoningRequest,
         updater::PlanUpdateRequest,
@@ -102,6 +103,7 @@ pub enum ToolInputPartial {
     Reasoning(ToolUseAgentReasoningParamsPartial),
     FindFile(FindFileInputPartial),
     RequestScreenshot(RequestScreenshotInputPartial),
+    McpTool(McpToolPartial),
 }
 
 impl ToolInputPartial {
@@ -122,6 +124,7 @@ impl ToolInputPartial {
             Self::Reasoning(_) => ToolType::Reasoning,
             Self::FindFile(_) => ToolType::FindFiles,
             Self::RequestScreenshot(_) => ToolType::RequestScreenshot,
+            Self::McpTool(partial) => ToolType::McpTool(partial.full_name.clone()),
         }
     }
 
@@ -148,6 +151,7 @@ impl ToolInputPartial {
             Self::Reasoning(tool_use_reasoning) => tool_use_reasoning.to_string(),
             Self::FindFile(find_file_partial_input) => find_file_partial_input.to_string(),
             Self::RequestScreenshot(request_screenshot) => request_screenshot.to_string(),
+            Self::McpTool(mcp_partial) => mcp_partial.to_string(),
         }
     }
 
@@ -184,6 +188,7 @@ impl ToolInputPartial {
             Self::RequestScreenshot(request_screenshot) => {
                 serde_json::to_value(request_screenshot).ok()
             }
+            Self::McpTool(mcp_partial) => serde_json::to_value(mcp_partial).ok(),
         }
     }
 
@@ -201,6 +206,7 @@ impl ToolInputPartial {
             ToolType::TestRunner => Some(TestRunnerRequestPartial::to_json()),
             ToolType::CodeEditorTool => Some(CodeEditorParameters::to_json()),
             ToolType::RequestScreenshot => Some(RequestScreenshotInputPartial::to_json()),
+            ToolType::McpTool(_name) => None,
             _ => None,
         }
     }
@@ -334,6 +340,8 @@ pub enum ToolInput {
     FindFiles(FindFilesRequest),
     // Request screenshot input
     RequestScreenshot(RequestScreenshotInput),
+    // Model Context Protocol tool
+    McpTool(McpToolInput),
 }
 
 impl ToolInput {
@@ -425,6 +433,7 @@ impl ToolInput {
             ToolInput::FeedbackGeneration(_) => ToolType::FeedbackGeneration,
             ToolInput::FindFiles(_) => ToolType::FindFiles,
             ToolInput::RequestScreenshot(_) => ToolType::RequestScreenshot,
+            ToolInput::McpTool(inp) => ToolType::McpTool(inp.partial.full_name.clone()),
         }
     }
 

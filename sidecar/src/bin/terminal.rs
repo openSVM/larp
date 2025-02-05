@@ -50,25 +50,28 @@ async fn main() {
     let symbol_broker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
     let llm_broker = LLMBroker::new().await.expect("to initialize properly");
 
-    let tool_broker = Arc::new(ToolBroker::new(
-        Arc::new(llm_broker),
-        Arc::new(CodeEditBroker::new()),
-        symbol_broker.clone(),
-        Arc::new(TSLanguageParsing::init()),
-        // for our testing workflow we want to apply the edits directly
-        ToolBrokerConfiguration::new(None, true),
-        LLMProperties::new(
-            LLMType::Gpt4O,
-            LLMProvider::OpenAI,
-            LLMProviderAPIKeys::OpenAI(OpenAIProvider::new("".to_owned())),
-        ), // LLMProperties::new(
-           //     LLMType::GeminiPro,
-           //     LLMProvider::GoogleAIStudio,
-           //     LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new(
-           //         "".to_owned(),
-           //     )),
-           // ),
-    ));
+    let tool_broker = Arc::new(
+        ToolBroker::new(
+            Arc::new(llm_broker),
+            Arc::new(CodeEditBroker::new()),
+            symbol_broker.clone(),
+            Arc::new(TSLanguageParsing::init()),
+            // for our testing workflow we want to apply the edits directly
+            ToolBrokerConfiguration::new(None, true),
+            LLMProperties::new(
+                LLMType::Gpt4O,
+                LLMProvider::OpenAI,
+                LLMProviderAPIKeys::OpenAI(OpenAIProvider::new("".to_owned())),
+            ), // LLMProperties::new(
+               //     LLMType::GeminiPro,
+               //     LLMProvider::GoogleAIStudio,
+               //     LLMProviderAPIKeys::GoogleAIStudio(GoogleAIStudioKey::new(
+               //         "".to_owned(),
+               //     )),
+               // ),
+        )
+        .await,
+    );
 
     let _user_context = UserContext::new(vec![], vec![], None, vec![]);
 

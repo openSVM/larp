@@ -1,12 +1,11 @@
-use async_trait::async_trait;
-use std::{collections::HashMap, sync::Arc};
-
-use llm_client::broker::LLMBroker;
-
 use crate::{
     agentic::symbol::identifier::LLMProperties, chunking::languages::TSLanguageParsing,
     inline_completion::symbols_tracker::SymbolTrackerInline,
 };
+use async_trait::async_trait;
+use llm_client::broker::LLMBroker;
+use std::{collections::HashMap, sync::Arc};
+use tracing::error;
 
 use super::{
     code_edit::{
@@ -56,6 +55,7 @@ use super::{
         subprocess_spawned_output::SubProcessSpawnedPendingOutputClient,
         undo_changes::UndoChangesMadeDuringExchange,
     },
+    mcp::init::discover_mcp_tools,
     output::ToolOutput,
     plan::{
         add_steps::PlanAddStepClient, generator::StepGeneratorClient, reasoning::ReasoningClient,
@@ -96,10 +96,11 @@ impl ToolBrokerConfiguration {
 // sure that we do not store everything about the tool but a representation of it
 pub struct ToolBroker {
     tools: HashMap<ToolType, Box<dyn Tool + Send + Sync>>,
+    pub mcp_tools: Box<[ToolType]>,
 }
 
 impl ToolBroker {
-    pub fn new(
+    pub async fn new(
         llm_client: Arc<LLMBroker>,
         code_edit_broker: Arc<CodeEditBroker>,
         symbol_tracking: Arc<SymbolTrackerInline>,
@@ -491,8 +492,23 @@ impl ToolBroker {
             ToolType::RequestScreenshot,
             Box::new(RequestScreenshot::new()),
         );
+
+        let mut mcp_tools = Vec::new();
+
+        for tool in discover_mcp_tools().await.unwrap_or_else(|e| {
+            error!("Failed to discover MCP tools: {}", e);
+            Vec::new()
+        }) {
+            let tool_type = ToolType::McpTool(tool.full_name.clone());
+            tools.insert(tool_type.clone(), Box::new(tool));
+            mcp_tools.push(tool_type);
+        }
+
         // we also want to add the re-ranking tool here, so we invoke it freely
-        Self { tools }
+        Self {
+            tools,
+            mcp_tools: mcp_tools.into_boxed_slice(),
+        }
     }
 
     /// Sets a reminder for the tool, including the name and the format of it
