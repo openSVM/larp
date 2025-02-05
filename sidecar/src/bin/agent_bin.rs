@@ -18,6 +18,17 @@ use sidecar::{
     user_context::types::UserContext,
 };
 
+/// Creates and returns the session storage path for a given session ID.
+/// 
+/// This function ensures that the session storage directory exists and creates it if necessary.
+/// The path is constructed by joining the index directory with "session" and the provided session ID.
+///
+/// # Arguments
+/// * `config` - Application configuration containing the index directory
+/// * `session_id` - Unique identifier for the session
+///
+/// # Returns
+/// A string containing the absolute path to the session storage directory
 pub async fn check_session_storage_path(config: Arc<Configuration>, session_id: String) -> String {
     let mut session_path = config.index_dir.clone();
     session_path = session_path.join("session");
@@ -94,30 +105,55 @@ struct CliArgs {
     model_name: Option<String>,
 }
 
-/// Define the SWEbenchInstance struct for serialization
+/// Represents a benchmark instance for software engineering tasks.
+/// Contains all necessary information about a repository, problem statement,
+/// and test configurations.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct SWEbenchInstance {
+    /// Repository URL or identifier
     repo: String,
+    /// Unique identifier for this benchmark instance
     instance_id: String,
+    /// Base commit hash to start from
     base_commit: String,
+    /// Patch to be applied
     patch: String,
+    /// Test patch to be applied
     test_patch: String,
+    /// Description of the problem to be solved
     problem_statement: String,
+    /// Additional hints for solving the problem
     hints_text: String,
+    /// Creation timestamp
     created_at: String,
+    /// Version identifier
     version: String,
+    /// Tests that should transition from failing to passing
     #[serde(rename = "FAIL_TO_PASS")]
     fail_to_pass: String,
+    /// Tests that should remain passing
     #[serde(rename = "PASS_TO_PASS")]
     pass_to_pass: String,
+    /// Commit hash for environment setup
     environment_setup_commit: String,
 }
 
+/// Input structure for the agent binary that combines git directory information
+/// with a benchmark instance.
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 struct InputParts {
+    /// The directory name containing the git repository
     git_drname: String,
+    /// The benchmark instance to be processed
     instance: SWEbenchInstance,
 }
+/// Main entry point for the agent binary.
+/// 
+/// Sets up and runs the agent with the following workflow:
+/// 1. Parses command line arguments
+/// 2. Configures application and logging
+/// 3. Sets up LLM provider and messaging
+/// 4. Processes input and executes the agent
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("agent::start");
