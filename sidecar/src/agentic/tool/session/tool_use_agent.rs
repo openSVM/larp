@@ -1229,7 +1229,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             llm_client::provider::LLMProvider::OpenAI,
             llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
                 std::env::var("OPENAI_API_KEY").expect("env var to be present"),
-            ))
+            )),
         );
 
         let message_properties = input.symbol_event_message_properties.clone();
@@ -1562,10 +1562,8 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         match llm_stream_handle.await {
             // The task completed successfully.
-            Some(Ok(Err(e))) => {
-                Err(SymbolError::LLMClientError(e))
-            }
-            _ => result
+            Some(Ok(Err(e))) => Err(SymbolError::LLMClientError(e)),
+            _ => result,
         }
     }
 }

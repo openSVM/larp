@@ -754,7 +754,7 @@ impl LLMClient for AnthropicClient {
                                 .set_usage_statistics(
                                     LLMClientUsageStatistics::new()
                                         .set_input_tokens(input_tokens)
-                                        .set_output_tokens(output_tokens)
+                                        .set_output_tokens(output_tokens),
                                 ),
                             ) {
                                 error!("Failed to send completion response: {}", e);
@@ -799,8 +799,7 @@ impl LLMClient for AnthropicClient {
                     }
                 },
                 Ok(AnthropicEvent::MessageStart { message }) => {
-                    input_tokens = input_tokens
-                        + message.usage.input_tokens.unwrap_or_default();
+                    input_tokens = input_tokens + message.usage.input_tokens.unwrap_or_default();
                     output_tokens = output_tokens + message.usage.output_tokens.unwrap_or_default();
                     input_cached_tokens = input_cached_tokens
                         + message.usage.cache_read_input_tokens.unwrap_or_default();

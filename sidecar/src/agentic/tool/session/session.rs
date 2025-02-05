@@ -28,14 +28,25 @@ use crate::{
             ui_event::UIEventWithID,
         },
         tool::{
-            devtools::screenshot::RequestScreenshotInput, errors::ToolError, file::semantic_search::SemanticSearchRequest, helpers::diff_recent_changes::DiffFileContent, input::{ToolInput, ToolInputPartial}, lsp::{
+            devtools::screenshot::RequestScreenshotInput,
+            errors::ToolError,
+            file::semantic_search::SemanticSearchRequest,
+            helpers::diff_recent_changes::DiffFileContent,
+            input::{ToolInput, ToolInputPartial},
+            lsp::{
                 file_diagnostics::DiagnosticMap, find_files::FindFilesRequest,
                 list_files::ListFilesInput, open_file::OpenFileRequest,
                 search_file::SearchFileContentInput,
-            }, plan::{
+            },
+            plan::{
                 generator::{Step, StepSenderEvent},
                 service::{PlanService, PlanServiceError},
-            }, repo_map::generator::RepoMapGeneratorRequest, session::tool_use_agent::ToolUseAgentContextCrunchingInput, terminal::terminal::TerminalInput, test_runner::runner::TestRunnerRequest, r#type::{Tool, ToolType}
+            },
+            r#type::{Tool, ToolType},
+            repo_map::generator::RepoMapGeneratorRequest,
+            session::tool_use_agent::ToolUseAgentContextCrunchingInput,
+            terminal::terminal::TerminalInput,
+            test_runner::runner::TestRunnerRequest,
         },
     },
     chunking::text_document::{Position, Range},
@@ -1904,20 +1915,16 @@ impl Session {
             // only return actively when we have an llm client error
             // this is because we are throwing a 401 on the llm client when we have an unauthroized request
             // which we should catch and bubble up
-            Ok(Err(e)) => {
-                match e {
-                    PlanServiceError::SymbolError(SymbolError::ToolError(tool_error))
-                    | PlanServiceError::ToolError(tool_error) => {
-                        match tool_error {
-                            ToolError::LLMClientError(llm_client_error) => {
-                                return Err(SymbolError::LLMClientError(llm_client_error));
-                            }
-                            _ => {}
-                        }
+            Ok(Err(e)) => match e {
+                PlanServiceError::SymbolError(SymbolError::ToolError(tool_error))
+                | PlanServiceError::ToolError(tool_error) => match tool_error {
+                    ToolError::LLMClientError(llm_client_error) => {
+                        return Err(SymbolError::LLMClientError(llm_client_error));
                     }
                     _ => {}
-                }
-            }
+                },
+                _ => {}
+            },
             _ => {}
         }
 

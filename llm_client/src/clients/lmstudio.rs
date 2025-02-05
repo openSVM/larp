@@ -143,12 +143,7 @@ impl LLMClient for LMStudioClient {
         let endpoint = self.chat_endpoint(&base_url);
 
         let request = LMStudioRequest::from_chat_request(request);
-        let response = self
-            .client
-            .post(endpoint)
-            .json(&request)
-            .send()
-            .await?;
+        let response = self.client.post(endpoint).json(&request).send().await?;
 
         // Check for unauthorized access
         if response.status() == reqwest::StatusCode::UNAUTHORIZED {
