@@ -1783,10 +1783,11 @@ pub async fn agent_session_plan_iterate(
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
                     let error_msg = match e {
-                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) | SymbolError::ToolError(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess)) => {
-                            "Unauthorized access. Please check your API key and try again."
-                                .to_string()
-                        }
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
+                        | SymbolError::ToolError(ToolError::LLMClientError(
+                            LLMClientError::UnauthorizedAccess,
+                        )) => "Unauthorized access. Please check your API key and try again."
+                            .to_string(),
                         _ => format!("Internal server error: {}", e),
                     };
                     let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
@@ -1937,10 +1938,11 @@ pub async fn agent_session_plan(
                 Ok(Err(e)) => {
                     error!("Error in agent_tool_use: {:?}", e);
                     let error_msg = match e {
-                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) | SymbolError::ToolError(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess)) => {
-                            "Unauthorized access. Please check your API key and try again."
-                                .to_string()
-                        }
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
+                        | SymbolError::ToolError(ToolError::LLMClientError(
+                            LLMClientError::UnauthorizedAccess,
+                        )) => "Unauthorized access. Please check your API key and try again."
+                            .to_string(),
                         _ => format!("Internal server error: {}", e),
                     };
                     let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
