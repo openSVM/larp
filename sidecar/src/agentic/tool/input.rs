@@ -350,6 +350,7 @@ pub enum ToolInput {
     RequestScreenshot(RequestScreenshotInput),
     // Model Context Protocol tool
     McpTool(McpToolInput),
+    OverwriteFile(OverwriteFileRequest),
 }
 
 impl ToolInput {
@@ -442,6 +443,7 @@ impl ToolInput {
             ToolInput::FindFiles(_) => ToolType::FindFiles,
             ToolInput::RequestScreenshot(_) => ToolType::RequestScreenshot,
             ToolInput::McpTool(inp) => ToolType::McpTool(inp.partial.full_name.clone()),
+            ToolInput::OverwriteFile(_) => ToolType::OverwriteFile,
             ToolInput::OverwriteFile(_) => ToolType::OverwriteFile,
         }
     }
