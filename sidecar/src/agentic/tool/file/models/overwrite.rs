@@ -1,28 +1,58 @@
-use std::sync::Arc;
 use reqwest::Client;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
+use serde_xml_rs::from_str;
 use crate::agentic::tool::{
     errors::ToolError,
     input::ToolInput,
     output::ToolOutput,
     r#type::{Tool, ToolRewardScale},
+    file::types::{FileImportantError, SerdeError},
 };
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct OverwriteFileRequest {
-    pub fs_file_path: String,
-    pub updated_content: String,
+#[serde(rename = "overwrite")]
+pub struct OverwriteFileXMLRequest {
+    fs_file_path: String,
+    updated_content: String,
+}
+
+impl OverwriteFileXMLRequest {
+    pub fn parse_response(response: &str) -> Result<Self, FileImportantError> {
+        if response.is_empty() {
+            return Err(FileImportantError::EmptyResponse);
+        }
+
+        let lines = response
+            .lines()
+            .skip_while(|line| !line.contains("<reply>"))
+            .skip(1)
+            .take_while(|line| !line.contains("</reply>"))
+            .map(|line| line.to_owned())
+            .collect::<Vec<String>>();
+
+        let line_string = lines.join("\n");
+
+        match from_str::<OverwriteFileXMLRequest>(&line_string) {
+            Ok(parsed) => Ok(parsed),
+            Err(e) => {
+                eprintln!("parsing error: {:?}", e);
+                Err(FileImportantError::SerdeError(SerdeError::new(
+                    e,
+                    line_string.to_owned(),
+                )))
+            }
+        }
+    }
 }
 
 pub struct FileOverwrite {
-    client: Arc<Client>,
     base_url: String,
 }
 
 impl FileOverwrite {
-    pub fn new(client: Arc<Client>, base_url: String) -> Self {
-        Self { client, base_url }
+    pub fn new(base_url: String) -> Self {
+        Self { base_url }
     }
 }
 
@@ -35,8 +65,9 @@ impl Tool for FileOverwrite {
         };
 
         let url = format!("{}/api/file/apply_edits", self.base_url);
+        let client = Client::new();
         
-        let response = self.client
+        let response = client
             .post(&url)
             .json(&serde_json::json!({
                 "fs_file_path": request.fs_file_path,
