@@ -442,6 +442,15 @@ impl ToolInput {
             ToolInput::FindFiles(_) => ToolType::FindFiles,
             ToolInput::RequestScreenshot(_) => ToolType::RequestScreenshot,
             ToolInput::McpTool(inp) => ToolType::McpTool(inp.partial.full_name.clone()),
+            ToolInput::OverwriteFile(_) => ToolType::OverwriteFile,
+        }
+    }
+
+    pub fn is_overwrite_file(self) -> Result<OverwriteFileRequest, ToolError> {
+        if let ToolInput::OverwriteFile(request) = self {
+            Ok(request)
+        } else {
+            Err(ToolError::WrongToolInput(ToolType::OverwriteFile))
         }
     }
 

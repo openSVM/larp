@@ -492,6 +492,13 @@ impl ToolBroker {
             ToolType::RequestScreenshot,
             Box::new(RequestScreenshot::new()),
         );
+        tools.insert(
+            ToolType::OverwriteFile,
+            Box::new(FileOverwrite::new(
+                Arc::new(reqwest::Client::new()),
+                "http://localhost:3000".to_string(),
+            )),
+        );
 
         let mut mcp_tools = Vec::new();
 
