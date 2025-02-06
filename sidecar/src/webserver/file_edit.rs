@@ -18,40 +18,6 @@ use crate::reranking::snippet_reranking::rerank_snippets;
 use super::model_selection::LLMClientConfig;
 use super::types::{ApiResponse, Result};
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct OverwriteFileRequest {
-    pub file_path: String,
-    pub updated_content: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct OverwriteFileResponse {
-    pub success: bool,
-    pub message: String,
-}
-
-impl ApiResponse for OverwriteFileResponse {}
-
-pub async fn overwrite_file(
-    Extension(_app): Extension<Application>,
-    Json(request): Json<OverwriteFileRequest>,
-) -> Result<impl IntoResponse> {
-    info!(
-        event_name = "overwrite_file",
-        file_path = request.file_path.as_str()
-    );
-
-    // Write the updated content to the file
-    tokio::fs::write(&request.file_path, &request.updated_content)
-        .await
-        .map_err(|e| anyhow::anyhow!("Failed to write file: {}", e))?;
-
-    Ok(Json(OverwriteFileResponse {
-        success: true,
-        message: format!("Successfully overwrote file {}", request.file_path),
-    }))
-}
-
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct EditFileRequest {

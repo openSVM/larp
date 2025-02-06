@@ -279,5 +279,4 @@ fn file_operations_router() -> Router {
     use axum::routing::*;
     Router::new()
         .route("/edit_file", post(sidecar::webserver::file_edit::file_edit))
-        .route("/overwrite_file", post(sidecar::webserver::file_edit::overwrite_file))
 }

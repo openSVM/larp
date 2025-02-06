@@ -52,13 +52,15 @@ impl OverwriteFile {
     }
 
     pub async fn overwrite_file(&self, fs_file_path: String, updated_content: String) -> Result<(), anyhow::Error> {
-        let url = format!("{}/api/file/overwrite_file", self.base_url);
+        let url = format!("{}/apply_edits", self.base_url);
         
         let response = self.client
             .post(&url)
             .json(&serde_json::json!({
-                "file_path": fs_file_path,
-                "updated_content": updated_content,
+                "fs_file_path": fs_file_path,
+                "edited_content": updated_content,
+                "selected_range": Range::new(0, 0, 0, 0),  // Full file range
+                "apply_directly": true
             }))
             .send()
             .await?;
