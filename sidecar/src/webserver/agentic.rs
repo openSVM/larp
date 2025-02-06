@@ -1231,10 +1231,14 @@ pub async fn agent_session_edit_anchored(
                 Ok(Ok(_)) => (),
                 Ok(Err(e)) => {
                     error!("Error in agent_session_edit_anchored: {:?}", e);
-                    let _ = sender.send(UIEventWithID::error(
-                        session_id.clone(),
-                        format!("Internal server error: {}", e),
-                    ));
+                    let error_msg = match e {
+                        SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                            "Unauthorized access. Please check your API key and try again."
+                                .to_string()
+                        }
+                        _ => format!("Internal server error: {}", e),
+                    };
+                    let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
                     error!("Task panicked: {:?}", e);
