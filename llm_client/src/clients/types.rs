@@ -81,6 +81,8 @@ pub enum LLMType {
     Gemini2_0FlashExperimental,
     /// Gemini 2.0 Flash thinking experimental
     Gemini2_0FlashThinkingExperimental,
+    /// Gemini 2.0 Pro experimental model
+    Gemini2_0Pro,
     /// Custom model type with a specified name
     Custom(String),
 }
@@ -141,6 +143,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "gemini-2.0-flash-thinking-exp-1219" => {
                         Ok(LLMType::Gemini2_0FlashThinkingExperimental)
                     }
+                    "gemini-2.0-pro-exp-02-05" => Ok(LLMType::Gemini2_0Pro),
                     "deepseek/deepseek-r1" => Ok(LLMType::DeepSeekR1),
                     "Llama3_8bInstruct" => Ok(LLMType::Llama3_8bInstruct),
                     "Llama3_1_8bInstruct" => Ok(LLMType::Llama3_1_8bInstruct),
@@ -198,6 +201,8 @@ impl LLMType {
         matches!(
             self,
             LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash
+                | LLMType::Gemini2_0FlashExperimental | LLMType::Gemini2_0FlashThinkingExperimental
+                | LLMType::Gemini2_0Pro
         )
     }
 
@@ -244,6 +249,7 @@ impl fmt::Display for LLMType {
             LLMType::Gemini2_0FlashThinkingExperimental => {
                 write!(f, "gemini-2.0-flash-thinking-exp-1219")
             }
+            LLMType::Gemini2_0Pro => write!(f, "gemini-2.0-pro-exp-02-05"),
             LLMType::DeepSeekR1 => write!(f, "deepseek/deepseek-r1"),
             LLMType::Gpt4O => write!(f, "Gpt4O"),
             LLMType::DeepSeekCoderV2 => write!(f, "DeepSeekCoderV2"),
