@@ -9,6 +9,7 @@ use std::error::Error;
 use async_trait::async_trait;
 use llm_client::{broker::LLMBroker, clients::types::LLMType};
 use tokio::sync::mpsc::UnboundedSender;
+use llm_client::clients::types::LLMClientError;
 
 use crate::{
     agentic::{
