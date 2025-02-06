@@ -4,10 +4,12 @@
 //! we want to generate
 
 use std::sync::Arc;
+use std::error::Error;
 
 use async_trait::async_trait;
 use llm_client::{broker::LLMBroker, clients::types::LLMType};
 use tokio::sync::mpsc::UnboundedSender;
+use llm_client::clients::types::LLMClientError;
 
 use crate::{
     agentic::{
@@ -459,8 +461,6 @@ impl Tool for CodeEditingTool {
                         code_edit_context.is_new_sub_symbol().is_some(),
                         code_edit_context.code_to_edit(),
                     )
-                    // we need to do post-processing here to remove all the gunk
-                    // which usually gets added when we are editing code
                     .map(|result| ToolOutput::code_edit_output(result));
                     match edited_code {
                         Ok(response) => return Ok(response),
@@ -470,7 +470,19 @@ impl Tool for CodeEditingTool {
                         }
                     }
                 }
-                _ => {
+                Some(Err(e)) => {
+                    // Check if error is an LLMClientError::UnauthorizedAccess
+                    if let Some(llm_err) = e.source() {
+                        if let Some(llm_client_err) = llm_err.downcast_ref::<LLMClientError>() {
+                            if matches!(llm_client_err, LLMClientError::UnauthorizedAccess) {
+                                return Err(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess));
+                            }
+                        }
+                    }
+                    retries = retries + 1;
+                    continue;
+                }
+                None => {
                     retries = retries + 1;
                     continue;
                 }
