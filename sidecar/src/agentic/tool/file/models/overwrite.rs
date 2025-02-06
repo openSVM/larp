@@ -1,58 +1,25 @@
-use reqwest::Client;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
-use serde_xml_rs::from_str;
+use reqwest::Client;
 use crate::agentic::tool::{
     errors::ToolError,
     input::ToolInput,
     output::ToolOutput,
     r#type::{Tool, ToolRewardScale},
-    file::types::{FileImportantError, SerdeError},
 };
+use crate::webserver::types::SymbolEventMessageProperties;
 
 #[derive(Debug, Serialize, Deserialize)]
-#[serde(rename = "overwrite")]
-pub struct OverwriteFileXMLRequest {
-    fs_file_path: String,
-    updated_content: String,
+pub struct OverwriteFileRequest {
+    pub fs_file_path: String,
+    pub updated_content: String,
 }
 
-impl OverwriteFileXMLRequest {
-    pub fn parse_response(response: &str) -> Result<Self, FileImportantError> {
-        if response.is_empty() {
-            return Err(FileImportantError::EmptyResponse);
-        }
-
-        let lines = response
-            .lines()
-            .skip_while(|line| !line.contains("<reply>"))
-            .skip(1)
-            .take_while(|line| !line.contains("</reply>"))
-            .map(|line| line.to_owned())
-            .collect::<Vec<String>>();
-
-        let line_string = lines.join("\n");
-
-        match from_str::<OverwriteFileXMLRequest>(&line_string) {
-            Ok(parsed) => Ok(parsed),
-            Err(e) => {
-                eprintln!("parsing error: {:?}", e);
-                Err(FileImportantError::SerdeError(SerdeError::new(
-                    e,
-                    line_string.to_owned(),
-                )))
-            }
-        }
-    }
-}
-
-pub struct FileOverwrite {
-    base_url: String,
-}
+pub struct FileOverwrite;
 
 impl FileOverwrite {
-    pub fn new(base_url: String) -> Self {
-        Self { base_url }
+    pub fn new() -> Self {
+        Self
     }
 }
 
@@ -64,23 +31,20 @@ impl Tool for FileOverwrite {
             _ => return Err(ToolError::InvalidToolInput),
         };
 
-        let url = format!("{}/api/file/apply_edits", self.base_url);
         let client = Client::new();
+        let url = format!("{}/api/file/apply_edits", "http://localhost:3000");
         
-        let response = client
+        let _ = client
             .post(&url)
             .json(&serde_json::json!({
                 "fs_file_path": request.fs_file_path,
                 "edited_content": request.updated_content,
-                "apply_directly": true
+                "apply_directly": true,
+                "symbol_event_message_properties": SymbolEventMessageProperties::default(),
             }))
             .send()
             .await
             .map_err(|_| ToolError::ErrorCommunicatingWithEditor)?;
-
-        if !response.status().is_success() {
-            return Err(ToolError::ErrorCommunicatingWithEditor);
-        }
 
         Ok(ToolOutput::Success)
     }

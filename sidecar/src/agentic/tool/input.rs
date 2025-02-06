@@ -444,7 +444,6 @@ impl ToolInput {
             ToolInput::RequestScreenshot(_) => ToolType::RequestScreenshot,
             ToolInput::McpTool(inp) => ToolType::McpTool(inp.partial.full_name.clone()),
             ToolInput::OverwriteFile(_) => ToolType::OverwriteFile,
-            ToolInput::OverwriteFile(_) => ToolType::OverwriteFile,
         }
     }
 
