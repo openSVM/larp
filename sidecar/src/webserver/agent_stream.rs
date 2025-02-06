@@ -1,4 +1,6 @@
 use std::time::Duration;
+use std::error::Error;
+use llm_client::clients::types::LLMClientError;
 
 use axum::response::{sse, Sse};
 use either::Either;
@@ -58,6 +60,14 @@ pub async fn generate_agent_stream(
                     Ok(Either::Right(Either::Left(next_action))) => match next_action {
                         Ok(n) => break next = n,
                         Err(e) => {
+                            // Check if error is an LLMClientError::UnauthorizedAccess
+                            if let Some(llm_err) = e.source() {
+                                if let Some(llm_client_err) = llm_err.downcast_ref::<LLMClientError>() {
+                                    if matches!(llm_client_err, LLMClientError::UnauthorizedAccess) {
+                                        break 'outer Err(e);
+                                    }
+                                }
+                            }
                             break 'outer Err(anyhow::anyhow!(e))
                         },
                     },
