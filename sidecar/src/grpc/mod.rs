@@ -48,6 +48,304 @@ impl AgentFarmService for AgentFarmGrpcServer {
     type AgentToolUseStream = ReceiverStream<Result<ToolUseResponse, Status>>;
     type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
 
+    async fn agent_session_plan(
+        &self,
+        request: Request<AgentSessionRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let app = self.app.clone();
+
+        let llm_provider = req.model_configuration.map_or_else(
+            || LLMProperties::new(
+                LLMType::ClaudeSonnet,
+                LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+                LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+            ),
+            |config| config.llm_properties_for_slow_model().unwrap_or_default(),
+        );
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let message_properties = SymbolEventMessageProperties::new(
+            SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+            tx.clone(),
+            req.editor_url.clone(),
+            cancellation_token.clone(),
+            llm_provider,
+        );
+
+        let session_storage_path = check_session_storage_path(app.config.clone(), req.session_id.clone()).await;
+        let plan_storage_directory = plan_storage_directory(app.config.clone()).await;
+        let plan_service = PlanService::new(
+            app.tool_box.clone(),
+            app.symbol_manager.clone(),
+            plan_storage_directory,
+        );
+
+        let plan_id = plan_service.generate_unique_plan_id(&req.session_id, &req.exchange_id);
+        let plan_storage_path = check_plan_storage_path(app.config.clone(), plan_id.clone()).await;
+
+        let session_service = app.session_service.clone();
+        tokio::spawn(async move {
+            let result = session_service
+                .plan_generation(
+                    req.session_id.clone(),
+                    session_storage_path,
+                    plan_storage_path,
+                    plan_id,
+                    plan_service,
+                    req.exchange_id,
+                    req.query,
+                    req.user_context,
+                    req.project_labels,
+                    req.repo_ref,
+                    req.root_directory,
+                    req.codebase_search,
+                    req.aide_rules,
+                    message_properties,
+                )
+                .await;
+
+            if let Err(e) = result {
+                let error_msg = match e {
+                    SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        "Unauthorized access. Please check your API key and try again.".to_string()
+                    }
+                    _ => format!("Internal server error: {}", e),
+                };
+                let _ = tx.send(Ok(AgentResponse {
+                    response: Some(agent_response::Response::Error(Error {
+                        message: error_msg,
+                        kind: ErrorKind::Internal as i32,
+                    })),
+                })).await;
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn agent_session_plan_iterate(
+        &self,
+        request: Request<AgentSessionRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let app = self.app.clone();
+
+        let llm_provider = req.model_configuration.map_or_else(
+            || LLMProperties::new(
+                LLMType::ClaudeSonnet,
+                LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+                LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+            ),
+            |config| config.llm_properties_for_slow_model().unwrap_or_default(),
+        );
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let message_properties = SymbolEventMessageProperties::new(
+            SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+            tx.clone(),
+            req.editor_url.clone(),
+            cancellation_token.clone(),
+            llm_provider,
+        );
+
+        let session_storage_path = check_session_storage_path(app.config.clone(), req.session_id.clone()).await;
+        let plan_storage_directory = plan_storage_directory(app.config.clone()).await;
+        let plan_service = PlanService::new(
+            app.tool_box.clone(),
+            app.symbol_manager.clone(),
+            plan_storage_directory,
+        );
+
+        let plan_id = plan_service.generate_unique_plan_id(&req.session_id, &req.exchange_id);
+        let plan_storage_path = check_plan_storage_path(app.config.clone(), plan_id.clone()).await;
+
+        let session_service = app.session_service.clone();
+        tokio::spawn(async move {
+            let result = session_service
+                .plan_iteration(
+                    req.session_id.clone(),
+                    session_storage_path,
+                    plan_storage_path,
+                    plan_id,
+                    plan_service,
+                    req.exchange_id,
+                    req.query,
+                    req.user_context,
+                    req.aide_rules,
+                    req.project_labels,
+                    req.repo_ref,
+                    req.root_directory,
+                    req.codebase_search,
+                    message_properties,
+                )
+                .await;
+
+            if let Err(e) = result {
+                let error_msg = match e {
+                    SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        "Unauthorized access. Please check your API key and try again.".to_string()
+                    }
+                    _ => format!("Internal server error: {}", e),
+                };
+                let _ = tx.send(Ok(AgentResponse {
+                    response: Some(agent_response::Response::Error(Error {
+                        message: error_msg,
+                        kind: ErrorKind::Internal as i32,
+                    })),
+                })).await;
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn agent_session_edit_anchored(
+        &self,
+        request: Request<AgentSessionRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let app = self.app.clone();
+
+        let llm_provider = req.model_configuration.map_or_else(
+            || LLMProperties::new(
+                LLMType::ClaudeSonnet,
+                LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+                LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+            ),
+            |config| config.llm_properties_for_slow_model().unwrap_or_default(),
+        );
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let message_properties = SymbolEventMessageProperties::new(
+            SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+            tx.clone(),
+            req.editor_url.clone(),
+            cancellation_token.clone(),
+            llm_provider,
+        );
+
+        let session_storage_path = check_session_storage_path(app.config.clone(), req.session_id.clone()).await;
+        let scratch_pad_path = check_scratch_pad_path(app.config.clone(), req.session_id.clone()).await;
+        let scratch_pad_agent = ScratchPadAgent::new(
+            scratch_pad_path,
+            app.tool_box.clone(),
+            app.symbol_manager.hub_sender(),
+            None,
+        ).await;
+
+        let session_service = app.session_service.clone();
+        tokio::spawn(async move {
+            let result = session_service
+                .code_edit_anchored(
+                    req.session_id.clone(),
+                    session_storage_path,
+                    scratch_pad_agent,
+                    req.exchange_id,
+                    req.query,
+                    req.user_context,
+                    req.aide_rules,
+                    req.project_labels,
+                    req.repo_ref,
+                    message_properties,
+                )
+                .await;
+
+            if let Err(e) = result {
+                let error_msg = match e {
+                    SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        "Unauthorized access. Please check your API key and try again.".to_string()
+                    }
+                    _ => format!("Internal server error: {}", e),
+                };
+                let _ = tx.send(Ok(AgentResponse {
+                    response: Some(agent_response::Response::Error(Error {
+                        message: error_msg,
+                        kind: ErrorKind::Internal as i32,
+                    })),
+                })).await;
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn agent_session_edit_agentic(
+        &self,
+        request: Request<AgentSessionRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let app = self.app.clone();
+
+        let llm_provider = req.model_configuration.map_or_else(
+            || LLMProperties::new(
+                LLMType::ClaudeSonnet,
+                LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+                LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+            ),
+            |config| config.llm_properties_for_slow_model().unwrap_or_default(),
+        );
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let message_properties = SymbolEventMessageProperties::new(
+            SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+            tx.clone(),
+            req.editor_url.clone(),
+            cancellation_token.clone(),
+            llm_provider,
+        );
+
+        let session_storage_path = check_session_storage_path(app.config.clone(), req.session_id.clone()).await;
+        let scratch_pad_path = check_scratch_pad_path(app.config.clone(), req.session_id.clone()).await;
+        let scratch_pad_agent = ScratchPadAgent::new(
+            scratch_pad_path,
+            app.tool_box.clone(),
+            app.symbol_manager.hub_sender(),
+            None,
+        ).await;
+
+        let session_service = app.session_service.clone();
+        tokio::spawn(async move {
+            let result = session_service
+                .code_edit_agentic(
+                    req.session_id.clone(),
+                    session_storage_path,
+                    scratch_pad_agent,
+                    req.exchange_id,
+                    req.query,
+                    req.user_context,
+                    req.project_labels,
+                    req.repo_ref,
+                    req.root_directory,
+                    req.codebase_search,
+                    req.aide_rules,
+                    message_properties,
+                )
+                .await;
+
+            if let Err(e) = result {
+                let error_msg = match e {
+                    SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess) => {
+                        "Unauthorized access. Please check your API key and try again.".to_string()
+                    }
+                    _ => format!("Internal server error: {}", e),
+                };
+                let _ = tx.send(Ok(AgentResponse {
+                    response: Some(agent_response::Response::Error(Error {
+                        message: error_msg,
+                        kind: ErrorKind::Internal as i32,
+                    })),
+                })).await;
+            }
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
     async fn agent_session_chat(
         &self,
         request: Request<AgentSessionRequest>,

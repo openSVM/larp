@@ -48,13 +48,24 @@ message UserContext {
 
 // Request/Response Messages
 message AgentSessionRequest {
-  string user_query = 1;
-  string thread_id = 2;
+  string session_id = 1;
+  string exchange_id = 2;
   string editor_url = 3;
-  UserContext user_context = 4;
-  bool is_deep_reasoning = 5;
-  bool with_lsp_enrichment = 6;
-  string access_token = 7;
+  string query = 4;
+  UserContext user_context = 5;
+  RepoRef repo_ref = 6;
+  string root_directory = 7;
+  repeated string project_labels = 8;
+  bool codebase_search = 9;
+  string access_token = 10;
+  LLMClientConfig model_configuration = 11;
+  repeated string all_files = 12;
+  repeated string open_files = 13;
+  string shell = 14;
+  optional string aide_rules = 15;
+  bool reasoning = 16;
+  bool semantic_search = 17;
+  bool is_devtools_context = 18;
 }
 
 message AgentResponse {
@@ -251,6 +262,38 @@ message SessionUndoRequest {
 
 message SessionUndoResponse {
   bool done = 1;
+}
+
+message PlanGenerationRequest {
+  string session_id = 1;
+  string exchange_id = 2;
+  string editor_url = 3;
+  string query = 4;
+  UserContext user_context = 5;
+  string root_directory = 6;
+  bool codebase_search = 7;
+  repeated string project_labels = 8;
+  RepoRef repo_ref = 9;
+  optional string aide_rules = 10;
+}
+
+message PlanIterationRequest {
+  string session_id = 1;
+  string exchange_id = 2;
+  string editor_url = 3;
+  string query = 4;
+  UserContext user_context = 5;
+  string root_directory = 6;
+  bool codebase_search = 7;
+  repeated string project_labels = 8;
+  RepoRef repo_ref = 9;
+  optional string aide_rules = 10;
+}
+
+message RepoRef {
+  string repo_name = 1;
+  string branch = 2;
+  string commit_hash = 3;
 }
 
 message LLMClientConfig {

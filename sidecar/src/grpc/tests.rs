@@ -128,4 +128,144 @@ mod tests {
         let response = response.into_inner();
         assert!(response.is_valid, "Expected valid tree-sitter parse");
     }
+
+    #[tokio::test]
+    async fn test_agent_session_plan() {
+        let server = setup_test_server().await;
+        let request = AgentSessionRequest {
+            session_id: "test_session".to_string(),
+            exchange_id: "test_exchange".to_string(),
+            editor_url: "test_url".to_string(),
+            query: "test query".to_string(),
+            user_context: None,
+            repo_ref: None,
+            root_directory: "/test".to_string(),
+            project_labels: vec![],
+            codebase_search: false,
+            access_token: "test_token".to_string(),
+            model_configuration: None,
+            all_files: vec![],
+            open_files: vec![],
+            shell: "bash".to_string(),
+            aide_rules: None,
+            reasoning: false,
+            semantic_search: false,
+            is_devtools_context: false,
+        };
+
+        let response = server.agent_session_plan(Request::new(request)).await.unwrap();
+        let mut stream = response.into_inner();
+        
+        let mut got_response = false;
+        while let Some(response) = stream.next().await {
+            got_response = true;
+            assert!(response.is_ok());
+        }
+        assert!(got_response, "Expected at least one response");
+    }
+
+    #[tokio::test]
+    async fn test_agent_session_plan_iterate() {
+        let server = setup_test_server().await;
+        let request = AgentSessionRequest {
+            session_id: "test_session".to_string(),
+            exchange_id: "test_exchange".to_string(),
+            editor_url: "test_url".to_string(),
+            query: "test query".to_string(),
+            user_context: None,
+            repo_ref: None,
+            root_directory: "/test".to_string(),
+            project_labels: vec![],
+            codebase_search: false,
+            access_token: "test_token".to_string(),
+            model_configuration: None,
+            all_files: vec![],
+            open_files: vec![],
+            shell: "bash".to_string(),
+            aide_rules: None,
+            reasoning: false,
+            semantic_search: false,
+            is_devtools_context: false,
+        };
+
+        let response = server.agent_session_plan_iterate(Request::new(request)).await.unwrap();
+        let mut stream = response.into_inner();
+        
+        let mut got_response = false;
+        while let Some(response) = stream.next().await {
+            got_response = true;
+            assert!(response.is_ok());
+        }
+        assert!(got_response, "Expected at least one response");
+    }
+
+    #[tokio::test]
+    async fn test_agent_session_edit_anchored() {
+        let server = setup_test_server().await;
+        let request = AgentSessionRequest {
+            session_id: "test_session".to_string(),
+            exchange_id: "test_exchange".to_string(),
+            editor_url: "test_url".to_string(),
+            query: "test query".to_string(),
+            user_context: None,
+            repo_ref: None,
+            root_directory: "/test".to_string(),
+            project_labels: vec![],
+            codebase_search: false,
+            access_token: "test_token".to_string(),
+            model_configuration: None,
+            all_files: vec![],
+            open_files: vec![],
+            shell: "bash".to_string(),
+            aide_rules: None,
+            reasoning: false,
+            semantic_search: false,
+            is_devtools_context: false,
+        };
+
+        let response = server.agent_session_edit_anchored(Request::new(request)).await.unwrap();
+        let mut stream = response.into_inner();
+        
+        let mut got_response = false;
+        while let Some(response) = stream.next().await {
+            got_response = true;
+            assert!(response.is_ok());
+        }
+        assert!(got_response, "Expected at least one response");
+    }
+
+    #[tokio::test]
+    async fn test_agent_session_edit_agentic() {
+        let server = setup_test_server().await;
+        let request = AgentSessionRequest {
+            session_id: "test_session".to_string(),
+            exchange_id: "test_exchange".to_string(),
+            editor_url: "test_url".to_string(),
+            query: "test query".to_string(),
+            user_context: None,
+            repo_ref: None,
+            root_directory: "/test".to_string(),
+            project_labels: vec![],
+            codebase_search: false,
+            access_token: "test_token".to_string(),
+            model_configuration: None,
+            all_files: vec![],
+            open_files: vec![],
+            shell: "bash".to_string(),
+            aide_rules: None,
+            reasoning: false,
+            semantic_search: false,
+            is_devtools_context: false,
+        };
+
+        let response = server.agent_session_edit_agentic(Request::new(request)).await.unwrap();
+        let mut stream = response.into_inner();
+        
+        let mut got_response = false;
+        while let Some(response) = stream.next().await {
+            got_response = true;
+            assert!(response.is_ok());
+        }
+        assert!(got_response, "Expected at least one response");
+    }
 }
