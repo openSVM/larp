@@ -1083,7 +1083,8 @@ pub async fn agent_session_chat(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
+                        )) => "Unauthorized access. Please check your API key and try again."
+                            .to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,
@@ -1799,7 +1800,8 @@ pub async fn agent_session_plan_iterate(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
+                        )) => "Unauthorized access. Please check your API key and try again."
+                            .to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,
@@ -1957,7 +1959,8 @@ pub async fn agent_session_plan(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
+                        )) => "Unauthorized access. Please check your API key and try again."
+                            .to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,

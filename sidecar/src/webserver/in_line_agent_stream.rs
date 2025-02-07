@@ -1,5 +1,5 @@
-use std::time::Duration;
 use llm_client::clients::types::LLMClientError;
+use std::time::Duration;
 
 use axum::response::{sse, Sse};
 use either::Either;

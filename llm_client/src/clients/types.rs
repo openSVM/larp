@@ -200,8 +200,11 @@ impl LLMType {
     pub fn is_gemini_model(&self) -> bool {
         matches!(
             self,
-            LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash
-                | LLMType::Gemini2_0FlashExperimental | LLMType::Gemini2_0FlashThinkingExperimental
+            LLMType::GeminiPro
+                | LLMType::GeminiProFlash
+                | LLMType::Gemini2_0Flash
+                | LLMType::Gemini2_0FlashExperimental
+                | LLMType::Gemini2_0FlashThinkingExperimental
                 | LLMType::Gemini2_0Pro
         )
     }
