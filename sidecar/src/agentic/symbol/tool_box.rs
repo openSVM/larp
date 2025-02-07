@@ -5739,10 +5739,9 @@ FILEPATH: {fs_file_path}
     }
 
     pub async fn get_file_content(&self, fs_file_path: &str) -> Result<String, SymbolError> {
-        self.symbol_broker
-            .get_file_content(fs_file_path)
+        self.file_open(fs_file_path.to_owned(), SymbolEventMessageProperties::default())
             .await
-            .ok_or(SymbolError::UnableToReadFileContent)
+            .map(|response| response.contents())
     }
 
     pub async fn gather_important_symbols_with_definition(
@@ -6390,21 +6389,6 @@ FILEPATH: {fs_file_path}
     ) -> Option<Vec<OutlineNode>> {
         self.get_outline_nodes_from_editor(fs_file_path, message_properties)
             .await
-        // let file_open_result = self
-        //     .file_open(fs_file_path.to_owned(), message_properties.clone())
-        //     .await;
-        // if let Err(_) = file_open_result {
-        //     return None;
-        // }
-        // let file_open_result = file_open_result.expect("if let Err to hold");
-        // let language_config = self.editor_parsing.for_file_path(fs_file_path);
-        // if language_config.is_none() {
-        //     return None;
-        // }
-        // let outline_nodes = language_config
-        //     .expect("is_none to hold")
-        //     .generate_outline_fresh(file_open_result.contents_ref().as_bytes(), fs_file_path);
-        // Some(outline_nodes)
     }
 
     /// Sends a request to the editor to get the outline nodes
