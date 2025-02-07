@@ -1474,42 +1474,6 @@ pub struct AgenticVerifyModelConfigResponse {
 
 impl ApiResponse for AgenticVerifyModelConfigResponse {}
 
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AgenticDeleteExchangesUntil {
-    session_id: String,
-    exchange_id: String,
-}
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct AgenticDeleteExchangesUntilResponse {
-    done: bool,
-}
-
-impl ApiResponse for AgenticDeleteExchangesUntilResponse {}
-
-pub async fn delete_exchanges_until(
-    Extension(app): Extension<Application>,
-    Json(AgenticDeleteExchangesUntil {
-        session_id,
-        exchange_id,
-    }): Json<AgenticDeleteExchangesUntil>,
-) -> Result<impl IntoResponse> {
-    println!("webserver::agent_session::delete_exchanges_until::hit");
-    println!(
-        "webserver::agent_session::delete_exchanges_until::session_id({})",
-        &session_id
-    );
-
-    let session_storage_path =
-        check_session_storage_path(app.config.clone(), session_id.to_string()).await;
-
-    let session_service = app.session_service.clone();
-    let _ = session_service
-        .delete_exchanges_until(&exchange_id, session_storage_path)
-        .await;
-    Ok(Json(AgenticDeleteExchangesUntilResponse { done: true }))
-}
-
 pub async fn verify_model_config(
     Extension(_app): Extension<Application>,
     Json(AgenticVerifyModelConfig {
