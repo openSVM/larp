@@ -47,10 +47,10 @@ pub async fn generate_in_line_agent_stream(
                     Ok(Either::Right(Either::Left(next_action))) => match next_action {
                         Ok(n) => break next = n,
                         Err(e) => {
-                            // Check if error is an LLMClientError::UnauthorizedAccess
+                            // Check if error is an LLMClientError::UnauthorizedAccess or RateLimitExceeded
                             if let Some(llm_err) = e.source() {
                                 if let Some(llm_client_err) = llm_err.downcast_ref::<LLMClientError>() {
-                                    if matches!(llm_client_err, LLMClientError::UnauthorizedAccess) {
+                                    if matches!(llm_client_err, LLMClientError::UnauthorizedAccess | LLMClientError::RateLimitExceeded) {
                                         break 'outer Err(e);
                                     }
                                 }
