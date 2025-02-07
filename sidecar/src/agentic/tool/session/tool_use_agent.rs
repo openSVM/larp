@@ -1436,10 +1436,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        // If original LLM (Sonnet) failed, try with gemini-pro-1.5
+        // If gemini-pro-1.5 failed, try with gemini-2.0-flash
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
-            println!("sonnet_failed::failing_back_to_gemini-pro-flash");
-            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiProFlash);
+            println!("sonnet_failed::failing_back_to_gemini-2.0-flash");
+            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::Gemini2_0Flash);
             if let Some(result) = self
                 .try_with_llm(
                     gemini_pro_properties,
