@@ -1083,13 +1083,13 @@ pub async fn agent_session_chat(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.",
+                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,
-                        )) => "Rate limit exceeded. Please try again later.",
-                        _ => &format!("Internal server error: {}", e),
-                    }.to_string();
+                        )) => "Rate limit exceeded. Please try again later.".to_string(),
+                        _ => format!("Internal server error: {}", e),
+                    };
                     let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
@@ -1799,13 +1799,13 @@ pub async fn agent_session_plan_iterate(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.",
+                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,
-                        )) => "Rate limit exceeded. Please try again later.",
-                        _ => &format!("Internal server error: {}", e),
-                    }.to_string();
+                        )) => "Rate limit exceeded. Please try again later.".to_string(),
+                        _ => format!("Internal server error: {}", e),
+                    };
                     let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
@@ -1957,13 +1957,13 @@ pub async fn agent_session_plan(
                         SymbolError::LLMClientError(LLMClientError::UnauthorizedAccess)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::UnauthorizedAccess,
-                        )) => "Unauthorized access. Please check your API key and try again.",
+                        )) => "Unauthorized access. Please check your API key and try again.".to_string(),
                         SymbolError::LLMClientError(LLMClientError::RateLimitExceeded)
                         | SymbolError::ToolError(ToolError::LLMClientError(
                             LLMClientError::RateLimitExceeded,
-                        )) => "Rate limit exceeded. Please try again later.",
-                        _ => &format!("Internal server error: {}", e),
-                    }.to_string();
+                        )) => "Rate limit exceeded. Please try again later.".to_string(),
+                        _ => format!("Internal server error: {}", e),
+                    };
                     let _ = sender.send(UIEventWithID::error(session_id.clone(), error_msg));
                 }
                 Err(e) => {
