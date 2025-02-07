@@ -3,13 +3,13 @@
 //! The input here is the file_path and the range to edit and the new_output which
 //! we want to generate
 
-use std::sync::Arc;
 use std::error::Error;
+use std::sync::Arc;
 
 use async_trait::async_trait;
+use llm_client::clients::types::LLMClientError;
 use llm_client::{broker::LLMBroker, clients::types::LLMType};
 use tokio::sync::mpsc::UnboundedSender;
-use llm_client::clients::types::LLMClientError;
 
 use crate::{
     agentic::{
@@ -475,7 +475,9 @@ impl Tool for CodeEditingTool {
                     if let Some(llm_err) = e.source() {
                         if let Some(llm_client_err) = llm_err.downcast_ref::<LLMClientError>() {
                             if matches!(llm_client_err, LLMClientError::UnauthorizedAccess) {
-                                return Err(ToolError::LLMClientError(LLMClientError::UnauthorizedAccess));
+                                return Err(ToolError::LLMClientError(
+                                    LLMClientError::UnauthorizedAccess,
+                                ));
                             }
                         }
                     }
