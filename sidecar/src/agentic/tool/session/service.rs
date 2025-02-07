@@ -423,6 +423,7 @@ impl SessionService {
                     // ToolType::SemanticSearch,
                 ]
                 .into_iter()
+                .chain(tool_box.mcp_tools().iter().cloned())
                 .chain(if is_devtools_context {
                     vec![ToolType::RequestScreenshot]
                 } else {
