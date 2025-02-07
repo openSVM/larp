@@ -35,6 +35,85 @@ use crate::{
 };
 
 use logging::parea::{PareaClient, PareaLogCompletion, PareaLogMessage};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+
+/// A trait representing a tool that can be called by the client
+pub trait MCPTool {
+    /// The name of the tool
+    fn name(&self) -> &str;
+    
+    /// A human-readable description of the tool
+    fn description(&self) -> Option<&str>;
+    
+    /// The input schema for the tool parameters
+    fn input_schema(&self) -> ToolInputSchema;
+
+    /// Convert the tool's input schema to a JSON schema object
+    fn to_json_schema(&self) -> serde_json::Value {
+        serde_json::json!({
+            "type": "object",
+            "properties": self.input_schema().properties.unwrap_or_default(),
+            "required": self.input_schema().required.unwrap_or_default(),
+        })
+    }
+
+    /// Validate input JSON against the tool's schema
+    fn validate_input(&self, input: &serde_json::Map<String, serde_json::Value>) -> bool {
+        let schema = self.to_json_schema();
+        // Check required fields
+        if let Some(required) = schema.get("required").and_then(|r| r.as_array()) {
+            for field in required {
+                if let Some(field_name) = field.as_str() {
+                    if !input.contains_key(field_name) {
+                        return false;
+                    }
+                }
+            }
+        }
+        // Check property types - could be expanded for more thorough validation
+        if let Some(properties) = schema.get("properties").and_then(|p| p.as_object()) {
+            for (key, schema_value) in properties {
+                if let Some(input_value) = input.get(key) {
+                    if let Some(expected_type) = schema_value.get("type").and_then(|t| t.as_str()) {
+                        match expected_type {
+                            "string" => if !input_value.is_string() { return false; },
+                            "number" => if !input_value.is_number() { return false; },
+                            "boolean" => if !input_value.is_boolean() { return false; },
+                            "object" => if !input_value.is_object() { return false; },
+                            "array" => if !input_value.is_array() { return false; },
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+        true
+    }
+}
+
+/// Input schema for tool parameters
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ToolInputSchema {
+    /// Always "object" for MCP tools
+    pub r#type: String,
+    /// Properties defining the expected parameters
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub properties: Option<BTreeMap<String, serde_json::Value>>,
+    /// List of required parameter names
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub required: Option<Vec<String>>,
+}
+
+impl Default for ToolInputSchema {
+    fn default() -> Self {
+        Self {
+            r#type: "object".to_string(),
+            properties: None,
+            required: None,
+        }
+    }
+}
 
 pub type SqlDb = Arc<SqlitePool>;
 
