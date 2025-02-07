@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use color_eyre::owo_colors::OwoColorize;
 use colored::Colorize;
 use llm_client::broker::LLMBroker;
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
