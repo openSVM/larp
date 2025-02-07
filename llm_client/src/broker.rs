@@ -38,6 +38,30 @@ use logging::parea::{PareaClient, PareaLogCompletion, PareaLogMessage};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceTemplate {
+    pub uri_template: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Resource {
+    pub uri: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub mime_type: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ResourceContent {
+    pub uri: String,
+    pub mime_type: Option<String>,
+    pub text: Option<String>,
+    pub blob: Option<String>,
+}
+
 /// A trait representing a tool that can be called by the client
 pub trait MCPTool {
     /// The name of the tool
@@ -94,16 +118,14 @@ pub trait MCPTool {
     /// Convert XML input to a JSON object that can be validated
     fn parse_xml_input(&self, xml_input: &str) -> Result<serde_json::Map<String, serde_json::Value>, Box<dyn std::error::Error>> {
         let root = xmltree::Element::parse(xml_input.as_bytes())?;
-        
-        // Convert XML to JSON object
         let mut map = serde_json::Map::new();
         
-        // Process each child element as a parameter
         for child in root.children {
             if let xmltree::XMLNode::Element(child_elem) = child {
-                // Get text content if available
-                if let Some(text) = child_elem.get_text() {
-                    map.insert(child_elem.name, serde_json::Value::String(text.to_string()));
+                let name = child_elem.name.clone();
+                let text = child_elem.get_text().map(|t| t.to_string());
+                if let Some(text) = text {
+                    map.insert(name, serde_json::Value::String(text));
                 }
             }
         }
@@ -115,6 +137,31 @@ pub trait MCPTool {
     fn validate_xml_input(&self, xml_input: &str) -> Result<bool, Box<dyn std::error::Error>> {
         let json_input = self.parse_xml_input(xml_input)?;
         Ok(self.validate_input(&json_input))
+    }
+
+    /// List available resources
+    fn list_resources(&self) -> Vec<Resource> {
+        Vec::new()
+    }
+
+    /// List available resource templates
+    fn list_resource_templates(&self) -> Vec<ResourceTemplate> {
+        Vec::new()
+    }
+
+    /// Read a resource's contents
+    fn read_resource(&self, _uri: &str) -> Result<Vec<ResourceContent>, Box<dyn std::error::Error>> {
+        Ok(Vec::new())
+    }
+
+    /// Subscribe to resource updates
+    fn subscribe_resource(&self, _uri: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
+    }
+
+    /// Unsubscribe from resource updates
+    fn unsubscribe_resource(&self, _uri: &str) -> Result<(), Box<dyn std::error::Error>> {
+        Ok(())
     }
 }
 

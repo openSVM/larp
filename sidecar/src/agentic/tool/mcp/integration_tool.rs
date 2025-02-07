@@ -1,8 +1,13 @@
 use async_trait::async_trait;
+use llm_client::broker::{MCPTool, ToolInputSchema};
 use mcp_client_rs::{client::Client, MessageContent, ResourceContents};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::sync::Arc;
+use std::{
+    collections::BTreeMap,
+    error::Error as StdError,
+    sync::Arc,
+};
 use xmltree::Element;
 
 use crate::agentic::tool::{
@@ -89,11 +94,20 @@ impl MCPTool for McpTool {
     }
     
     fn input_schema(&self) -> ToolInputSchema {
+        let properties = self.schema
+            .as_object()
+            .map(|obj| {
+                let mut btree = BTreeMap::new();
+                for (k, v) in obj {
+                    btree.insert(k.clone(), v.clone());
+                }
+                btree
+            })
+            .unwrap_or_default();
+
         ToolInputSchema {
             r#type: "object".to_string(),
-            properties: Some(self.schema.as_object()
-                .map(|obj| obj.clone())
-                .unwrap_or_default()),
+            properties: Some(properties),
             required: self.schema.get("required")
                 .and_then(|v| v.as_array())
                 .map(|arr| arr.iter()
@@ -102,17 +116,16 @@ impl MCPTool for McpTool {
         }
     }
 
-    pub fn parse_xml_input(&self, xml_input: &str) -> Result<serde_json::Map<String, Value>, ToolError> {
-        let root = Element::parse(xml_input.as_bytes()).map_err(|e| {
-            ToolError::InvalidInput(format!("Failed to parse XML input: {}", e))
-        })?;
+    fn parse_xml_input(&self, xml_input: &str) -> Result<serde_json::Map<String, Value>, Box<dyn StdError>> {
+        let root = Element::parse(xml_input.as_bytes())
+            .map_err(|e| Box::new(ToolError::InvalidInput(format!("Failed to parse XML input: {}", e))) as Box<dyn StdError>)?;
         
         let mut map = serde_json::Map::new();
         
         for child in root.children {
             if let xmltree::XMLNode::Element(child_elem) = child {
                 if let Some(text) = child_elem.get_text() {
-                    map.insert(child_elem.name, Value::String(text.to_string()));
+                    map.insert(child_elem.name.clone(), Value::String(text.to_string()));
                 }
             }
         }
@@ -120,7 +133,7 @@ impl MCPTool for McpTool {
         Ok(map)
     }
 
-    pub fn validate_xml_input(&self, xml_input: &str) -> Result<bool, ToolError> {
+    fn validate_xml_input(&self, xml_input: &str) -> Result<bool, Box<dyn StdError>> {
         let json_input = self.parse_xml_input(xml_input)?;
         
         // Check required fields
