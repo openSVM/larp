@@ -1039,7 +1039,6 @@ impl SessionService {
         Ok(())
     }
 
-
     /// Provied feedback to the exchange
     ///
     /// We can react to this later on and send out either another exchange or something else
