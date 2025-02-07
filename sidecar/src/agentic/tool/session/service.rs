@@ -1024,6 +1024,21 @@ impl SessionService {
         Ok(())
     }
 
+    pub async fn delete_exchanges_until(
+        &self,
+        exchange_id: &str,
+        storage_path: String,
+    ) -> Result<(), SymbolError> {
+        let session_maybe = self.load_from_storage(storage_path.to_owned()).await;
+        if session_maybe.is_err() {
+            return Ok(());
+        }
+        let mut session = session_maybe.expect("is_err to hold");
+        session = session.undo_including_exchange_id(exchange_id).await?;
+        self.save_to_storage(&session, None).await?;
+        Ok(())
+    }
+
     /// Provied feedback to the exchange
     ///
     /// We can react to this later on and send out either another exchange or something else
