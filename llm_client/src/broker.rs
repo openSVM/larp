@@ -90,6 +90,32 @@ pub trait MCPTool {
         }
         true
     }
+
+    /// Convert XML input to a JSON object that can be validated
+    fn parse_xml_input(&self, xml_input: &str) -> Result<serde_json::Map<String, serde_json::Value>, Box<dyn std::error::Error>> {
+        let root = xmltree::Element::parse(xml_input.as_bytes())?;
+        
+        // Convert XML to JSON object
+        let mut map = serde_json::Map::new();
+        
+        // Process each child element as a parameter
+        for child in root.children {
+            if let xmltree::XMLNode::Element(child_elem) = child {
+                // Get text content if available
+                if let Some(text) = child_elem.get_text() {
+                    map.insert(child_elem.name, serde_json::Value::String(text.to_string()));
+                }
+            }
+        }
+        
+        Ok(map)
+    }
+
+    /// Parse and validate XML input against the tool's schema
+    fn validate_xml_input(&self, xml_input: &str) -> Result<bool, Box<dyn std::error::Error>> {
+        let json_input = self.parse_xml_input(xml_input)?;
+        Ok(self.validate_input(&json_input))
+    }
 }
 
 /// Input schema for tool parameters
