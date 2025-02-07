@@ -79,19 +79,15 @@ impl Application {
         let llm_tokenizer = Arc::new(LLMTokenizer::new()?);
         let chat_broker = Arc::new(LLMChatModelBroker::init());
         let reranker = Arc::new(ReRankBroker::new());
-        let fill_in_middle_broker = Arc::new(FillInMiddleBroker::new());
         let answer_models = Arc::new(LLMAnswerModelBroker::new());
         let editor_parsing = Arc::new(EditorParsing::default());
-        let fill_in_middle_state = Arc::new(FillInMiddleState::new());
-        let symbol_tracker = Arc::new(SymbolTrackerInline::new(editor_parsing.clone()));
 
         let tool_broker = Arc::new(
             ToolBroker::new(
                 llm_broker.clone(),
                 Arc::new(CodeEditBroker::new()),
-                symbol_tracker.clone(),
+                editor_parsing.clone(),
                 language_parsing.clone(),
-                // do not apply the edits directly
                 ToolBrokerConfiguration::new(None, config.apply_directly),
                 LLMProperties::new(
                     LLMType::Gpt4O,
@@ -103,12 +99,10 @@ impl Application {
         );
         let tool_box = Arc::new(ToolBox::new(
             tool_broker.clone(),
-            symbol_tracker.clone(),
             editor_parsing.clone(),
         ));
         let symbol_manager = Arc::new(SymbolManager::new(
             tool_broker,
-            symbol_tracker.clone(),
             editor_parsing.clone(),
             LLMProperties::new(
                 LLMType::ClaudeSonnet,
@@ -123,21 +117,17 @@ impl Application {
 
         let anchored_request_tracker = Arc::new(AnchoredEditingTracker::new());
         Ok(Self {
-            config: config.clone(),
-            repo_pool: repo_pool.clone(),
+            config,
+            repo_pool,
             language_parsing,
             posthog_client: Arc::new(posthog_client),
             user_id: config.user_id.clone(),
             llm_broker,
-            inline_prompt_edit: Arc::new(InLineEditPromptBroker::new()),
             llm_tokenizer,
-            fill_in_middle_broker,
             chat_broker,
             reranker,
             answer_models,
             editor_parsing,
-            fill_in_middle_state,
-            symbol_tracker,
             probe_request_tracker: Arc::new(ProbeRequestTracker::new()),
             symbol_manager,
             tool_box,

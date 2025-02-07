@@ -36,13 +36,13 @@ pub struct FindCodeSectionsToEdit {
 
 impl FindCodeSectionsToEdit {
     pub fn new(
-        symbol_tracking: Arc<SymbolTrackerInline>,
+        editor_parsing: Arc<EditorParsing>,
         ts_language_config: Arc<TSLanguageParsing>,
         code_broker: Arc<CodeEditBroker>,
         llm_client: Arc<LLMBroker>,
     ) -> Self {
         Self {
-            _symbol_tracking: symbol_tracking,
+            _editor_parsing: editor_parsing,
             ts_language_config,
             code_broker,
             llm_client,

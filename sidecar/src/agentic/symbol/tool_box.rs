@@ -147,12 +147,10 @@ pub struct ToolBox {
 impl ToolBox {
     pub fn new(
         tools: Arc<ToolBroker>,
-        symbol_broker: Arc<SymbolTrackerInline>,
         editor_parsing: Arc<EditorParsing>,
     ) -> Self {
         Self {
             tools,
-            symbol_broker,
             editor_parsing,
         }
     }
@@ -6502,9 +6500,9 @@ FILEPATH: {fs_file_path}
         fs_file_path: &str,
         range: &Range,
     ) -> Option<Vec<OutlineNode>> {
-        self.symbol_broker
-            .get_symbols_in_range(fs_file_path, range)
+        self.get_outline_nodes_from_editor(fs_file_path, message_properties)
             .await
+            .map(|nodes| nodes.into_iter().filter(|node| node.range().intersects_with_another_range(range)).collect())
     }
 
     pub async fn force_add_document(

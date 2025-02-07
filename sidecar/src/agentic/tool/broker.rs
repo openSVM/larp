@@ -103,7 +103,6 @@ impl ToolBroker {
     pub async fn new(
         llm_client: Arc<LLMBroker>,
         code_edit_broker: Arc<CodeEditBroker>,
-        symbol_tracking: Arc<SymbolTrackerInline>,
         language_broker: Arc<TSLanguageParsing>,
         tool_broker_config: ToolBrokerConfiguration,
         // Use this if the llm we were talking to times out or does not produce
@@ -128,7 +127,7 @@ impl ToolBroker {
         tools.insert(
             ToolType::FindCodeSnippets,
             Box::new(FindCodeSectionsToEdit::new(
-                symbol_tracking,
+                editor_parsing,
                 language_broker,
                 code_edit_broker.clone(),
                 llm_client.clone(),
