@@ -169,6 +169,7 @@ impl CodeStoryClient {
             LLMType::ClaudeHaiku => Ok("claude-3-5-haiku-20241022".to_owned()), // updated to latest haiku
             LLMType::GeminiPro => Ok("google/gemini-flash-1.5".to_owned()),
             LLMType::GeminiProFlash => Ok("gemini-1.5-flash".to_owned()),
+            LLMType::Gemini2_0Flash => Ok("google/gemini-2.0-flash-001".to_owned()),
             LLMType::O1Preview => Ok("o1-preview".to_owned()),
             LLMType::O1 => Ok("o1".to_owned()),          // o1
             LLMType::O1Mini => Ok("o1-mini".to_owned()), // o1 mini
@@ -201,7 +202,7 @@ impl CodeStoryClient {
             LLMType::ClaudeSonnet | LLMType::ClaudeHaiku => {
                 Ok(self.openrouter_api_endpoint(&self.api_base))
             }
-            LLMType::GeminiPro | LLMType::GeminiProFlash => {
+            LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash => {
                 Ok(self.openrouter_api_endpoint(&self.api_base))
             }
             LLMType::DeepSeekCoderV3 => Ok(self.openrouter_api_endpoint(&self.api_base)),
