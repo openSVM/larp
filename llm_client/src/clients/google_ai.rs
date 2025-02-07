@@ -38,9 +38,9 @@ impl GoogleAIStdioClient {
 
     fn model(&self, model: &LLMType) -> Option<String> {
         match model {
-            LLMType::GeminiPro => Some("gemini-2.0-flash-001".to_owned()),
-            LLMType::GeminiProFlash => Some("gemini-2.0-flash-001".to_owned()),
-            LLMType::Gemini2_0Flash => Some("gemini-2.0-flash-001".to_owned()),
+            LLMType::GeminiPro => Some("gemini-1.5-pro".to_owned()),
+            LLMType::GeminiProFlash => Some("gemini-1.5-flash".to_owned()),
+            LLMType::Gemini2_0Flash => Some("gemini-2.0-flash".to_owned()),
             LLMType::Gemini2_0FlashExperimental => Some("gemini-2.0-flash-exp".to_owned()),
             LLMType::Gemini2_0FlashThinkingExperimental => {
                 Some("gemini-2.0-flash-thinking-exp-1219".to_owned())
