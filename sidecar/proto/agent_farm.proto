@@ -14,6 +14,17 @@ service AgentFarmService {
   // Tree-Sitter Operations
   rpc ExtractDocumentation (DocumentationRequest) returns (DocumentationResponse);
   rpc ValidateTreeSitter (TreeSitterValidationRequest) returns (TreeSitterValidationResponse);
+
+  // New agentic operations
+  rpc ProbeRequestStop (ProbeStopRequest) returns (ProbeStopResponse);
+  rpc CodeSculpting (CodeSculptingRequest) returns (stream AgentResponse);
+  rpc CodeSculptingHeal (CodeSculptingHealRequest) returns (CodeSculptingHealResponse);
+  rpc PushDiagnostics (AgenticDiagnosticsRequest) returns (AgenticDiagnosticsResponse);
+  rpc SweBench (SweBenchRequest) returns (SweBenchResponse);
+  rpc VerifyModelConfig (VerifyModelConfigRequest) returns (VerifyModelConfigResponse);
+  rpc CancelRunningExchange (CancelExchangeRequest) returns (stream AgentResponse);
+  rpc UserFeedbackOnExchange (FeedbackExchangeRequest) returns (stream AgentResponse);
+  rpc HandleSessionUndo (SessionUndoRequest) returns (SessionUndoResponse);
 }
 
 // Common Types
@@ -152,4 +163,98 @@ message DefinitionSnippet {
   string context = 1;
   uint32 start_line = 2;
   uint32 end_line = 3;
+}
+
+// New agentic message types
+message ProbeStopRequest {
+  string request_id = 1;
+}
+
+message ProbeStopResponse {
+  bool done = 1;
+}
+
+message CodeSculptingRequest {
+  string request_id = 1;
+  string instruction = 2;
+}
+
+message CodeSculptingHealRequest {
+  string request_id = 1;
+}
+
+message CodeSculptingHealResponse {
+  bool done = 1;
+}
+
+message AgenticDiagnosticsRequest {
+  string fs_file_path = 1;
+  repeated DiagnosticData diagnostics = 2;
+  optional string source = 3;
+}
+
+message DiagnosticData {
+  string message = 1;
+  Range range = 2;
+  string range_content = 3;
+}
+
+message AgenticDiagnosticsResponse {
+  bool done = 1;
+}
+
+message SweBenchRequest {
+  string git_dname = 1;
+  string problem_statement = 2;
+  string editor_url = 3;
+  string test_endpoint = 4;
+  optional string repo_map_file = 5;
+  string gcloud_access_token = 6;
+  string swe_bench_id = 7;
+}
+
+message SweBenchResponse {
+  bool done = 1;
+}
+
+message VerifyModelConfigRequest {
+  LLMClientConfig model_configuration = 1;
+}
+
+message VerifyModelConfigResponse {
+  bool valid = 1;
+  optional string error = 2;
+}
+
+message CancelExchangeRequest {
+  string exchange_id = 1;
+  string session_id = 2;
+  string editor_url = 3;
+  string access_token = 4;
+  LLMClientConfig model_configuration = 5;
+}
+
+message FeedbackExchangeRequest {
+  string exchange_id = 1;
+  string session_id = 2;
+  optional uint32 step_index = 3;
+  string editor_url = 4;
+  bool accepted = 5;
+  string access_token = 6;
+  LLMClientConfig model_configuration = 7;
+}
+
+message SessionUndoRequest {
+  string session_id = 1;
+  string exchange_id = 2;
+}
+
+message SessionUndoResponse {
+  bool done = 1;
+}
+
+message LLMClientConfig {
+  string model_type = 1;
+  string provider = 2;
+  map<string, string> config = 3;
 }

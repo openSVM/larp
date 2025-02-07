@@ -1,10 +1,24 @@
 use tonic::{transport::Server, Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
+use tokio::sync::mpsc;
+use tokio::time::Duration;
 use crate::application::application::Application;
+use crate::agentic::symbol::events::environment_event::{EnvironmentEvent, EnvironmentEventType};
+use crate::agentic::symbol::events::input::SymbolEventRequestId;
+use crate::agentic::symbol::events::lsp::LSPDiagnosticError;
+use crate::agentic::symbol::events::message_event::SymbolEventMessageProperties;
+use crate::webserver::plan::check_session_storage_path;
+use llm_client::clients::types::LLMType;
+use llm_client::provider::{
+    CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
+};
 
 pub mod proto {
     tonic::include_proto!("agent_farm");
 }
+
+use proto::agent_farm_service_server::{AgentFarmService, AgentFarmServiceServer};
+use proto::*;
 
 fn convert_user_context(ctx: UserContext) -> crate::user_context::types::UserContext {
     crate::user_context::types::UserContext {
@@ -25,11 +39,14 @@ pub struct AgentFarmGrpcServer {
     app: Application,
 }
 
+type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
+
 #[tonic::async_trait]
 impl AgentFarmService for AgentFarmGrpcServer {
     type AgentSessionChatStream = ReceiverStream<Result<AgentResponse, Status>>;
     type AgentSessionEditStream = ReceiverStream<Result<AgentEditResponse, Status>>;
     type AgentToolUseStream = ReceiverStream<Result<ToolUseResponse, Status>>;
+    type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
 
     async fn agent_session_chat(
         &self,
@@ -406,6 +423,231 @@ impl AgentFarmService for AgentFarmGrpcServer {
                 error: Some(e.to_string()),
             })),
         }
+    }
+
+    async fn probe_request_stop(
+        &self,
+        request: Request<ProbeStopRequest>,
+    ) -> Result<Response<ProbeStopResponse>, Status> {
+        let req = request.into_inner();
+        let probe_request_tracker = self.app.probe_request_tracker.clone();
+        let _ = probe_request_tracker.cancel_request(&req.request_id).await;
+        let anchored_editing_tracker = self.app.anchored_request_tracker.clone();
+        let _ = anchored_editing_tracker.cancel_request(&req.request_id).await;
+        Ok(Response::new(ProbeStopResponse { done: true }))
+    }
+
+    async fn code_sculpting(
+        &self,
+        request: Request<CodeSculptingRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let app = self.app.clone();
+
+        let anchor_properties = app.anchored_request_tracker.get_properties(&req.request_id).await;
+        if anchor_properties.is_none() {
+            let _ = tx.send(Ok(AgentResponse {
+                response: Some(agent_response::Response::Error(Error {
+                    message: "No properties found for request".to_string(),
+                    kind: ErrorKind::NotFound as i32,
+                })),
+            })).await;
+            return Ok(Response::new(ReceiverStream::new(rx)));
+        }
+
+        let anchor_properties = anchor_properties.unwrap();
+        tokio::spawn(async move {
+            let join_handle = tokio::spawn(async move {
+                let anchored_symbols = anchor_properties.anchored_symbols;
+                let user_provided_context = anchor_properties.user_context_string;
+                let environment_sender = anchor_properties.environment_event_sender;
+                let message_properties = anchor_properties.message_properties.clone();
+                let _ = environment_sender.send(EnvironmentEvent::event(
+                    EnvironmentEventType::human_anchor_request(
+                        req.instruction,
+                        anchored_symbols,
+                        user_provided_context,
+                    ),
+                    message_properties,
+                ));
+            });
+            let anchor_tracker = app.anchored_request_tracker.clone();
+            let _ = anchor_tracker
+                .override_running_request(&req.request_id, join_handle)
+                .await;
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn code_sculpting_heal(
+        &self,
+        request: Request<CodeSculptingHealRequest>,
+    ) -> Result<Response<CodeSculptingHealResponse>, Status> {
+        let req = request.into_inner();
+        let anchor_properties = self.app.anchored_request_tracker.get_properties(&req.request_id).await;
+        
+        if anchor_properties.is_none() {
+            return Ok(Response::new(CodeSculptingHealResponse { done: false }));
+        }
+
+        let anchor_properties = anchor_properties.unwrap();
+        let anchored_symbols = anchor_properties.anchored_symbols();
+        let relevant_references = anchor_properties.references();
+        let file_paths = anchored_symbols
+            .iter()
+            .filter_map(|r| r.fs_file_path())
+            .collect::<Vec<_>>();
+
+        Ok(Response::new(CodeSculptingHealResponse { done: true }))
+    }
+
+    async fn push_diagnostics(
+        &self,
+        request: Request<AgenticDiagnosticsRequest>,
+    ) -> Result<Response<AgenticDiagnosticsResponse>, Status> {
+        let req = request.into_inner();
+        let diagnostics = req.diagnostics.into_iter().map(|d| {
+            LSPDiagnosticError::new(
+                d.range,
+                d.range_content,
+                req.fs_file_path.clone(),
+                d.message,
+                None,
+                None,
+            )
+        }).collect::<Vec<_>>();
+
+        Ok(Response::new(AgenticDiagnosticsResponse { done: true }))
+    }
+
+    async fn swe_bench(
+        &self,
+        request: Request<SweBenchRequest>,
+    ) -> Result<Response<SweBenchResponse>, Status> {
+        // Currently returns a simple response as per the HTTP implementation
+        Ok(Response::new(SweBenchResponse { done: true }))
+    }
+
+    async fn verify_model_config(
+        &self,
+        request: Request<VerifyModelConfigRequest>,
+    ) -> Result<Response<VerifyModelConfigResponse>, Status> {
+        // Short-circuit the reply as per HTTP implementation
+        Ok(Response::new(VerifyModelConfigResponse {
+            valid: true,
+            error: None,
+        }))
+    }
+
+    async fn cancel_running_exchange(
+        &self,
+        request: Request<CancelExchangeRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+        let session_service = self.app.session_service.clone();
+
+        if let Some(cancellation_token) = session_service
+            .get_cancellation_token(&req.session_id, &req.exchange_id)
+            .await
+        {
+            cancellation_token.cancel();
+
+            let llm_provider = LLMProperties::new(
+                LLMType::ClaudeSonnet,
+                LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+                LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+            );
+
+            let cancellation_token = tokio_util::sync::CancellationToken::new();
+            let message_properties = SymbolEventMessageProperties::new(
+                SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+                tx.clone(),
+                req.editor_url,
+                cancellation_token.clone(),
+                llm_provider,
+            );
+
+            let session_storage_path = check_session_storage_path(self.app.config.clone(), req.session_id.clone()).await;
+
+            tokio::time::sleep(Duration::from_millis(600)).await;
+
+            session_service
+                .set_exchange_as_cancelled(
+                    session_storage_path,
+                    req.exchange_id.clone(),
+                    message_properties,
+                )
+                .await
+                .unwrap_or_default();
+
+            let _ = tx.send(Ok(AgentResponse {
+                response: Some(agent_response::Response::Action(format!(
+                    "Exchange {} cancelled",
+                    req.exchange_id
+                ))),
+            })).await;
+        }
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn user_feedback_on_exchange(
+        &self,
+        request: Request<FeedbackExchangeRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status> {
+        let req = request.into_inner();
+        let (tx, rx) = mpsc::channel(32);
+
+        let llm_provider = LLMProperties::new(
+            LLMType::ClaudeSonnet,
+            LLMProvider::CodeStory(CodeStoryLLMTypes::new()),
+            LLMProviderAPIKeys::CodeStory(CodestoryAccessToken::new(req.access_token.clone())),
+        );
+
+        let cancellation_token = tokio_util::sync::CancellationToken::new();
+        let message_properties = SymbolEventMessageProperties::new(
+            SymbolEventRequestId::new(req.exchange_id.clone(), req.session_id.clone()),
+            tx.clone(),
+            req.editor_url,
+            cancellation_token.clone(),
+            llm_provider,
+        );
+
+        let session_storage_path = check_session_storage_path(self.app.config.clone(), req.session_id.clone()).await;
+        let session_service = self.app.session_service.clone();
+
+        tokio::spawn(async move {
+            let _ = session_service
+                .feedback_for_exchange(
+                    &req.exchange_id,
+                    req.step_index.map(|i| i as usize),
+                    req.accepted,
+                    session_storage_path,
+                    self.app.tool_box.clone(),
+                    message_properties,
+                )
+                .await;
+        });
+
+        Ok(Response::new(ReceiverStream::new(rx)))
+    }
+
+    async fn handle_session_undo(
+        &self,
+        request: Request<SessionUndoRequest>,
+    ) -> Result<Response<SessionUndoResponse>, Status> {
+        let req = request.into_inner();
+        let session_storage_path = check_session_storage_path(self.app.config.clone(), req.session_id.clone()).await;
+
+        let session_service = self.app.session_service.clone();
+        let _ = session_service
+            .handle_session_undo(&req.exchange_id, session_storage_path)
+            .await;
+
+        Ok(Response::new(SessionUndoResponse { done: true }))
     }
 }
 
