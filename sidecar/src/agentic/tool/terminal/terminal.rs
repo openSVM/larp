@@ -106,6 +106,18 @@ pub struct TerminalOutput {
 }
 
 impl TerminalOutput {
+    pub fn new(output: String) -> Self {
+        // Limit output to 3000 lines
+        let limited_output = output
+            .lines()
+            .take(3000)
+            .collect::<Vec<_>>()
+            .join("\n");
+        Self {
+            output: limited_output,
+        }
+    }
+
     pub fn output(&self) -> &str {
         &self.output
     }
@@ -138,7 +150,8 @@ impl Tool for TerminalTool {
             .await
             .map_err(|_e| ToolError::SerdeConversionFailed)?;
 
-        Ok(ToolOutput::TerminalCommand(terminal_response))
+        // Apply line limiting after JSON deserialization
+        Ok(ToolOutput::TerminalCommand(TerminalOutput::new(terminal_response.output)))
     }
 
     // credit Cline.
