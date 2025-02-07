@@ -1,3 +1,4 @@
+#![cfg(feature = "grpc")]
 #[cfg(test)]
 mod tests {
     use super::*;

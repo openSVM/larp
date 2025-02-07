@@ -12,7 +12,7 @@ struct Language {
     aliases: Option<Vec<String>>,
 }
 
-fn main() {
+fn main() -> std::io::Result<()> {
     // Copy over the model files to where the binary gets generated at
     // copy_model_files();
     // This will run the migrations scripts for the sqlx
@@ -24,39 +24,43 @@ fn main() {
     let sql_schema_files = ["migrations"];
     let mut hasher = blake3::Hasher::new();
     for path in important_files_which_trigger_reindexing {
-        hasher.update(read_to_string(path).unwrap().as_bytes());
+        hasher.update(read_to_string(path)?.as_bytes());
         println!("cargo:rerun-if-changed={path}");
     }
     for path in sql_schema_files
         .iter()
-        .flat_map(|dir| read_dir(dir).unwrap())
+        .flat_map(|dir| {
+            read_dir(dir).unwrap_or_else(|e| {
+                panic!("Failed to read directory {}: {}", dir, e)
+            })
+        })
         .filter_map(Result::ok)
         .filter_map(|entry| {
             let path = entry.path();
-            // if Some(OsStr::new("rs")) == path.extension() {
-            //     Some(path)
-            // } else {
-            //     None
-            // }
             Some(path)
         })
     {
-        hasher.update(read_to_string(&path).unwrap().as_bytes());
+        hasher.update(read_to_string(&path)?.as_bytes());
         println!("cargo:rerun-if-changed={}", path.to_string_lossy());
     }
     println!("cargo:rerun-if-changed=migrations");
     println!("cargo:rerun-if-changed=src");
-    let version_file = Path::new(&env::var("OUT_DIR").unwrap()).join("version_hash.rs");
+    let version_file = Path::new(&env::var("OUT_DIR").map_err(|e| std::io::Error::new(
+        std::io::ErrorKind::Other,
+        format!("Failed to get OUT_DIR: {}", e)
+    ))?).join("version_hash.rs");
     write!(
-        File::create(version_file).unwrap(),
+        File::create(version_file)?,
         r#"pub const BINARY_VERSION_HASH: &str = "{}";"#,
         hasher.finalize()
-    )
-    .unwrap();
+    )?;
 
     // Now we load the languages.yml and then create the extension and the case mapping
-    let langs_file = File::open("./languages.yml").unwrap();
-    let langs: HashMap<String, Language> = serde_yaml::from_reader(langs_file).unwrap();
+    let langs_file = File::open("./languages.yml")?;
+    let langs: HashMap<String, Language> = serde_yaml::from_reader(langs_file).map_err(|e| std::io::Error::new(
+        std::io::ErrorKind::Other,
+        format!("Failed to parse languages.yml: {}", e)
+    ))?;
     let languages_path = Path::new(&env::var("OUT_DIR").unwrap()).join("languages.rs");
     let mut ext_map = phf_codegen::Map::new();
     let mut case_map = phf_codegen::Map::new();
@@ -82,8 +86,17 @@ fn main() {
     )?;
 
     println!("cargo:rerun-if-changed=./languages.yml");
-    println!("cargo:rerun-if-changed=proto/agent_farm.proto");
-    tonic_build::compile_protos("proto/agent_farm.proto")?;
+    
+    #[cfg(feature = "grpc")]
+    {
+        println!("cargo:rerun-if-changed=proto/agent_farm.proto");
+        tonic_build::compile_protos("proto/agent_farm.proto").map_err(|e| {
+            std::io::Error::new(
+                std::io::ErrorKind::Other,
+                format!("Failed to compile protos: {}", e),
+            )
+        })?;
+    }
     Ok(())
 }
 

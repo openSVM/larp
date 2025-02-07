@@ -1,3 +1,5 @@
+#![cfg(feature = "grpc")]
+
 use tonic::{transport::Server, Request, Response, Status};
 use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::mpsc;

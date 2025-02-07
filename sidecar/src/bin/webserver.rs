@@ -6,6 +6,8 @@ use axum::extract::DefaultBodyLimit;
 use axum::routing::get;
 use axum::Extension;
 use clap::Parser;
+#[cfg(feature = "grpc")]
+use sidecar::grpc::AgentFarmGrpcServer;
 use sidecar::application::{application::Application, config::configuration::Configuration};
 use std::net::SocketAddr;
 use tokio::signal;
@@ -47,35 +49,51 @@ async fn main() -> Result<()> {
     println!("initialized application");
     debug!("initialized application");
 
-    // Create gRPC server address
-    let grpc_port = configuration.port + 1; // Use next port for gRPC
-    let grpc_addr = SocketAddr::new(configuration.host.parse()?, grpc_port);
-    
-    // Clone application for gRPC server
-    let grpc_app = application.clone();
+    #[cfg(feature = "grpc")]
+    {
+        let grpc_port = configuration.port + 1;
+        let grpc_addr = SocketAddr::new(configuration.host.parse()?, grpc_port);
+        let grpc_app = application.clone();
+        let grpc_server = AgentFarmGrpcServer::new(grpc_app).serve(grpc_addr);
+        let http_server = run(application);
 
-    // Main logic
-    tokio::select! {
-        // Start both HTTP and gRPC servers
-        result = tokio::join!(
-            run(application),
-            AgentFarmGrpcServer::new(grpc_app).serve(grpc_addr)
-        ) => {
-            match result {
-                (Ok(_), Ok(_)) => Ok(()),
-                (Err(e), _) => {
-                    error!(?e, "HTTP server failed");
-                    Err(e)
-                },
-                (_, Err(e)) => {
-                    error!(?e, "gRPC server failed");
-                    Err(e.into())
+        tokio::select! {
+            result = tokio::join!(http_server, grpc_server) => {
+                match result {
+                    (Ok(_), Ok(_)) => Ok(()),
+                    (Err(e), _) => {
+                        error!(?e, "HTTP server failed");
+                        Err(e)
+                    },
+                    (_, Err(e)) => {
+                        error!(?e, "gRPC server failed");
+                        Err(e.into())
+                    }
                 }
             }
+            _ = rx => {
+                debug!("Signal received, cleaning up...");
+                Ok(())
+            }
         }
-        _ = rx => {
-            debug!("Signal received, cleaning up...");
-            Ok(())
+    }
+
+    #[cfg(not(feature = "grpc"))]
+    {
+        tokio::select! {
+            result = run(application) => {
+                match result {
+                    Ok(_) => Ok(()),
+                    Err(e) => {
+                        error!(?e, "HTTP server failed");
+                        Err(e)
+                    }
+                }
+            }
+            _ = rx => {
+                debug!("Signal received, cleaning up...");
+                Ok(())
+            }
         }
     }
 }

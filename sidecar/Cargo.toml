@@ -86,8 +86,8 @@ diffy = "0.4.0"
 colored = "2.1.0"
 reqwest-middleware = "0.4.0"
 mcp_client_rs = "0.1.7"
-tonic = "0.10"
-prost = "0.12"
+tonic = { version = "0.10", optional = true }
+prost = { version = "0.12", optional = true }
 
 [target.'cfg(unix)'.dependencies]
 openssl = { version = "0.10", features = ["vendored"] }
