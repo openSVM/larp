@@ -298,6 +298,10 @@ impl CodeEdit {
     pub fn user_provided_context(&self) -> Option<String> {
         self.user_provided_context.clone()
     }
+
+    pub fn aide_rules(&self) -> Option<&String> {
+        self.aide_rules.as_ref()
+    }
 }
 
 #[async_trait]
