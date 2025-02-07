@@ -998,6 +998,9 @@ pub enum LLMClientError {
 
     #[error("Unauthorized access to API")]
     UnauthorizedAccess,
+
+    #[error("Rate limit exceeded")]
+    RateLimitExceeded,
 }
 
 #[async_trait]

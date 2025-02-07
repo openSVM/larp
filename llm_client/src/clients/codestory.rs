@@ -254,10 +254,31 @@ impl CodeStoryClient {
             .send()
             .await?;
 
-        // Check for 401 Unauthorized status
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            error!("Unauthorized access to Codestory API");
-            return Err(LLMClientError::UnauthorizedAccess);
+        match response.status() {
+            reqwest::StatusCode::UNAUTHORIZED => {
+                error!("Unauthorized access to Codestory API");
+                return Err(LLMClientError::UnauthorizedAccess);
+            }
+            reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                error!("Rate limit exceeded for Codestory API");
+                return Err(LLMClientError::RateLimitExceeded);
+            }
+            _ => {}
+        }
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            error!("Rate limit exceeded for Codestory API");
+            return Err(LLMClientError::RateLimitExceeded);
+        }
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            error!("Rate limit exceeded for Codestory API");
+            return Err(LLMClientError::RateLimitExceeded);
+        }
+
+        if response.status() == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            error!("Rate limit exceeded for Codestory API");
+            return Err(LLMClientError::RateLimitExceeded);
         }
 
         let mut response_stream = response.bytes_stream().eventsource();
@@ -380,10 +401,16 @@ impl LLMClient for CodeStoryClient {
             .send()
             .await?;
 
-        // Check for 401 Unauthorized status
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            error!("Unauthorized access to Codestory API");
-            return Err(LLMClientError::UnauthorizedAccess);
+        match response.status() {
+            reqwest::StatusCode::UNAUTHORIZED => {
+                error!("Unauthorized access to Codestory API");
+                return Err(LLMClientError::UnauthorizedAccess);
+            }
+            reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                error!("Rate limit exceeded for Codestory API");
+                return Err(LLMClientError::RateLimitExceeded);
+            }
+            _ => {}
         }
 
         let mut response_stream = response.bytes_stream().eventsource();
@@ -440,10 +467,16 @@ impl LLMClient for CodeStoryClient {
             .send()
             .await?;
 
-        // Check for 401 Unauthorized status
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            error!("Unauthorized access to Codestory API");
-            return Err(LLMClientError::UnauthorizedAccess);
+        match response.status() {
+            reqwest::StatusCode::UNAUTHORIZED => {
+                error!("Unauthorized access to Codestory API");
+                return Err(LLMClientError::UnauthorizedAccess);
+            }
+            reqwest::StatusCode::TOO_MANY_REQUESTS => {
+                error!("Rate limit exceeded for Codestory API");
+                return Err(LLMClientError::RateLimitExceeded);
+            }
+            _ => {}
         }
 
         let mut response_stream = response.bytes_stream().eventsource();
