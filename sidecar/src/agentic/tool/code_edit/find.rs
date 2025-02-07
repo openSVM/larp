@@ -61,6 +61,7 @@ pub struct FindCodeSelectionInput {
     api_key: LLMProviderAPIKeys,
     provider: LLMProvider,
     root_request_id: String,
+    aide_rules: Option<String>,
 }
 
 impl FindCodeSelectionInput {
@@ -105,6 +106,7 @@ impl Tool for FindCodeSectionsToEdit {
                     find_code_context.model().clone(),
                     find_code_context.file_path.to_owned(),
                     find_code_context.user_query.to_owned(),
+                    find_code_context.aide_rules.clone(),
                 ))?;
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let response = self

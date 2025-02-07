@@ -148,6 +148,7 @@ impl CodeEdit {
             user_provided_context,
             session_id,
             exchange_id,
+            aide_rules,
         }
     }
 }
