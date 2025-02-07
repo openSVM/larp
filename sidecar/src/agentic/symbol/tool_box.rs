@@ -119,7 +119,6 @@ use crate::repomap::types::RepoMap;
 use crate::user_context::types::{UserContext, VariableInformation};
 use crate::{
     agentic::tool::{broker::ToolBroker, input::ToolInput, lsp::open_file::OpenFileRequest},
-    inline_completion::symbols_tracker::SymbolTrackerInline,
 };
 
 use super::anchored::AnchoredSymbol;
@@ -6415,7 +6414,7 @@ FILEPATH: {fs_file_path}
         message_properties: SymbolEventMessageProperties,
     ) -> Option<Vec<OutlineNode>> {
         let input = ToolInput::OutlineNodesUsingEditor(OutlineNodesUsingEditorRequest::new(
-            fs_file_path.to_owned(),
+            fs_file_path.to_owned(), 
             message_properties.editor_url(),
         ));
         self.tools
@@ -6500,7 +6499,7 @@ FILEPATH: {fs_file_path}
         fs_file_path: &str,
         range: &Range,
     ) -> Option<Vec<OutlineNode>> {
-        self.get_outline_nodes_from_editor(fs_file_path, message_properties)
+        self.get_outline_nodes_from_editor(fs_file_path)
             .await
             .map(|nodes| nodes.into_iter().filter(|node| node.range().intersects_with_another_range(range)).collect())
     }

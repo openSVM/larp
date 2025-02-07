@@ -1,6 +1,6 @@
 use crate::{
-    agentic::symbol::identifier::LLMProperties, chunking::languages::TSLanguageParsing,
-    inline_completion::symbols_tracker::SymbolTrackerInline,
+    agentic::symbol::identifier::LLMProperties, 
+    chunking::languages::TSLanguageParsing,
 };
 use async_trait::async_trait;
 use llm_client::broker::LLMBroker;
