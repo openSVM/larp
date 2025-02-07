@@ -38,6 +38,7 @@ use crate::{
                 list_files::ListFilesInput, open_file::OpenFileRequest,
                 search_file::SearchFileContentInput,
             },
+            mcp::input::McpToolInput,
             plan::{
                 generator::{Step, StepSenderEvent},
                 service::{PlanService, PlanServiceError},
@@ -3048,8 +3049,39 @@ reason: {}"#,
                     exchange_id.to_owned(),
                 );
             }
-            ToolInputPartial::McpTool(_) => {
-                todo!("MCP tool implementation is not yet complete");
+            ToolInputPartial::McpTool(partial) => {
+                println!("mcp tool {}", partial.full_name);
+                let input = ToolInput::McpTool(McpToolInput { partial });
+                let tool_output = tool_box
+                    .tools()
+                    .invoke(input)
+                    .await
+                    .map_err(|e| SymbolError::ToolError(e))?;
+                let response = tool_output
+                    .get_mcp_response()
+                    .ok_or(SymbolError::WrongToolOutput)?;
+                let data = &response.data;
+                let _ =
+                    message_properties
+                        .ui_sender()
+                        .send(UIEventWithID::tool_output_delta_response(
+                            message_properties.root_request_id().to_owned(),
+                            message_properties.request_id_str().to_owned(),
+                            "".to_owned(),
+                            data.to_owned(),
+                        ));
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut(data.to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
+                }
+
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    data.to_owned(),
+                    UserContext::default(),
+                    exchange_id.to_owned(),
+                );
             }
         }
         Ok(self)

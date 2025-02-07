@@ -1,5 +1,5 @@
 use async_trait::async_trait;
-use mcp_client_rs::client::Client;
+use mcp_client_rs::{client::Client, MessageContent, ResourceContents};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::sync::Arc;
@@ -33,7 +33,7 @@ pub struct ToolListResponse {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolResponse {
-    pub data: Value,
+    pub data: String,
 }
 
 /// example, if the server "notes_server" has a tool
@@ -112,12 +112,23 @@ impl Tool for McpTool {
                 ))
             })?;
 
-        let value = serde_json::to_value(result).map_err(|e| {
-            ToolError::InvocationError(format!("Serialize dynamic tool result failed: {}", e))
-        })?;
+        // for now we only handle responses of type "text"
+        let content = result
+            .content
+            .into_iter()
+            .map(|content| match content {
+                MessageContent::Text { text } => text,
+                MessageContent::Image { uri, alt_text: _ } => format!("image at {}", uri),
+                MessageContent::Resource { resource } => match resource.contents {
+                    ResourceContents::Text { text, .. } => text,
+                    _ => "unsupported MCP blob embedded resource".to_string(),
+                },
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
 
         // Return as typical
-        Ok(ToolOutput::McpTool(McpToolResponse { data: value }))
+        Ok(ToolOutput::McpTool(McpToolResponse { data: content }))
     }
 
     fn tool_description(&self) -> String {
@@ -256,8 +267,8 @@ mod tests {
         match result {
             ToolOutput::McpTool(response) => {
                 assert!(
-                    response.data.is_object(),
-                    "Response should be a JSON object"
+                    response.data.contains("time_difference"),
+                    "Response should contain time_difference field"
                 );
             }
             _ => panic!("Unexpected response type"),

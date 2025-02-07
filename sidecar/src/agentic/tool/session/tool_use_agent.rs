@@ -34,6 +34,7 @@ use crate::{
                 list_files::ListFilesInputPartial, open_file::OpenFileRequestPartial,
                 search_file::SearchFileContentInputPartial,
             },
+            mcp::input::McpToolPartial,
             r#type::ToolType,
             repo_map::generator::RepoMapGeneratorRequestPartial,
             session::chat::SessionChatRole,
@@ -391,7 +392,7 @@ impl ToolUseAgent {
         format!(
             r#"Provide instructions to a junior eningeer who will be working as per your instructions to solve a user instruction.
 Study the user instruction and the current code and the repository.
-You will keep a high level plan and give out tasks to the junior engineer. 
+You will keep a high level plan and give out tasks to the junior engineer.
 After the junior engineer has completed a task, they will report back to you, use that to further inform and improve your plan.
 Keep refining the plan and giving out tasks to the junior engineer until the user instructions are finished.
 
@@ -1620,6 +1621,10 @@ enum ToolBlockStatus {
     ToolUseFind,
     // once we have the start of a tool input, we go over here
     ToolFound,
+    // MCP tools work a bit differently.
+    // They take a blob of JSON as input rather than trying to map pseudo-XML to JSON
+    // for input to the MCP server
+    McpToolFound,
     // these are all the different attributes of the tool input
     FilePathFound,
     InstructionFound,
@@ -1692,6 +1697,7 @@ struct ToolUseGenerator {
     end_line: Option<usize>,
     tool_input_partial: Option<ToolInputPartial>,
     sender: tokio::sync::mpsc::UnboundedSender<ToolBlockEvent>,
+    mcp_json_input: Vec<String>,
 }
 
 impl ToolUseGenerator {
@@ -1719,6 +1725,7 @@ impl ToolUseGenerator {
             end_line: None,
             tool_input_partial: None,
             sender,
+            mcp_json_input: vec![],
         }
     }
 
@@ -1868,6 +1875,19 @@ impl ToolUseGenerator {
                         let _ = self
                             .sender
                             .send(ToolBlockEvent::ToolFound(ToolType::RequestScreenshot));
+                    } else if answer_line_at_index.starts_with("<mcp::") {
+                        self.tool_block_status = ToolBlockStatus::McpToolFound;
+                        let tool_name = answer_line_at_index
+                            .strip_prefix("<")
+                            .unwrap_or_default()
+                            .strip_suffix(">")
+                            .unwrap_or_default();
+                        self.tool_type_possible = Some(ToolType::McpTool(tool_name.to_string()));
+                        let _ = self
+                            .sender
+                            .send(ToolBlockEvent::ToolFound(ToolType::McpTool(
+                                tool_name.to_string(),
+                            )));
                     }
                 }
                 ToolBlockStatus::ToolFound => {
@@ -2651,6 +2671,24 @@ impl ToolUseGenerator {
                         }
                     }
                 }
+                ToolBlockStatus::McpToolFound => {
+                    if answer_line_at_index.starts_with("</mcp::") {
+                        self.tool_block_status = ToolBlockStatus::NoBlock;
+                        let tool_name = answer_line_at_index
+                            .strip_prefix("</")
+                            .unwrap_or_default()
+                            .strip_suffix(">")
+                            .unwrap_or_default();
+                        if let Ok(partial @ McpToolPartial { .. }) =
+                            McpToolPartial::parse(tool_name, &self.mcp_json_input.join("\n"))
+                        {
+                            self.tool_input_partial = Some(ToolInputPartial::McpTool(partial));
+                            self.tool_type_possible = None;
+                        }
+                    } else {
+                        self.mcp_json_input.push(answer_line_at_index.to_string());
+                    }
+                }
             }
         }
     }
@@ -2746,6 +2784,26 @@ I need to first locate and read the Tool trait definition. Based on the context,
 <regex_pattern>trait\s+Tool\s*\{</regex_pattern>
 <file_pattern>*.rs</file_pattern>
 </grep_string>"#;
+        let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
+        let mut tool_use_generator = ToolUseGenerator::new(sender);
+        tool_use_generator.add_delta(&input);
+        tool_use_generator.flush_answer();
+
+        let tool_use_possible = tool_use_generator.tool_input_partial;
+        assert!(tool_use_possible.is_some());
+    }
+
+    #[test]
+    fn test_parsing_mcp_json_works() {
+        let input = r#"<thinking>
+To get the current time in Timbuktu, Mali, I'll need to use the mcp::time::get_current_time tool with the appropriate timezone. Timbuktu is in Mali which uses the Africa/Bamako timezone.
+</thinking>
+
+<mcp::time::get_current_time>
+{
+  "timezone": "Africa/Bamako"
+}
+</mcp::time::get_current_time>"#;
         let (sender, _receiver) = tokio::sync::mpsc::unbounded_channel();
         let mut tool_use_generator = ToolUseGenerator::new(sender);
         tool_use_generator.add_delta(&input);

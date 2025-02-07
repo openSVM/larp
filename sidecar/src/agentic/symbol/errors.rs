@@ -1,4 +1,5 @@
 use llm_client::clients::types::LLMClientError;
+use serde_json;
 use thiserror::Error;
 use tokio::sync::{mpsc::error::SendError, oneshot::error::RecvError};
 
@@ -91,4 +92,7 @@ pub enum SymbolError {
 
     #[error("Test case is passing")]
     TestCaseIsPassing,
+
+    #[error("Invalid JSON: {0}")]
+    InvalidJson(serde_json::Error),
 }
