@@ -1,0 +1,155 @@
+syntax = "proto3";
+package agent_farm;
+
+// Main service definition
+service AgentFarmService {
+  // Agent Operations
+  rpc AgentSessionChat (AgentSessionRequest) returns (stream AgentResponse);
+  rpc AgentSessionEdit (AgentEditRequest) returns (stream AgentEditResponse);
+  rpc AgentToolUse (ToolUseRequest) returns (stream ToolUseResponse);
+  
+  // File Operations
+  rpc EditFile (EditFileRequest) returns (EditFileResponse);
+  
+  // Tree-Sitter Operations
+  rpc ExtractDocumentation (DocumentationRequest) returns (DocumentationResponse);
+  rpc ValidateTreeSitter (TreeSitterValidationRequest) returns (TreeSitterValidationResponse);
+}
+
+// Common Types
+message Position {
+  uint32 line = 1;
+  uint32 character = 2;
+}
+
+message Range {
+  Position start = 1;
+  Position end = 2;
+}
+
+message UserContext {
+  string repo_ref = 1;
+  repeated PreciseContext precise_context = 2;
+  optional CursorPosition cursor_position = 3;
+  optional ViewPort current_view_port = 4;
+  string language = 5;
+}
+
+// Request/Response Messages
+message AgentSessionRequest {
+  string user_query = 1;
+  string thread_id = 2;
+  string editor_url = 3;
+  UserContext user_context = 4;
+  bool is_deep_reasoning = 5;
+  bool with_lsp_enrichment = 6;
+  string access_token = 7;
+}
+
+message AgentResponse {
+  oneof response {
+    string thinking = 1;
+    string action = 2;
+    Error error = 3;
+  }
+}
+
+message AgentEditRequest {
+  string file_path = 1;
+  string content = 2;
+  Range edit_range = 3;
+  UserContext context = 4;
+}
+
+message AgentEditResponse {
+  string edited_content = 1;
+  Range modified_range = 2;
+}
+
+message ToolUseRequest {
+  string tool_name = 1;
+  map<string, string> parameters = 2;
+  UserContext context = 3;
+}
+
+message ToolUseResponse {
+  string result = 1;
+  bool success = 2;
+  optional string error = 3;
+}
+
+message EditFileRequest {
+  string file_path = 1;
+  string content = 2;
+}
+
+message EditFileResponse {
+  bool success = 1;
+  optional string error = 2;
+}
+
+message DocumentationRequest {
+  string file_content = 1;
+  string language = 2;
+}
+
+message DocumentationResponse {
+  repeated string documentation_strings = 1;
+}
+
+message TreeSitterValidationRequest {
+  string content = 1;
+  string language = 2;
+}
+
+message TreeSitterValidationResponse {
+  bool is_valid = 1;
+  optional string error = 2;
+}
+
+message Error {
+  string message = 1;
+  ErrorKind kind = 2;
+}
+
+enum ErrorKind {
+  UNKNOWN = 0;
+  USER = 1;
+  NOT_FOUND = 2;
+  CONFIGURATION = 3;
+  UPSTREAM_SERVICE = 4;
+  INTERNAL = 5;
+}
+
+// Additional type definitions needed by UserContext
+message PreciseContext {
+  Symbol symbol = 1;
+  repeated string hover_text = 2;
+  DefinitionSnippet definition_snippet = 3;
+  string fs_file_path = 4;
+  string relative_file_path = 5;
+  Range range = 6;
+}
+
+message Symbol {
+  optional string fuzzy_name = 1;
+}
+
+message CursorPosition {
+  Position start_position = 1;
+  Position end_position = 2;
+}
+
+message ViewPort {
+  Position start_position = 1;
+  Position end_position = 2;
+  string relative_path = 3;
+  string fs_file_path = 4;
+  string text_on_screen = 5;
+}
+
+message DefinitionSnippet {
+  string context = 1;
+  uint32 start_line = 2;
+  uint32 end_line = 3;
+}

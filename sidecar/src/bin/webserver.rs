@@ -43,24 +43,41 @@ async fn main() -> Result<()> {
     });
 
     // We initialize the logging here
-    let application = Application::initialize(configuration).await?;
+    let application = Application::initialize(configuration.clone()).await?;
     println!("initialized application");
     debug!("initialized application");
 
+    // Create gRPC server address
+    let grpc_port = configuration.port + 1; // Use next port for gRPC
+    let grpc_addr = SocketAddr::new(configuration.host.parse()?, grpc_port);
+    
+    // Clone application for gRPC server
+    let grpc_app = application.clone();
+
     // Main logic
     tokio::select! {
-        // Start the webserver
-        _ = run(application) => {
-            // Your server logic
+        // Start both HTTP and gRPC servers
+        result = tokio::join!(
+            run(application),
+            AgentFarmGrpcServer::new(grpc_app).serve(grpc_addr)
+        ) => {
+            match result {
+                (Ok(_), Ok(_)) => Ok(()),
+                (Err(e), _) => {
+                    error!(?e, "HTTP server failed");
+                    Err(e)
+                },
+                (_, Err(e)) => {
+                    error!(?e, "gRPC server failed");
+                    Err(e.into())
+                }
+            }
         }
         _ = rx => {
-            // Signal received, this block will be executed.
-            // Drop happens automatically when variables go out of scope.
             debug!("Signal received, cleaning up...");
+            Ok(())
         }
     }
-
-    Ok(())
 }
 
 pub async fn run(application: Application) -> Result<()> {

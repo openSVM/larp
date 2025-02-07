@@ -74,15 +74,17 @@ fn main() {
     }
 
     write!(
-        BufWriter::new(File::create(languages_path).unwrap()),
+        BufWriter::new(File::create(languages_path)?),
         "pub static EXT_MAP: phf::Map<&str, &str> = \n{};\n\
          pub static PROPER_CASE_MAP: phf::Map<&str, &str> = \n{};\n",
         ext_map.build(),
         case_map.build(),
-    )
-    .unwrap();
+    )?;
 
     println!("cargo:rerun-if-changed=./languages.yml");
+    println!("cargo:rerun-if-changed=proto/agent_farm.proto");
+    tonic_build::compile_protos("proto/agent_farm.proto")?;
+    Ok(())
 }
 
 // fn copy_model_files() {
