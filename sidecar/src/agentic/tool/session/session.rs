@@ -3087,16 +3087,43 @@ reason: {}"#,
         Ok(self)
     }
 
+    /// Helper for atomic file operations
+    pub async fn atomic_file_operation(
+        storage_path: &str,
+        content: String,
+    ) -> Result<(), SymbolError> {
+        // Create a temporary file path by appending .tmp to the original path
+        let temp_path = format!("{}.tmp", storage_path);
+
+        // Write to temporary file first
+        let mut temp_file = tokio::fs::File::create(&temp_path)
+            .await
+            .map_err(|e| SymbolError::IOError(e))?;
+
+        temp_file
+            .write_all(content.as_bytes())
+            .await
+            .map_err(|e| SymbolError::IOError(e))?;
+
+        // Ensure all data is written to disk
+        temp_file
+            .sync_all()
+            .await
+            .map_err(|e| SymbolError::IOError(e))?;
+
+        // Close the file explicitly before renaming
+        drop(temp_file);
+
+        // Atomically rename temp file to target file
+        tokio::fs::rename(&temp_path, storage_path)
+            .await
+            .map_err(|e| SymbolError::IOError(e))?;
+
+        Ok(())
+    }
+
     async fn save_to_storage(&self) -> Result<(), SymbolError> {
         let serialized = serde_json::to_string(self).unwrap();
-        let mut file = tokio::fs::File::create(self.storage_path())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        file.write_all(serialized.as_bytes())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        // flush forces the OS to flush any in-memory semantics to the disk
-        file.flush().await.map_err(|e| SymbolError::IOError(e))?;
-        Ok(())
+        Self::atomic_file_operation(self.storage_path(), serialized).await
     }
 }

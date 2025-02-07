@@ -5,7 +5,7 @@ use std::{collections::HashMap, sync::Arc};
 use color_eyre::owo_colors::OwoColorize;
 use colored::Colorize;
 use llm_client::broker::LLMBroker;
-use tokio::{io::AsyncWriteExt, sync::Mutex};
+use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -1142,7 +1142,7 @@ impl SessionService {
             .await
             .map_err(|e| SymbolError::IOError(e))?;
 
-        let session: Session = serde_json::from_str(&content).expect(&format!(
+        let session: Session = serde_json::from_str(content.trim()).expect(&format!(
             "converting to session from json is okay: {storage_path}"
         ));
         Ok(session)
@@ -1168,15 +1168,7 @@ impl SessionService {
         }
 
         let serialized = serde_json::to_string(session).unwrap();
-        let mut file = tokio::fs::File::create(session.storage_path())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        file.write_all(serialized.as_bytes())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        // flush forces the OS to flush any in-memory semantics to the disk
-        file.flush().await.map_err(|e| SymbolError::IOError(e))?;
-        Ok(())
+        Session::atomic_file_operation(session.storage_path(), serialized).await
     }
 
     fn print_tree(&self, nodes: &[ActionNode]) {
