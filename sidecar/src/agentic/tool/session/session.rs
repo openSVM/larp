@@ -3087,18 +3087,17 @@ reason: {}"#,
         Ok(self)
     }
 
-    async fn save_to_storage(&self) -> Result<(), SymbolError> {
-        let serialized = serde_json::to_string(self).unwrap();
-        
+    /// Private helper for atomic file operations
+    async fn atomic_file_operation(storage_path: &str, content: String) -> Result<(), SymbolError> {
         // Create a temporary file path by appending .tmp to the original path
-        let temp_path = format!("{}.tmp", self.storage_path());
+        let temp_path = format!("{}.tmp", storage_path);
         
         // Write to temporary file first
         let mut temp_file = tokio::fs::File::create(&temp_path)
             .await
             .map_err(|e| SymbolError::IOError(e))?;
         
-        temp_file.write_all(serialized.as_bytes())
+        temp_file.write_all(content.as_bytes())
             .await
             .map_err(|e| SymbolError::IOError(e))?;
         
@@ -3111,11 +3110,16 @@ reason: {}"#,
         drop(temp_file);
         
         // Atomically rename temp file to target file
-        tokio::fs::rename(&temp_path, self.storage_path())
+        tokio::fs::rename(&temp_path, storage_path)
             .await
             .map_err(|e| SymbolError::IOError(e))?;
         
         Ok(())
+    }
+
+    async fn save_to_storage(&self) -> Result<(), SymbolError> {
+        let serialized = serde_json::to_string(self).unwrap();
+        Self::atomic_file_operation(self.storage_path(), serialized).await
     }
 
     async fn load_from_storage(&self) -> Result<Session, SymbolError> {

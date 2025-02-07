@@ -1153,33 +1153,7 @@ impl SessionService {
         }
 
         let serialized = serde_json::to_string(session).unwrap();
-        
-        // Create a temporary file path by appending .tmp to the original path
-        let temp_path = format!("{}.tmp", session.storage_path());
-        
-        // Write to temporary file first
-        let mut temp_file = tokio::fs::File::create(&temp_path)
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        
-        temp_file.write_all(serialized.as_bytes())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        
-        // Ensure all data is written to disk
-        temp_file.sync_all()
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        
-        // Close the file explicitly before renaming
-        drop(temp_file);
-        
-        // Atomically rename temp file to target file
-        tokio::fs::rename(&temp_path, session.storage_path())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
-        
-        Ok(())
+        Session::atomic_file_operation(session.storage_path(), serialized).await
     }
 
     fn print_tree(&self, nodes: &[ActionNode]) {
