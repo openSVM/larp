@@ -1,4 +1,17 @@
-//! Contains the struct for search and replace style editing
+fn main() {
+    println!("Hello");
+}
+
+    println!("Hello");
+}
+
+    let result = add_numbers(5, 7);
+    println!("The sum is: {}", result);
+}
+
+fn add_numbers(a: i32, b: i32) -> i32 {
+    a + b
+}
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, StreamExt};
@@ -947,15 +960,16 @@ impl Tool for SearchAndReplaceEditing {
                     let mut file = tokio::fs::File::create(fs_file_path)
                         .await
                         .map_err(|e| ToolError::IOError(e))?;
-                    file.write_all(
-                        search_and_replace_accumulator
-                            .code_lines
-                            .to_vec()
-                            .join("\n")
-                            .as_bytes(),
-                    )
-                    .await
-                    .map_err(|e| ToolError::IOError(e))?;
+                    let content = search_and_replace_accumulator.code_lines.join("\n");
+                    // Add a final newline if the content is not empty and doesn't end with one
+                    let content = if !content.is_empty() && !content.ends_with('\n') {
+                        content + "\n"
+                    } else {
+                        content
+                    };
+                    file.write_all(content.as_bytes())
+                        .await
+                        .map_err(|e| ToolError::IOError(e))?;
                 }
                 Ok(ToolOutput::search_and_replace_editing(
                     SearchAndReplaceEditingResponse::new(
@@ -1327,6 +1341,9 @@ impl SearchAndReplaceAccumulator {
         if self.code_lines.len() == 0 {
             if let Some(updated_answer) = self.updated_block.clone() {
                 self.code_lines = updated_answer.lines().map(|line| line.to_owned()).collect();
+                if updated_answer.ends_with('\n') {
+                    self.code_lines.push("".to_owned());
+                }
             }
             return;
         }
@@ -1339,8 +1356,13 @@ impl SearchAndReplaceAccumulator {
             }
             updated_code_lines.push_str(&updated_answer);
             updated_code_lines.push('\n');
-            updated_code_lines
-                .push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
+            let final_part = &self.code_lines[(updated_range_end_line + 1)..];
+            if !final_part.is_empty() {
+                updated_code_lines.push_str(&final_part.join("\n"));
+                if self.code_lines.last().map_or(false, |line| line.is_empty()) {
+                    updated_code_lines.push('\n');
+                }
+            }
             self.code_lines = updated_code_lines
                 .lines()
                 .map(|line| line.to_owned())
@@ -1349,8 +1371,16 @@ impl SearchAndReplaceAccumulator {
             let updated_range_start_line = block_range.start_line() - self.start_line;
             let updated_range_end_line = block_range.end_line() - self.start_line;
             let mut updated_code_lines = self.code_lines[..updated_range_start_line].join("\n");
-            updated_code_lines
-                .push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
+            let final_part = &self.code_lines[(updated_range_end_line + 1)..];
+            if !final_part.is_empty() {
+                if updated_range_start_line != 0 {
+                    updated_code_lines.push('\n');
+                }
+                updated_code_lines.push_str(&final_part.join("\n"));
+                if self.code_lines.last().map_or(false, |line| line.is_empty()) {
+                    updated_code_lines.push('\n');
+                }
+            }
             self.code_lines = updated_code_lines
                 .lines()
                 .map(|line| line.to_owned())
