@@ -107,8 +107,8 @@ pub struct TerminalOutput {
 
 impl TerminalOutput {
     pub fn new(output: String) -> Self {
-        // Limit output to 3000 lines
-        let limited_output = output.lines().take(3000).collect::<Vec<_>>().join("\n");
+        // Limit output to last 3000 lines
+        let limited_output = output.lines().rev().take(3000).rev().collect::<Vec<_>>().join("\n");
         Self {
             output: limited_output,
         }
