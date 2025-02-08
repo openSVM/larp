@@ -1,28 +1,83 @@
 #![cfg(feature = "grpc")]
 
+use std::sync::Arc;
+use futures::StreamExt;
 use tonic::{transport::Server, Request, Response, Status};
-use tokio_stream::wrappers::ReceiverStream;
 use tokio::sync::mpsc;
+use tokio_stream::wrappers::ReceiverStream;
 use tokio::time::Duration;
+
 use crate::application::application::Application;
 use crate::agentic::symbol::events::environment_event::{EnvironmentEvent, EnvironmentEventType};
 use crate::agentic::symbol::events::input::SymbolEventRequestId;
 use crate::agentic::symbol::events::lsp::LSPDiagnosticError;
 use crate::agentic::symbol::events::message_event::SymbolEventMessageProperties;
-use crate::webserver::plan::check_session_storage_path;
-use llm_client::clients::types::LLMType;
+use crate::agentic::symbol::events::ui_event::UIEventWithID;
+use crate::agentic::symbol::identifier::LLMProperties;
+use crate::agentic::symbol::errors::SymbolError;
+use crate::agentic::tool::errors::ToolError;
+use crate::agentic::tool::session::session::AideAgentMode;
+use crate::agentic::symbol::scratch_pad::ScratchPadAgent;
+use crate::webserver::plan::{check_session_storage_path, check_scratch_pad_path, check_plan_storage_path, plan_storage_directory};
+
+use llm_client::clients::types::{LLMType, LLMClientError};
 use llm_client::provider::{
     CodeStoryLLMTypes, CodestoryAccessToken, LLMProvider, LLMProviderAPIKeys,
 };
 
-pub mod proto {
+mod proto {
     tonic::include_proto!("agent_farm");
 }
 
 use proto::agent_farm_service_server::{AgentFarmService, AgentFarmServiceServer};
 use proto::*;
 
-fn convert_user_context(ctx: UserContext) -> crate::user_context::types::UserContext {
+fn convert_position(pos: &proto::Position) -> text_document::Position {
+    text_document::Position::new(pos.line, pos.character)
+}
+
+fn convert_range(range: &proto::Range) -> text_document::Range {
+    text_document::Range::new(
+        convert_position(range.start.as_ref().unwrap()),
+        convert_position(range.end.as_ref().unwrap()),
+    )
+}
+
+fn convert_precise_context(ctx: proto::PreciseContext) -> crate::user_context::types::PreciseContext {
+    crate::user_context::types::PreciseContext {
+        symbol: ctx.symbol.map(|s| crate::user_context::types::Symbol {
+            fuzzy_name: s.fuzzy_name,
+        }),
+        hover_text: ctx.hover_text,
+        definition_snippet: ctx.definition_snippet.map(|d| crate::user_context::types::DefinitionSnippet {
+            context: d.context,
+            start_line: d.start_line as usize,
+            end_line: d.end_line as usize,
+        }),
+        fs_file_path: ctx.fs_file_path,
+        relative_file_path: ctx.relative_file_path,
+        range: ctx.range.map(|r| convert_range(&r)),
+    }
+}
+
+fn convert_cursor_position(pos: proto::CursorPosition) -> crate::user_context::types::CursorPosition {
+    crate::user_context::types::CursorPosition {
+        start_position: convert_position(&pos.start_position.unwrap()),
+        end_position: convert_position(&pos.end_position.unwrap()),
+    }
+}
+
+fn convert_view_port(vp: proto::ViewPort) -> crate::user_context::types::ViewPort {
+    crate::user_context::types::ViewPort {
+        start_position: convert_position(&vp.start_position.unwrap()),
+        end_position: convert_position(&vp.end_position.unwrap()),
+        relative_path: vp.relative_path,
+        fs_file_path: vp.fs_file_path,
+        text_on_screen: vp.text_on_screen,
+    }
+}
+
+fn convert_user_context(ctx: proto::UserContext) -> crate::user_context::types::UserContext {
     crate::user_context::types::UserContext {
         repo_ref: ctx.repo_ref,
         precise_context: ctx.precise_context.into_iter().map(convert_precise_context).collect(),
@@ -30,6 +85,18 @@ fn convert_user_context(ctx: UserContext) -> crate::user_context::types::UserCon
         current_view_port: ctx.current_view_port.map(convert_view_port),
         language: ctx.language,
     }
+}
+
+fn convert_repo_ref(repo_ref: proto::RepoRef) -> crate::repo::types::RepoRef {
+    crate::repo::types::RepoRef {
+        repo_name: repo_ref.repo_name,
+        branch: repo_ref.branch,
+        commit_hash: repo_ref.commit_hash,
+    }
+}
+
+fn convert_error_to_status(err: anyhow::Error) -> Status {
+    Status::internal(err.to_string())
 }
 
 // Add conversion functions for other types...
@@ -44,56 +111,13 @@ pub struct AgentFarmGrpcServer {
 type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
 
 #[tonic::async_trait]
-impl AgentFarmService for AgentFarmGrpcServer {
+impl agent_farm_service_server::AgentFarmService for AgentFarmGrpcServer {
     type AgentSessionChatStream = ReceiverStream<Result<AgentResponse, Status>>;
     type AgentSessionEditStream = ReceiverStream<Result<AgentEditResponse, Status>>;
     type AgentToolUseStream = ReceiverStream<Result<ToolUseResponse, Status>>;
-    type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
-
-    async fn probe_request_stop(
-        &self,
-        request: Request<ProbeStopRequest>,
-    ) -> Result<Response<ProbeStopResponse>, Status>;
-
-    async fn code_sculpting(
-        &self,
-        request: Request<CodeSculptingRequest>,
-    ) -> Result<Response<Self::AgentResponseStream>, Status>;
-
-    async fn code_sculpting_heal(
-        &self,
-        request: Request<CodeSculptingHealRequest>,
-    ) -> Result<Response<CodeSculptingHealResponse>, Status>;
-
-    async fn push_diagnostics(
-        &self,
-        request: Request<AgenticDiagnosticsRequest>,
-    ) -> Result<Response<AgenticDiagnosticsResponse>, Status>;
-
-    async fn swe_bench(
-        &self,
-        request: Request<SweBenchRequest>,
-    ) -> Result<Response<SweBenchResponse>, Status>;
-
-    async fn verify_model_config(
-        &self,
-        request: Request<VerifyModelConfigRequest>,
-    ) -> Result<Response<VerifyModelConfigResponse>, Status>;
-
-    async fn cancel_running_exchange(
-        &self,
-        request: Request<CancelExchangeRequest>,
-    ) -> Result<Response<Self::AgentResponseStream>, Status>;
-
-    async fn user_feedback_on_exchange(
-        &self,
-        request: Request<FeedbackExchangeRequest>,
-    ) -> Result<Response<Self::AgentResponseStream>, Status>;
-
-    async fn handle_session_undo(
-        &self,
-        request: Request<SessionUndoRequest>,
-    ) -> Result<Response<SessionUndoResponse>, Status>;
+    type CodeSculptingStream = ReceiverStream<Result<AgentResponse, Status>>;
+    type CancelRunningExchangeStream = ReceiverStream<Result<AgentResponse, Status>>;
+    type UserFeedbackOnExchangeStream = ReceiverStream<Result<AgentResponse, Status>>;
 
     async fn agent_session_plan(
         &self,
@@ -410,24 +434,24 @@ impl AgentFarmService for AgentFarmGrpcServer {
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let (ui_sender, ui_receiver) = tokio::sync::mpsc::unbounded_channel();
         let message_properties = SymbolEventMessageProperties::new(
-            SymbolEventRequestId::new(req.thread_id.clone(), req.thread_id.clone()),
+            SymbolEventRequestId::new(req.session_id.clone(), req.session_id.clone()),
             ui_sender.clone(),
             req.editor_url.clone(),
             cancellation_token.clone(),
             llm_provider,
         );
 
-        let session_storage_path = check_session_storage_path(app.config.clone(), req.thread_id.clone()).await;
+        let session_storage_path = check_session_storage_path(app.config.clone(), req.session_id.clone()).await;
         let session_service = app.session_service.clone();
-        let cloned_thread_id = req.thread_id.clone();
+        let session_id = req.session_id.clone();
 
         tokio::spawn(async move {
             let result = tokio::task::spawn(async move {
                 session_service
                     .human_message(
-                        cloned_thread_id.clone(),
+                        req.session_id.clone(),
                         session_storage_path,
-                        req.thread_id.clone(),
+                        req.exchange_id.clone(),
                         req.user_query,
                         req.user_context.map(convert_user_context).unwrap_or_default(),
                         vec![], // project_labels
@@ -612,7 +636,7 @@ impl AgentFarmService for AgentFarmGrpcServer {
         let cancellation_token = tokio_util::sync::CancellationToken::new();
         let (ui_sender, ui_receiver) = tokio::sync::mpsc::unbounded_channel();
         let message_properties = SymbolEventMessageProperties::new(
-            SymbolEventRequestId::new(req.thread_id.clone(), req.thread_id.clone()),
+            SymbolEventRequestId::new(req.session_id.clone(), req.session_id.clone()),
             ui_sender.clone(),
             req.editor_url.clone(),
             cancellation_token.clone(),
@@ -627,7 +651,7 @@ impl AgentFarmService for AgentFarmGrpcServer {
             let result = tokio::task::spawn(async move {
                 session_service
                     .tool_use_agentic(
-                        cloned_thread_id.clone(),
+                        req.session_id.clone(),
                         session_storage_path,
                         req.tool_name,
                         req.parameters,
@@ -635,7 +659,7 @@ impl AgentFarmService for AgentFarmGrpcServer {
                         vec![], // open_files
                         req.shell.unwrap_or_default(),
                         vec![], // project_labels
-                        RepoRef::default(), // repo_ref
+                        crate::repo::types::RepoRef::default(), // repo_ref
                         req.root_directory.unwrap_or_default(),
                         app.tool_box.clone(),
                         app.llm_broker.clone(),
@@ -990,15 +1014,19 @@ impl AgentFarmService for AgentFarmGrpcServer {
 }
 
 impl AgentFarmGrpcServer {
-    pub fn new(app: crate::application::application::Application) -> Self {
+    pub fn new(app: Application) -> Self {
         Self { app }
     }
 
-    pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn serve(self, addr: std::net::SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
+        let svc = agent_farm_service_server::AgentFarmServiceServer::new(self);
         Server::builder()
-            .add_service(self)
+            .add_service(svc)
             .serve(addr)
             .await?;
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests;
