@@ -110,13 +110,17 @@ impl TerminalOutput {
         // Collect all lines
         let lines: Vec<_> = output.lines().collect();
         let total_lines = lines.len();
-        
+
         // Take last 3000 lines
         let limited_lines: Vec<_> = lines.iter().rev().take(3000).rev().cloned().collect();
-        
+
         // Add truncation prefix if needed
         let limited_output = if total_lines > 3000 {
-            format!("... truncated {} lines\n{}", total_lines - 3000, limited_lines.join("\n"))
+            format!(
+                "... truncated {} lines\n{}",
+                total_lines - 3000,
+                limited_lines.join("\n")
+            )
         } else {
             limited_lines.join("\n")
         };
