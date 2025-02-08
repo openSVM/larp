@@ -79,9 +79,91 @@ impl SearchAndReplaceAccumulator {
     }
 
     pub async fn add_delta(&mut self, delta: String) {
-        // Implementation for processing search and replace deltas
-        // This would handle the actual search and replace operations
-        // and update code_lines accordingly
+        let head = "<<<<<<< SEARCH";
+        let divider = "=======";
+        let tail = ">>>>>>> REPLACE";
+        
+        let mut lines = delta.lines();
+        while let Some(line) = lines.next() {
+            // Skip until we find a code block
+            if line.starts_with("```") {
+                // Skip the opening fence
+                continue;
+            }
+            
+            if line.contains(head) {
+                // Found start of search block
+                let mut search_block = String::new();
+                while let Some(line) = lines.next() {
+                    if line == divider {
+                        break;
+                    }
+                    if !search_block.is_empty() {
+                        search_block.push('\n');
+                    }
+                    search_block.push_str(line);
+                }
+                
+                // Found start of replace block
+                let mut replace_block = String::new();
+                while let Some(line) = lines.next() {
+                    if line.contains(tail) {
+                        break;
+                    }
+                    if !replace_block.is_empty() {
+                        replace_block.push('\n');
+                    }
+                    replace_block.push_str(line);
+                }
+                
+                // If search block is empty, this is an insertion
+                if search_block.is_empty() {
+                    self.code_lines = replace_block.lines().map(|s| s.to_string()).collect();
+                    
+                    // Send update event
+                    let event = EditedCodeStreamingRequest {
+                        code: self.join_lines(),
+                    };
+                    if let Err(e) = self.sender.send(UIEventWithID::EditedCodeStreaming(event)) {
+                        eprintln!("Failed to send update: {}", e);
+                    }
+                } else {
+                    // Find and replace the block
+                    let search_lines: Vec<_> = search_block.lines().collect();
+                    let replace_lines: Vec<_> = replace_block.lines().collect();
+                    
+                    for i in 0..=self.code_lines.len() - search_lines.len() {
+                        if self.code_lines[i..i + search_lines.len()]
+                            .iter()
+                            .map(|s| s.as_str())
+                            .collect::<Vec<_>>() == search_lines
+                        {
+                            self.code_lines.splice(
+                                i..i + search_lines.len(),
+                                replace_lines.iter().map(|&s| s.to_string()),
+                            );
+                            
+                            // Send update event
+                            let event = EditedCodeStreamingRequest {
+                                code: self.join_lines(),
+                            };
+                            if let Err(e) = self.sender.send(UIEventWithID::EditedCodeStreaming(event)) {
+                                eprintln!("Failed to send update: {}", e);
+                            }
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn join_lines(&self) -> String {
+        let mut result = self.code_lines.join("\n");
+        if self.has_trailing_newline || !self.code_lines.is_empty() {
+            result.push('\n');
+        }
+        result
     }
 }
 
@@ -108,7 +190,7 @@ fn main() {
         let (sender, _receiver) = unbounded_channel();
         let mut accumulator = SearchAndReplaceAccumulator::new(original_code.to_owned(), 0, sender);
         accumulator.add_delta(edits.to_owned()).await;
-        let final_code = accumulator.code_lines.join("\n");
+        let final_code = accumulator.join_lines();
         assert_eq!(final_code, "fn main() {\n    println!(\"Updated\");\n}\n");
 
         // Test case 2: Empty file getting new content
@@ -124,7 +206,7 @@ fn test() {
         let (sender, _receiver) = unbounded_channel();
         let mut accumulator = SearchAndReplaceAccumulator::new(empty_code.to_owned(), 0, sender);
         accumulator.add_delta(edits.to_owned()).await;
-        let final_code = accumulator.code_lines.join("\n");
+        let final_code = accumulator.join_lines();
         assert_eq!(final_code, "fn test() {\n    println!(\"New content\");\n}\n");
     }
 }
