@@ -86,17 +86,6 @@ fn main() -> std::io::Result<()> {
     )?;
 
     println!("cargo:rerun-if-changed=./languages.yml");
-    
-    #[cfg(feature = "grpc")]
-    {
-        println!("cargo:rerun-if-changed=proto/agent_farm.proto");
-        tonic_build::compile_protos("proto/agent_farm.proto").map_err(|e| {
-            std::io::Error::new(
-                std::io::ErrorKind::Other,
-                format!("Failed to compile protos: {}", e),
-            )
-        })?;
-    }
     Ok(())
 }
 

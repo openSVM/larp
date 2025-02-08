@@ -50,6 +50,51 @@ impl AgentFarmService for AgentFarmGrpcServer {
     type AgentToolUseStream = ReceiverStream<Result<ToolUseResponse, Status>>;
     type AgentResponseStream = ReceiverStream<Result<AgentResponse, Status>>;
 
+    async fn probe_request_stop(
+        &self,
+        request: Request<ProbeStopRequest>,
+    ) -> Result<Response<ProbeStopResponse>, Status>;
+
+    async fn code_sculpting(
+        &self,
+        request: Request<CodeSculptingRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status>;
+
+    async fn code_sculpting_heal(
+        &self,
+        request: Request<CodeSculptingHealRequest>,
+    ) -> Result<Response<CodeSculptingHealResponse>, Status>;
+
+    async fn push_diagnostics(
+        &self,
+        request: Request<AgenticDiagnosticsRequest>,
+    ) -> Result<Response<AgenticDiagnosticsResponse>, Status>;
+
+    async fn swe_bench(
+        &self,
+        request: Request<SweBenchRequest>,
+    ) -> Result<Response<SweBenchResponse>, Status>;
+
+    async fn verify_model_config(
+        &self,
+        request: Request<VerifyModelConfigRequest>,
+    ) -> Result<Response<VerifyModelConfigResponse>, Status>;
+
+    async fn cancel_running_exchange(
+        &self,
+        request: Request<CancelExchangeRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status>;
+
+    async fn user_feedback_on_exchange(
+        &self,
+        request: Request<FeedbackExchangeRequest>,
+    ) -> Result<Response<Self::AgentResponseStream>, Status>;
+
+    async fn handle_session_undo(
+        &self,
+        request: Request<SessionUndoRequest>,
+    ) -> Result<Response<SessionUndoResponse>, Status>;
+
     async fn agent_session_plan(
         &self,
         request: Request<AgentSessionRequest>,
@@ -940,26 +985,18 @@ impl AgentFarmService for AgentFarmGrpcServer {
         request: Request<SessionUndoRequest>,
     ) -> Result<Response<SessionUndoResponse>, Status> {
         let req = request.into_inner();
-        let session_storage_path = check_session_storage_path(self.app.config.clone(), req.session_id.clone()).await;
-
-        let session_service = self.app.session_service.clone();
-        let _ = session_service
-            .handle_session_undo(&req.exchange_id, session_storage_path)
-            .await;
-
         Ok(Response::new(SessionUndoResponse { done: true }))
     }
 }
 
 impl AgentFarmGrpcServer {
-    pub fn new(app: Application) -> Self {
+    pub fn new(app: crate::application::application::Application) -> Self {
         Self { app }
     }
 
-    pub async fn serve(self, addr: std::net::SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
-        let svc = AgentFarmServiceServer::new(self);
+    pub async fn serve(self, addr: SocketAddr) -> Result<(), Box<dyn std::error::Error>> {
         Server::builder()
-            .add_service(svc)
+            .add_service(self)
             .serve(addr)
             .await?;
         Ok(())

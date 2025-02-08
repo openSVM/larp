@@ -1,7 +1,8 @@
 #![cfg(feature = "grpc")]
+
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use super::super::*;
     use crate::application::application::Application;
     use crate::application::config::Config;
     use tokio::sync::mpsc;
@@ -18,30 +19,40 @@ mod tests {
     async fn test_agent_session_chat() {
         let server = setup_test_server().await;
         let request = AgentSessionRequest {
-            user_query: "Hello".to_string(),
-            thread_id: "test_thread".to_string(),
+            session_id: "test_session".to_string(),
+            exchange_id: "test_exchange".to_string(),
             editor_url: "test_url".to_string(),
+            query: "test query".to_string(),
             user_context: None,
-            is_deep_reasoning: false,
-            with_lsp_enrichment: false,
+            repo_ref: None,
+            root_directory: "/test".to_string(),
+            project_labels: vec![],
+            codebase_search: false,
             access_token: "test_token".to_string(),
+            model_configuration: None,
+            all_files: vec![],
+            open_files: vec![],
+            shell: "bash".to_string(),
+            aide_rules: None,
+            reasoning: false,
+            semantic_search: false,
+            is_devtools_context: false,
         };
 
         let response = server.agent_session_chat(Request::new(request)).await.unwrap();
         let mut stream = response.into_inner();
         
-        // Verify we get thinking and action responses
-        let mut got_thinking = false;
-        let mut got_action = false;
+        let mut got_response = false;
         while let Some(response) = stream.next().await {
-            let response = response.unwrap();
-            match response.response.unwrap() {
-                agent_response::Response::Thinking(_) => got_thinking = true,
-                agent_response::Response::Action(_) => got_action = true,
-                _ => {}
+            got_response = true;
+            assert!(response.is_ok());
+            match response.unwrap().response {
+                AgentResponseType::Thinking(_) => (),
+                AgentResponseType::Action(_) => (),
+                AgentResponseType::Error(_) => panic!("Unexpected error response"),
             }
         }
-        assert!(got_thinking || got_action, "Expected thinking or action responses");
+        assert!(got_response, "Expected at least one response");
     }
 
     #[tokio::test]
@@ -50,22 +61,24 @@ mod tests {
         let request = AgentEditRequest {
             file_path: "test.rs".to_string(),
             content: "fn main() {}".to_string(),
-            edit_range: None,
+            edit_range: Range {
+                start: Position { line: 0, character: 0 },
+                end: Position { line: 0, character: 0 },
+            },
             context: None,
         };
 
         let response = server.agent_session_edit(Request::new(request)).await.unwrap();
         let mut stream = response.into_inner();
         
-        // Verify we get edit responses
-        let mut got_edit = false;
+        let mut got_response = false;
         while let Some(response) = stream.next().await {
-            let response = response.unwrap();
-            if response.modified_range.is_some() {
-                got_edit = true;
-            }
+            got_response = true;
+            assert!(response.is_ok());
+            let edit_response = response.unwrap();
+            assert!(!edit_response.edited_content.is_empty());
         }
-        assert!(got_edit, "Expected edit responses");
+        assert!(got_response, "Expected at least one response");
     }
 
     #[tokio::test]
@@ -80,15 +93,14 @@ mod tests {
         let response = server.agent_tool_use(Request::new(request)).await.unwrap();
         let mut stream = response.into_inner();
         
-        // Verify we get tool use responses
-        let mut got_result = false;
+        let mut got_response = false;
         while let Some(response) = stream.next().await {
-            let response = response.unwrap();
-            if response.success {
-                got_result = true;
-            }
+            got_response = true;
+            assert!(response.is_ok());
+            let tool_response = response.unwrap();
+            assert!(tool_response.success);
         }
-        assert!(got_result, "Expected successful tool use responses");
+        assert!(got_response, "Expected at least one response");
     }
 
     #[tokio::test]
