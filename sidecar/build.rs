@@ -1,4 +1,4 @@
-use std::{collections::HashMap, env, fs::{File, read_dir, read_to_string}, io::{BufWriter, Write}, path::Path};
+use std::{collections::HashMap, env, fs::{File, read_to_string}, io::{BufWriter, Write}, path::Path};
 use serde::Deserialize;
 
 #[derive(Deserialize)]
