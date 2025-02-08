@@ -103,6 +103,7 @@ impl ToolBroker {
     pub async fn new(
         llm_client: Arc<LLMBroker>,
         code_edit_broker: Arc<CodeEditBroker>,
+        editor_parsing: Arc<EditorParsing>,
         language_broker: Arc<TSLanguageParsing>,
         tool_broker_config: ToolBrokerConfiguration,
         // Use this if the llm we were talking to times out or does not produce

@@ -121,6 +121,21 @@ use crate::{
     agentic::tool::{broker::ToolBroker, input::ToolInput, lsp::open_file::OpenFileRequest},
 };
 
+fn new_dummy_message_properties() -> SymbolEventMessageProperties {
+    let (dummy_sender, _dummy_receiver) = tokio::sync::mpsc::unbounded_channel();
+    SymbolEventMessageProperties::new(
+        SymbolEventRequestId::new("dummy".to_owned()),
+        dummy_sender,
+        "dummy_editor_url".to_owned(),
+        tokio_util::sync::CancellationToken::new(),
+        LLMProperties::new(
+            LLMType::Llama3_1_8bInstruct,
+            LLMProvider::FireworksAI,
+            LLMProviderAPIKeys::FireworksAI(FireworksAPIKey::new("dummy_key".to_owned()))
+        )
+    )
+}
+
 use super::anchored::AnchoredSymbol;
 use super::errors::SymbolError;
 use super::events::context_event::ContextGatheringEvent;
@@ -139,7 +154,6 @@ use super::ui_event::UIEventWithID;
 #[derive(Clone)]
 pub struct ToolBox {
     tools: Arc<ToolBroker>,
-    symbol_broker: Arc<SymbolTrackerInline>,
     editor_parsing: Arc<EditorParsing>,
 }
 
@@ -5739,7 +5753,7 @@ FILEPATH: {fs_file_path}
     }
 
     pub async fn get_file_content(&self, fs_file_path: &str) -> Result<String, SymbolError> {
-        self.file_open(fs_file_path.to_owned(), SymbolEventMessageProperties::default())
+        self.file_open(fs_file_path.to_owned(), new_dummy_message_properties())
             .await
             .map(|response| response.contents())
     }
@@ -6395,7 +6409,6 @@ FILEPATH: {fs_file_path}
     pub async fn get_outline_nodes_from_editor(
         &self,
         fs_file_path: &str,
-        message_properties: SymbolEventMessageProperties,
     ) -> Option<Vec<OutlineNode>> {
         let input = ToolInput::OutlineNodesUsingEditor(OutlineNodesUsingEditorRequest::new(
             fs_file_path.to_owned(), 
