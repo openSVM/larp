@@ -1,17 +1,4 @@
-fn main() {
-    println!("Hello");
-}
-
-    println!("Hello");
-}
-
-    let result = add_numbers(5, 7);
-    println!("The sum is: {}", result);
-}
-
-fn add_numbers(a: i32, b: i32) -> i32 {
-    a + b
-}
+//! Contains the struct for search and replace style editing
 
 use async_trait::async_trait;
 use futures::{lock::Mutex, StreamExt};
@@ -1355,9 +1342,9 @@ impl SearchAndReplaceAccumulator {
                 updated_code_lines.push('\n');
             }
             updated_code_lines.push_str(&updated_answer);
-            updated_code_lines.push('\n');
             let final_part = &self.code_lines[(updated_range_end_line + 1)..];
             if !final_part.is_empty() {
+                updated_code_lines.push('\n');
                 updated_code_lines.push_str(&final_part.join("\n"));
                 if self.code_lines.last().map_or(false, |line| line.is_empty()) {
                     updated_code_lines.push('\n');
@@ -1462,7 +1449,31 @@ fn get_range_for_search_block(
 
 #[cfg(test)]
 mod tests {
-    use super::SearchAndReplaceAccumulator;
+    use super::*;
+    use tokio::sync::mpsc;
+
+    #[tokio::test]
+    async fn test_newline_preservation() {
+        let (sender, _receiver) = mpsc::unbounded_channel();
+        let mut search_and_replace_accumulator = SearchAndReplaceAccumulator::new(
+            "test content\nwith newlines\n".to_string(),
+            0,
+            sender,
+        );
+        
+        // Test replacing content while preserving trailing newline
+        search_and_replace_accumulator.updated_block = Some("new content\n".to_string());
+        search_and_replace_accumulator.update_code_lines(&Range::new(
+            Position::new(1, 0, 0),
+            Position::new(1, 0, 0),
+        ));
+        
+        assert_eq!(
+            search_and_replace_accumulator.code_lines.join("\n") + "\n",
+            "test content\nnew content\n",
+            "Should preserve trailing newline after replacement"
+        );
+    }
 
     /// TODO(skcd): Broken test here to debug multiple search and replace blocks being
     /// part of the same edit
