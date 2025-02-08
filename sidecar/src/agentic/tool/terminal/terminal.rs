@@ -107,16 +107,20 @@ pub struct TerminalOutput {
 
 impl TerminalOutput {
     pub fn new(output: String) -> Self {
-        // Limit output to last 3000 lines
+        // Collect all lines
         let lines: Vec<_> = output.lines().collect();
-        let limited_output = lines
-            .iter()
-            .rev()
-            .take(3000)
-            .rev()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n");
+        let total_lines = lines.len();
+        
+        // Take last 3000 lines
+        let limited_lines: Vec<_> = lines.iter().rev().take(3000).rev().cloned().collect();
+        
+        // Add truncation prefix if needed
+        let limited_output = if total_lines > 3000 {
+            format!("... truncated {} lines\n{}", total_lines - 3000, limited_lines.join("\n"))
+        } else {
+            limited_lines.join("\n")
+        };
+
         Self {
             output: limited_output,
         }
