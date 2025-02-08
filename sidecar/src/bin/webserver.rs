@@ -251,7 +251,8 @@ fn agentic_router() -> Router {
         .route(
             "/user_handle_session_undo",
             post(sidecar::webserver::agentic::handle_session_undo),
-        )}
+        )
+}
 
 fn tree_sitter_router() -> Router {
     use axum::routing::*;
