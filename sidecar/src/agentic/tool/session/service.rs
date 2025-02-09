@@ -1136,6 +1136,25 @@ impl SessionService {
         Ok(send_cancellation_signal)
     }
 
+    pub async fn get_mcts_data(
+        &self,
+        session_id: &str,
+        exchange_id: &str,
+        storage_path: String,
+    ) -> Result<SearchTreeMinimal, SymbolError> {
+        let session = self.load_from_storage(storage_path).await?;
+        
+        // Create a SearchTreeMinimal from the action nodes
+        let search_tree = SearchTreeMinimal::from_action_nodes(
+            session.action_nodes(),
+            session.repo_ref().name.to_owned(),
+            "".to_owned(), // No need for MCTS log directory
+            "".to_owned(), // No need for MCTS log directory
+        );
+        
+        Ok(search_tree)
+    }
+
     async fn load_from_storage(&self, storage_path: String) -> Result<Session, SymbolError> {
         println!("loading_session_from_path::{}", &storage_path);
         let content = tokio::fs::read_to_string(storage_path.to_owned())
