@@ -1493,7 +1493,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                         ),
                         llm_properties.provider().clone(),
                         vec![
-                            ("event_type".to_owned(), event_type.unwrap_or_else(|| "tool_use".to_owned())),
+                            (
+                                "event_type".to_owned(),
+                                event_type.unwrap_or_else(|| "tool_use".to_owned()),
+                            ),
                             ("root_id".to_owned(), cloned_root_request_id),
                         ]
                         .into_iter()
