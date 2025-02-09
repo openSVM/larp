@@ -3092,8 +3092,14 @@ reason: {}"#,
         storage_path: &str,
         content: String,
     ) -> Result<(), SymbolError> {
-        // Create a temporary file path by appending .tmp to the original path
-        let temp_path = format!("{}.tmp", storage_path);
+        use std::time::{SystemTime, UNIX_EPOCH};
+        
+        // Create a timestamp-based temporary file path
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_micros();
+        let temp_path = format!("{}.{}.tmp", storage_path, timestamp);
 
         // Write to temporary file first
         let mut temp_file = tokio::fs::File::create(&temp_path)
@@ -3118,6 +3124,28 @@ reason: {}"#,
         tokio::fs::rename(&temp_path, storage_path)
             .await
             .map_err(|e| SymbolError::IOError(e))?;
+
+        // Clean up any old temporary files
+        if let Ok(dir) = std::path::Path::new(storage_path).parent() {
+            if let Ok(entries) = tokio::fs::read_dir(dir).await {
+                let pattern = format!("{}.*.tmp", 
+                    std::path::Path::new(storage_path)
+                        .file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy());
+                
+                futures::future::join_all(
+                    entries
+                        .filter_map(|e| e.ok())
+                        .filter(|e| {
+                            let name = e.file_name();
+                            let name_str = name.to_string_lossy();
+                            name_str.starts_with(&pattern) && name_str != temp_path
+                        })
+                        .map(|e| tokio::fs::remove_file(e.path()))
+                ).await;
+            }
+        }
 
         Ok(())
     }
