@@ -260,15 +260,14 @@ impl AnthropicRequest {
             .iter()
             .find(|message| message.role().is_system())
             .map(|message| {
-                let mut anthropic_message_content =
-                    AnthropicMessageContent::text(message.content().to_owned(), None);
-                if message.is_cache_point() {
-                    anthropic_message_content =
-                        anthropic_message_content.cache_control(Some(AnthropicCacheControl {
-                            r#type: AnthropicCacheType::Ephemeral,
-                        }));
+                let mut content = vec![AnthropicMessageContent::text(message.content().to_owned(), None)];
+                if message.is_cache_point() && !content.is_empty() {
+                    let last_idx = content.len() - 1;
+                    content[last_idx] = content[last_idx].cache_control(Some(AnthropicCacheControl {
+                        r#type: AnthropicCacheType::Ephemeral,
+                    }));
                 }
-                vec![anthropic_message_content]
+                content
             })
             .unwrap_or_default();
 
@@ -276,55 +275,24 @@ impl AnthropicRequest {
             .into_iter()
             .filter(|message| message.role().is_user() || message.role().is_assistant())
             .map(|message| {
-                let mut anthropic_message_content =
-                    AnthropicMessageContent::text(message.content().to_owned(), None);
-                if message.is_cache_point() {
-                    anthropic_message_content =
-                        anthropic_message_content.cache_control(Some(AnthropicCacheControl {
-                            r#type: AnthropicCacheType::Ephemeral,
-                        }));
-                }
+                let anthropic_message_content = AnthropicMessageContent::text(message.content().to_owned(), None);
                 let images = message
                     .images()
                     .into_iter()
-                    .map(|image| {
-                        let mut content = AnthropicMessageContent::image(image);
-                        if message.is_cache_point() {
-                            content = content.cache_control(Some(AnthropicCacheControl {
-                                r#type: AnthropicCacheType::Ephemeral,
-                            }));
-                        }
-                        content
-                    })
+                    .map(|image| AnthropicMessageContent::image(image))
                     .collect::<Vec<_>>();
                 let tools = message
                     .tool_use_value()
                     .into_iter()
-                    .map(|tool_use| {
-                        let mut content = AnthropicMessageContent::tool_use(tool_use);
-                        if message.is_cache_point() {
-                            content = content.cache_control(Some(AnthropicCacheControl {
-                                r#type: AnthropicCacheType::Ephemeral,
-                            }));
-                        }
-                        content
-                    })
+                    .map(|tool_use| AnthropicMessageContent::tool_use(tool_use))
                     .collect::<Vec<_>>();
                 let tool_return = message
                     .tool_return_value()
                     .into_iter()
-                    .map(|tool_return| {
-                        let mut content = AnthropicMessageContent::tool_return(tool_return);
-                        if message.is_cache_point() {
-                            content = content.cache_control(Some(AnthropicCacheControl {
-                                r#type: AnthropicCacheType::Ephemeral,
-                            }));
-                        }
-                        content
-                    })
+                    .map(|tool_return| AnthropicMessageContent::tool_return(tool_return))
                     .collect::<Vec<_>>();
                 // if we have a tool return then we should not add the content string at all
-                let final_content = if tool_return.is_empty() {
+                let mut final_content = if tool_return.is_empty() {
                     if message.content().is_empty() {
                         vec![]
                     } else {
@@ -337,7 +305,15 @@ impl AnthropicRequest {
                 .chain(images)
                 .chain(tools)
                 .chain(tool_return)
-                .collect();
+                .collect::<Vec<_>>();
+
+                // Only set cache point on the last content if this is a cache point message
+                if message.is_cache_point() && !final_content.is_empty() {
+                    let last_idx = final_content.len() - 1;
+                    final_content[last_idx] = final_content[last_idx].cache_control(Some(AnthropicCacheControl {
+                        r#type: AnthropicCacheType::Ephemeral,
+                    }));
+                }
                 AnthropicMessage {
                     role: message.role().to_string(),
                     content: final_content,
