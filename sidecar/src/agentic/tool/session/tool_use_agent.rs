@@ -1044,7 +1044,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 request,
                 llm_client::provider::LLMProvider::OpenAI,
                 vec![
-                    ("event_type".to_owned(), "o1_orchestrator".to_owned()),
+                    ("event_type".to_owned(), "context_crunching".to_owned()),
                     (
                         "root_id".to_owned(),
                         message_properties.root_request_id().to_owned(),
@@ -1145,6 +1145,17 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let response = run_with_cancellation(
             cancellation_token.clone(),
             tokio::spawn(async move {
+                // Determine if this is a context crunching operation by checking the messages
+                let is_context_crunching = final_messages.iter().any(|msg| {
+                    msg.content().contains("<summarize>") || msg.content().contains("</summarize>")
+                });
+
+                let event_type = if is_context_crunching {
+                    "context_crunching"
+                } else {
+                    "tool_use"
+                };
+
                 if llm_properties.provider().is_anthropic_api_key() {
                     AnthropicClient::new()
                         .stream_completion_with_tool(
@@ -1157,7 +1168,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                             ),
                             // llm_properties.provider().clone(),
                             vec![
-                                ("event_type".to_owned(), "tool_use".to_owned()),
+                                ("event_type".to_owned(), event_type.to_owned()),
                                 ("root_id".to_owned(), cloned_root_request_id),
                             ]
                             .into_iter()
@@ -1177,7 +1188,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                             ),
                             // llm_properties.provider().clone(),
                             vec![
-                                ("event_type".to_owned(), "tool_use".to_owned()),
+                                ("event_type".to_owned(), event_type.to_owned()),
                                 ("root_id".to_owned(), cloned_root_request_id),
                             ]
                             .into_iter()
@@ -1474,6 +1485,17 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let cloned_root_request_id = root_request_id.clone();
         let cloned_cancellation_token = cancellation_token.clone();
 
+        // Determine if this is a context crunching operation by checking the messages
+        let is_context_crunching = final_messages.iter().any(|msg| {
+            msg.content().contains("<summarize>") || msg.content().contains("</summarize>")
+        });
+
+        let event_type = if is_context_crunching {
+            "context_crunching"
+        } else {
+            "tool_use"
+        };
+
         let llm_stream_handle = run_with_cancellation(
             cancellation_token.clone(),
             tokio::spawn(async move {
@@ -1488,7 +1510,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                         ),
                         llm_properties.provider().clone(),
                         vec![
-                            ("event_type".to_owned(), "tool_use".to_owned()),
+                            ("event_type".to_owned(), event_type.to_owned()),
                             ("root_id".to_owned(), cloned_root_request_id),
                         ]
                         .into_iter()

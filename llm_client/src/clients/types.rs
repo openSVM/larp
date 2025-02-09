@@ -85,6 +85,8 @@ pub enum LLMType {
     Gemini2_0Pro,
     /// Custom model type with a specified name
     Custom(String),
+    /// Unknown model type
+    Unknown,
 }
 
 impl Serialize for LLMType {
@@ -94,6 +96,7 @@ impl Serialize for LLMType {
     {
         match self {
             LLMType::Custom(s) => serializer.serialize_str(s),
+            LLMType::Unknown => serializer.serialize_str(""),
             _ => serializer.serialize_str(&format!("{:?}", self)),
         }
     }
@@ -264,9 +267,42 @@ impl fmt::Display for LLMType {
             LLMType::O1 => write!(f, "o1"),
             LLMType::O3MiniHigh => write!(f, "o3-mini"),
             LLMType::Custom(s) => write!(f, "Custom({})", s),
+            LLMType::Unknown => write!(f, ""),
         }
     }
 }
+
+impl From<&str> for LLMType {
+    fn from(s: &str) -> Self {
+        match s {
+            "Mixtral" => LLMType::Mixtral,
+            "MistralInstruct" => LLMType::MistralInstruct,
+            "Gpt4" => LLMType::Gpt4,
+            "GPT3_5_16k" => LLMType::GPT3_5_16k,
+            "Gpt4_32k" => LLMType::Gpt4_32k,
+            "Gpt4Turbo" => LLMType::Gpt4Turbo,
+            "DeepSeekCoder1.3BInstruct" => LLMType::DeepSeekCoder1_3BInstruct,
+            "DeepSeekCoder6BInstruct" => LLMType::DeepSeekCoder6BInstruct,
+            "CodeLLama70BInstruct" => LLMType::CodeLLama70BInstruct,
+            "CodeLlama13BInstruct" => LLMType::CodeLlama13BInstruct,
+            "CodeLlama7BInstruct" => LLMType::CodeLlama7BInstruct,
+            "DeepSeekCoder33BInstruct" => LLMType::DeepSeekCoder33BInstruct,
+            "ClaudeOpus" => LLMType::ClaudeOpus,
+            "ClaudeSonnet" => LLMType::ClaudeSonnet,
+            "ClaudeHaiku" => LLMType::ClaudeHaiku,
+            "PPLXSonnetSmall" => LLMType::PPLXSonnetSmall,
+            "CohereRerankV3" => LLMType::CohereRerankV3,
+            "GeminiPro1.5" => LLMType::GeminiPro,
+            "GeminiProFlash" => LLMType::GeminiProFlash,
+            "o1-preview" => LLMType::O1Preview,
+            "o1-mini" => LLMType::O1Mini,
+            "o1" => LLMType::O1,
+            "o3-mini" => LLMType::O3MiniHigh,
+            _ => LLMType::Unknown,
+        }
+    }
+}
+
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, PartialEq)]
 pub enum LLMClientRole {
@@ -1039,6 +1075,6 @@ mod tests {
     fn test_llm_type_from_string() {
         let llm_type = LLMType::Custom("skcd_testing".to_owned());
         let str_llm_type = serde_json::to_string(&llm_type).expect("to work");
-        assert_eq!(str_llm_type, "");
+        assert_eq!(str_llm_type, "\"skcd_testing\"");
     }
 }

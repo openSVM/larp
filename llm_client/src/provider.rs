@@ -89,6 +89,13 @@ pub enum LLMProviderAPIKeys {
     GroqProvider(GroqProviderAPIKey),
 }
 
+impl std::fmt::Display for LLMProviderAPIKeys {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let s = serde_json::to_string(self).unwrap_or_else(|_| "".to_owned());
+        write!(f, "{}", s)
+    }
+}
+
 impl LLMProviderAPIKeys {
     pub fn is_openai(&self) -> bool {
         matches!(self, LLMProviderAPIKeys::OpenAI(_))
@@ -401,6 +408,6 @@ mod tests {
             api_key: "testing".to_owned(),
         });
         let string_provider_keys = serde_json::to_string(&provider_keys).expect("to work");
-        assert_eq!(string_provider_keys, "",);
+        assert_eq!(string_provider_keys, "{\"OpenAI\":{\"api_key\":\"testing\"}}");
     }
 }

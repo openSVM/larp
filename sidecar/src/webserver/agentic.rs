@@ -17,6 +17,7 @@ use tokio::sync::mpsc::UnboundedSender;
 use tokio::sync::Mutex;
 use tokio::task::JoinHandle;
 use tracing::error;
+use crate::agentic::tool::r#type::ToolType;
 
 use super::types::Result;
 use crate::agentic::symbol::anchored::AnchoredSymbol;
@@ -866,29 +867,55 @@ pub async fn get_mcts_data(
             html.push_str("<div class='mcts-tree'>");
             
             // Add nodes in order
-            for node in data.index_to_node.values() {
+            for node in data.nodes() {
                 if let Some(action) = &node.action() {
                     let tool_type = action.to_tool_type();
                     if let Some(tool_type) = tool_type {
                         // Get color based on tool type using the same logic as print_tree
                         let color = match tool_type {
-                            ToolType::CodeEditor => "#4A90E2",      // blue
-                            ToolType::FindFile => "#F5A623",        // yellow
-                            ToolType::CodeEditing => "#9013FE",     // purple
-                            ToolType::ListFiles => "#F5A623",       // yellow
-                            ToolType::SearchFileContentWithRegex => "#9013FE", // purple
-                            ToolType::OpenFile => "#E91E63",        // magenta
-                            ToolType::SemanticSearch => "#9013FE",  // purple
-                            ToolType::LSPDiagnostics => "#00BCD4",  // cyan
-                            ToolType::TerminalCommand => "#FF5252",  // red
-                            ToolType::AskFollowupQuestions => "#757575", // gray
-                            ToolType::AttemptCompletion => "#4CAF50", // green
-                            ToolType::RepoMapGeneration => "#E91E63", // magenta
-                            ToolType::TestRunner => "#FF5252",      // red
-                            ToolType::Reasoning => "#4A90E2",       // blue
-                            ToolType::ContextCrunching => "#4A90E2", // blue
-                            ToolType::RequestScreenshot => "#757575", // gray
-                            ToolType::McpTool => "#00BCD4",         // cyan
+                            // Code editing related - Purple
+                            ToolType::CodeEditing | ToolType::CodeEditingCOT | 
+                            ToolType::CodeEditingForError | ToolType::CodeEditingWarmupTool |
+                            ToolType::CodeEditorTool | ToolType::SearchAndReplaceEditing => "#9013FE",
+
+                            // File operations - Yellow
+                            ToolType::FindFiles | ToolType::ListFiles | 
+                            ToolType::FindFileForNewSymbol | ToolType::CreateFile => "#F5A623",
+
+                            // Search operations - Purple
+                            ToolType::SearchFileContentWithRegex | ToolType::SemanticSearch |
+                            ToolType::BigSearch | ToolType::KeywordSearch |
+                            ToolType::GrepInFile | ToolType::GrepSymbolInCodebase => "#9013FE",
+
+                            // Navigation - Magenta
+                            ToolType::OpenFile | ToolType::RepoMapGeneration |
+                            ToolType::GoToDefinitions | ToolType::GoToReferences |
+                            ToolType::GoToImplementations | ToolType::GoToTypeDefinition |
+                            ToolType::GoToPreviousWordRange => "#E91E63",
+
+                            // Diagnostics & Analysis - Cyan
+                            ToolType::LSPDiagnostics | ToolType::FileDiagnostics |
+                            ToolType::InLayHints | ToolType::McpTool(_) => "#00BCD4",
+
+                            // Terminal & Commands - Red
+                            ToolType::TerminalCommand | ToolType::TestRunner |
+                            ToolType::TestCorrection => "#FF5252",
+
+                            // UI & Questions - Gray
+                            ToolType::AskFollowupQuestions | ToolType::RequestScreenshot => "#757575",
+
+                            // Completion & Planning - Green
+                            ToolType::AttemptCompletion | ToolType::PlanningBeforeCodeEdit |
+                            ToolType::PlanUpdater | ToolType::PlanStepAdd |
+                            ToolType::StepGenerator => "#4CAF50",
+
+                            // Reasoning & Context - Blue
+                            ToolType::Reasoning | ToolType::ContextCrunching |
+                            ToolType::ContextDrivenChatReply | 
+                            ToolType::ContextDriveHotStreakReply => "#4A90E2",
+
+                            // All other tools - Gray
+                            _ => "#757575",
                         };
                         
                         html.push_str(&format!("<div class='node'>\n"));

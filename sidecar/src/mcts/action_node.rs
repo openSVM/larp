@@ -487,6 +487,13 @@ impl SearchTreeMinimal {
             ),
         }
     }
+
+    pub fn nodes(&self) -> impl Iterator<Item = &ActionNode> {
+        // Return an iterator over all nodes in index order
+        let mut indices: Vec<_> = self.index_to_node.keys().collect();
+        indices.sort();
+        indices.into_iter().filter_map(move |idx| self.index_to_node.get(idx))
+    }
 }
 
 #[derive(Serialize, Clone)]
