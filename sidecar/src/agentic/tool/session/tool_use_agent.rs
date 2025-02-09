@@ -1284,6 +1284,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 message_properties.ui_sender().clone(),
                 message_properties.request_id_str(),
                 vec![system_message, user_message],
+                Some("context_crunching".to_owned()),
             )
             .await?
         {
@@ -1393,6 +1394,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 ui_sender.clone(),
                 exchange_id,
                 final_messages.to_vec(),
+                None,
             )
             .await
         {
@@ -1420,6 +1422,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     ui_sender.clone(),
                     exchange_id,
                     final_messages.to_vec(),
+                    None,
                 )
                 .await?
             {
@@ -1448,6 +1451,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     ui_sender,
                     exchange_id,
                     final_messages,
+                    None,
                 )
                 .await?
             {
@@ -1466,6 +1470,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
         exchange_id: &str,
         final_messages: Vec<LLMClientMessage>,
+        event_type: Option<String>,
     ) -> Result<Option<ToolUseAgentOutput>, SymbolError> {
         let agent_temperature = self.temperature;
         let (sender, receiver) =
@@ -1488,7 +1493,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                         ),
                         llm_properties.provider().clone(),
                         vec![
-                            ("event_type".to_owned(), "tool_use".to_owned()),
+                            (
+                                "event_type".to_owned(),
+                                event_type.unwrap_or_else(|| "tool_use".to_owned()),
+                            ),
                             ("root_id".to_owned(), cloned_root_request_id),
                         ]
                         .into_iter()

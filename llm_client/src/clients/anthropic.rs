@@ -39,7 +39,7 @@ enum AnthropicMessageContent {
         cache_control: Option<AnthropicCacheControl>,
     },
     #[serde(rename = "image")]
-    Image { 
+    Image {
         source: AnthropicImageSource,
         cache_control: Option<AnthropicCacheControl>,
     },
@@ -96,10 +96,22 @@ impl AnthropicMessageContent {
 
     fn set_cache_control(&mut self, cache_control: Option<AnthropicCacheControl>) {
         match self {
-            Self::Text { cache_control: ref mut cc, .. } => *cc = cache_control,
-            Self::Image { cache_control: ref mut cc, .. } => *cc = cache_control,
-            Self::ToolUse { cache_control: ref mut cc, .. } => *cc = cache_control,
-            Self::ToolReturn { cache_control: ref mut cc, .. } => *cc = cache_control,
+            Self::Text {
+                cache_control: ref mut cc,
+                ..
+            } => *cc = cache_control,
+            Self::Image {
+                cache_control: ref mut cc,
+                ..
+            } => *cc = cache_control,
+            Self::ToolUse {
+                cache_control: ref mut cc,
+                ..
+            } => *cc = cache_control,
+            Self::ToolReturn {
+                cache_control: ref mut cc,
+                ..
+            } => *cc = cache_control,
         }
     }
 }
@@ -275,7 +287,7 @@ impl AnthropicRequest {
                 let mut content = Vec::new();
                 let mut anthropic_message_content =
                     AnthropicMessageContent::text(message.content().to_owned(), None);
-                
+
                 let images = message
                     .images()
                     .into_iter()

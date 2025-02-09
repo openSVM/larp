@@ -1143,7 +1143,7 @@ impl SessionService {
         storage_path: String,
     ) -> Result<SearchTreeMinimal, SymbolError> {
         let session = self.load_from_storage(storage_path).await?;
-        
+
         // Create a SearchTreeMinimal from the action nodes
         let search_tree = SearchTreeMinimal::from_action_nodes(
             session.action_nodes(),
@@ -1151,7 +1151,7 @@ impl SessionService {
             "".to_owned(), // No need for MCTS log directory
             "".to_owned(), // No need for MCTS log directory
         );
-        
+
         Ok(search_tree)
     }
 
