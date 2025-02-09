@@ -831,6 +831,97 @@ pub async fn user_feedback_on_exchange(
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MCTSDataRequest {
+    session_id: String,
+    exchange_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MCTSDataResponse {
+    html: String,
+}
+
+impl ApiResponse for MCTSDataResponse {}
+
+pub async fn get_mcts_data(
+    Extension(app): Extension<Application>,
+    Json(MCTSDataRequest { session_id, exchange_id }): Json<MCTSDataRequest>,
+) -> Result<impl IntoResponse> {
+    let session_storage_path = check_session_storage_path(app.config.clone(), session_id.to_string()).await;
+    let session_service = app.session_service.clone();
+
+    // Get the MCTS data from session storage
+    let mcts_data = session_service.get_mcts_data(&session_id, &exchange_id, session_storage_path).await;
+    
+    // Generate HTML with color-coded tool types and tool input/output
+    let html = match mcts_data {
+        Ok(data) => {
+            let mut html = String::from(r#"<html><head><style>
+                .tool-type { display: inline-block; padding: 4px 8px; margin: 2px; border-radius: 4px; color: white; }
+                .tool-content { margin: 8px 0; padding: 8px; background: #f5f5f5; border-radius: 4px; }
+                pre { margin: 0; white-space: pre-wrap; }
+                .node { margin: 8px 0; padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
+            </style></head><body>"#);
+            
+            html.push_str("<div class='mcts-tree'>");
+            
+            // Add nodes in order
+            for node in data.index_to_node.values() {
+                if let Some(action) = &node.action() {
+                    let tool_type = action.to_tool_type();
+                    if let Some(tool_type) = tool_type {
+                        // Get color based on tool type using the same logic as print_tree
+                        let color = match tool_type {
+                            ToolType::CodeEditor => "#4A90E2",      // blue
+                            ToolType::FindFile => "#F5A623",        // yellow
+                            ToolType::CodeEditing => "#9013FE",     // purple
+                            ToolType::ListFiles => "#F5A623",       // yellow
+                            ToolType::SearchFileContentWithRegex => "#9013FE", // purple
+                            ToolType::OpenFile => "#E91E63",        // magenta
+                            ToolType::SemanticSearch => "#9013FE",  // purple
+                            ToolType::LSPDiagnostics => "#00BCD4",  // cyan
+                            ToolType::TerminalCommand => "#FF5252",  // red
+                            ToolType::AskFollowupQuestions => "#757575", // gray
+                            ToolType::AttemptCompletion => "#4CAF50", // green
+                            ToolType::RepoMapGeneration => "#E91E63", // magenta
+                            ToolType::TestRunner => "#FF5252",      // red
+                            ToolType::Reasoning => "#4A90E2",       // blue
+                            ToolType::ContextCrunching => "#4A90E2", // blue
+                            ToolType::RequestScreenshot => "#757575", // gray
+                            ToolType::McpTool => "#00BCD4",         // cyan
+                        };
+                        
+                        html.push_str(&format!("<div class='node'>\n"));
+                        html.push_str(&format!("<div class='tool-type' style='background: {}'>{:?}</div>\n", color, tool_type));
+                        
+                        // Add tool input/output with proper formatting
+                        html.push_str("<div class='tool-content'>\n");
+                        html.push_str(&format!("<h4>Tool Input:</h4>\n<pre>{}</pre>\n", action.to_string()));
+                        if let Some(observation) = node.observation() {
+                            html.push_str(&format!("<h4>Tool Output:</h4>\n<pre>{}</pre>\n", observation.message()));
+                        }
+                        html.push_str("</div>\n"); // Close tool-content
+                        
+                        // Add reward if present
+                        if let Some(reward) = node.reward() {
+                            html.push_str(&format!("<div class='reward'>Reward: {}</div>\n", reward.value()));
+                        }
+                        
+                        html.push_str("</div>\n"); // Close node
+                    }
+                }
+            }
+            
+            html.push_str("</div></body></html>");
+            html
+        },
+        Err(_) => String::from("<html><body>No MCTS data found</body></html>"),
+    };
+
+    Ok(json_result(MCTSDataResponse { html }))
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AgenticCancelRunningExchange {
     exchange_id: String,
     session_id: String,
