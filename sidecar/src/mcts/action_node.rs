@@ -457,6 +457,10 @@ impl SearchTreeMinimal {
         }
     }
 
+    pub fn nodes(&self) -> impl Iterator<Item = &ActionNode> {
+        self.index_to_node.values()
+    }
+
     pub async fn save_serialised_graph(&self, log_dir: &str, request_id: &str) {
         let graph_serialised = match serde_json::to_string(&self) {
             Ok(serialized) => serialized,

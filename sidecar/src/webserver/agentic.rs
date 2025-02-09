@@ -43,6 +43,7 @@ use crate::webserver::plan::{
 use crate::{application::application::Application, user_context::types::UserContext};
 
 use super::types::ApiResponse;
+use crate::agentic::tool::r#type::ToolType;
 
 /// Tracks and manages probe requests in a concurrent environment.
 /// This struct is responsible for keeping track of ongoing probe requests
@@ -866,7 +867,7 @@ pub async fn get_mcts_data(
             html.push_str("<div class='mcts-tree'>");
             
             // Add nodes in order
-            for node in data.index_to_node.values() {
+            for node in data.nodes() {
                 if let Some(action) = &node.action() {
                     let tool_type = action.to_tool_type();
                     if let Some(tool_type) = tool_type {
