@@ -3106,26 +3106,31 @@ reason: {}"#,
             .await
             .map_err(|e| SymbolError::IOError(e))?;
 
-        temp_file
-            .write_all(content.as_bytes())
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
+        let result = async {
+            temp_file
+                .write_all(content.as_bytes())
+                .await
+                .map_err(|e| SymbolError::IOError(e))?;
 
-        // Ensure all data is written to disk
-        temp_file
-            .sync_all()
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
+            // Ensure all data is written to disk
+            temp_file
+                .sync_all()
+                .await
+                .map_err(|e| SymbolError::IOError(e))?;
 
-        // Close the file explicitly before renaming
-        drop(temp_file);
+            // Close the file explicitly before renaming
+            drop(temp_file);
 
-        // Atomically rename temp file to target file
-        tokio::fs::rename(&temp_path, storage_path)
-            .await
-            .map_err(|e| SymbolError::IOError(e))?;
+            // Atomically rename temp file to target file
+            tokio::fs::rename(&temp_path, storage_path)
+                .await
+                .map_err(|e| SymbolError::IOError(e))
+        }.await;
 
-        Ok(())
+        // Clean up temp file if it still exists, ignore any errors during cleanup
+        let _ = tokio::fs::remove_file(&temp_path).await;
+
+        result
     }
 
     async fn save_to_storage(&self) -> Result<(), SymbolError> {
