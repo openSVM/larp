@@ -43,6 +43,7 @@ use crate::webserver::plan::{
 use crate::{application::application::Application, user_context::types::UserContext};
 
 use super::types::ApiResponse;
+use crate::agentic::tool::r#type::ToolType;
 
 /// Tracks and manages probe requests in a concurrent environment.
 /// This struct is responsible for keeping track of ongoing probe requests
@@ -866,29 +867,29 @@ pub async fn get_mcts_data(
             html.push_str("<div class='mcts-tree'>");
             
             // Add nodes in order
-            for node in data.index_to_node.values() {
+            for node in data.nodes() {
                 if let Some(action) = &node.action() {
                     let tool_type = action.to_tool_type();
                     if let Some(tool_type) = tool_type {
                         // Get color based on tool type using the same logic as print_tree
                         let color = match tool_type {
-                            ToolType::CodeEditor => "#4A90E2",      // blue
-                            ToolType::FindFile => "#F5A623",        // yellow
-                            ToolType::CodeEditing => "#9013FE",     // purple
-                            ToolType::ListFiles => "#F5A623",       // yellow
+                            ToolType::CodeEditing => "#4A90E2",      // blue
+                            ToolType::FindFiles => "#F5A623",        // yellow
+                            ToolType::ListFiles => "#F5A623",        // yellow
                             ToolType::SearchFileContentWithRegex => "#9013FE", // purple
-                            ToolType::OpenFile => "#E91E63",        // magenta
-                            ToolType::SemanticSearch => "#9013FE",  // purple
-                            ToolType::LSPDiagnostics => "#00BCD4",  // cyan
-                            ToolType::TerminalCommand => "#FF5252",  // red
+                            ToolType::OpenFile => "#E91E63",         // magenta
+                            ToolType::SemanticSearch => "#9013FE",   // purple
+                            ToolType::LSPDiagnostics => "#00BCD4",   // cyan
+                            ToolType::TerminalCommand => "#FF5252",   // red
                             ToolType::AskFollowupQuestions => "#757575", // gray
                             ToolType::AttemptCompletion => "#4CAF50", // green
                             ToolType::RepoMapGeneration => "#E91E63", // magenta
-                            ToolType::TestRunner => "#FF5252",      // red
-                            ToolType::Reasoning => "#4A90E2",       // blue
-                            ToolType::ContextCrunching => "#4A90E2", // blue
+                            ToolType::TestRunner => "#FF5252",       // red
+                            ToolType::Reasoning => "#4A90E2",        // blue
+                            ToolType::ContextCrunching => "#4A90E2",  // blue
                             ToolType::RequestScreenshot => "#757575", // gray
-                            ToolType::McpTool => "#00BCD4",         // cyan
+                            ToolType::McpTool(_) => "#00BCD4",       // cyan
+                            _ => "#9E9E9E",                          // default gray for other variants
                         };
                         
                         html.push_str(&format!("<div class='node'>\n"));
