@@ -302,11 +302,12 @@ impl AnthropicRequest {
                 content.extend(tool_return);
 
                 // If this message is marked as a cache point, set it on the last content
-                if message.is_cache_point() && !content.is_empty() {
-                    let last_idx = content.len() - 1;
-                    content[last_idx].set_cache_control(Some(AnthropicCacheControl {
-                        r#type: AnthropicCacheType::Ephemeral,
-                    }));
+                if message.is_cache_point() {
+                    if let Some(last_content) = content.last_mut() {
+                        last_content.set_cache_control(Some(AnthropicCacheControl {
+                            r#type: AnthropicCacheType::Ephemeral,
+                        }));
+                    }
                 }
 
                 AnthropicMessage {
