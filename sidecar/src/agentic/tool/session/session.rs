@@ -8,6 +8,7 @@ use std::{
 
 use futures::StreamExt;
 use llm_client::clients::types::LLMType;
+use rand::random;
 use tokio::io::AsyncWriteExt;
 
 use crate::{
@@ -3092,14 +3093,8 @@ reason: {}"#,
         storage_path: &str,
         content: String,
     ) -> Result<(), SymbolError> {
-        use std::time::{SystemTime, UNIX_EPOCH};
-        
-        // Create a timestamp-based temporary file path
-        let timestamp = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_micros();
-        let temp_path = format!("{}.{}.tmp", storage_path, timestamp);
+        // Create a unique temporary file path using pid and random number
+        let temp_path = format!("{}.{}.{}.tmp", storage_path, std::process::id(), random::<u32>());
 
         // Write to temporary file first
         let mut temp_file = tokio::fs::File::create(&temp_path)
