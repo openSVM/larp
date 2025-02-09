@@ -1277,14 +1277,14 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
 
         let message_properties = input.symbol_event_message_properties.clone();
         if let Some(result) = self
-            .try_with_llm_with_event_type(
+            .try_with_llm(
                 llm_properties,
                 message_properties.cancellation_token().clone(),
                 message_properties.root_request_id().to_owned(),
                 message_properties.ui_sender().clone(),
                 message_properties.request_id_str(),
                 vec![system_message, user_message],
-                "context_crunching".to_owned(),
+                Some("context_crunching".to_owned()),
             )
             .await?
         {
@@ -1394,6 +1394,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 ui_sender.clone(),
                 exchange_id,
                 final_messages.to_vec(),
+                None,
             )
             .await
         {
@@ -1421,6 +1422,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     ui_sender.clone(),
                     exchange_id,
                     final_messages.to_vec(),
+                    None,
                 )
                 .await?
             {
@@ -1449,6 +1451,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     ui_sender,
                     exchange_id,
                     final_messages,
+                    None,
                 )
                 .await?
             {
@@ -1459,7 +1462,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         Err(SymbolError::FailedToGetTool)
     }
 
-    async fn try_with_llm_with_event_type(
+    async fn try_with_llm(
         &self,
         llm_properties: LLMProperties,
         cancellation_token: tokio_util::sync::CancellationToken,
@@ -1467,7 +1470,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
         exchange_id: &str,
         final_messages: Vec<LLMClientMessage>,
-        event_type: String,
+        event_type: Option<String>,
     ) -> Result<Option<ToolUseAgentOutput>, SymbolError> {
         let agent_temperature = self.temperature;
         let (sender, receiver) =
@@ -1490,7 +1493,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                         ),
                         llm_properties.provider().clone(),
                         vec![
-                            ("event_type".to_owned(), event_type),
+                            ("event_type".to_owned(), event_type.unwrap_or_else(|| "tool_use".to_owned())),
                             ("root_id".to_owned(), cloned_root_request_id),
                         ]
                         .into_iter()
@@ -1610,27 +1613,6 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             Some(Ok(Err(e))) => Err(SymbolError::LLMClientError(e)),
             _ => result,
         }
-    }
-
-    async fn try_with_llm(
-        &self,
-        llm_properties: LLMProperties,
-        cancellation_token: tokio_util::sync::CancellationToken,
-        root_request_id: String,
-        ui_sender: tokio::sync::mpsc::UnboundedSender<UIEventWithID>,
-        exchange_id: &str,
-        final_messages: Vec<LLMClientMessage>,
-    ) -> Result<Option<ToolUseAgentOutput>, SymbolError> {
-        self.try_with_llm_with_event_type(
-            llm_properties,
-            cancellation_token,
-            root_request_id,
-            ui_sender,
-            exchange_id,
-            final_messages,
-            "tool_use".to_owned(),
-        )
-        .await
     }
 }
 
