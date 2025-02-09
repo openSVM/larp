@@ -1,4 +1,44 @@
-use std::collections::HashMap;
+    fn format_message_content(message: &super::types::LLMClientMessage) -> String {
+        format!(
+            r#"<content>
+{}
+</content>
+<tool_use_value>
+{}
+</tool_use_value>
+<tool_return_value>
+{}
+</tool_return_value>"#,
+            message.content(),
+            message.tool_use_value().into_iter()
+                .filter_map(|v| serde_json::to_string(&v).ok())
+                .collect::<Vec<_>>()
+                .join("\n"),
+            message.tool_return_value().into_iter()
+                .filter_map(|v| serde_json::to_string(&v).ok())
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
+
+    fn format_completion_content(
+        content: &str,
+        tool_use: &[(String, (String, String))],
+    ) -> String {
+        format!(
+            "<content>\n{}\n</content>\n<tool_use_indication>\n{}\n</tool_use_indication>",
+            content,
+            tool_use.iter()
+                .map(|(_, (tool_type, tool_value))| {
+                    format!(
+                        "<tool_use_value>\n<tool_type>\n{}\n</tool_type>\n<tool_content>\n{}\n</tool_content>\n</tool_use_value>",
+                        tool_type, tool_value
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("\n")
+        )
+    }
 
 use async_trait::async_trait;
 use eventsource_stream::Eventsource;
@@ -94,6 +134,15 @@ impl AnthropicMessageContent {
         }
     }
 
+    fn with_cache_control(self, is_cache_point: bool) -> Self {
+        if !is_cache_point {
+            return self;
+        }
+        self.cache_control(Some(AnthropicCacheControl {
+            r#type: AnthropicCacheType::Ephemeral,
+        }))
+    }
+
     fn cache_control(mut self, cache_control_update: Option<AnthropicCacheControl>) -> Self {
         match &mut self {
             Self::Text { cache_control, .. } |
@@ -121,6 +170,81 @@ struct AnthropicMessage {
 }
 
 impl AnthropicMessage {
+    fn collect_content(message: &super::types::LLMClientMessage) -> Vec<AnthropicMessageContent> {
+        let mut content = Vec::new();
+        
+        // Add text content if we don't have tool returns
+        if message.tool_return_value().is_empty() && !message.content().is_empty() {
+            content.push(AnthropicMessageContent::text(message.content().to_owned(), None));
+        }
+        
+        // Add images, tools and tool returns
+        content.extend(message.images().iter().map(AnthropicMessageContent::image));
+        content.extend(message.tool_use_value().iter().map(AnthropicMessageContent::tool_use));
+        content.extend(message.tool_return_value().iter().map(AnthropicMessageContent::tool_return));
+
+        // Apply cache control to last content if needed
+        if message.is_cache_point() && !content.is_empty() {
+            let last_idx = content.len() - 1;
+            content[last_idx] = content[last_idx].clone().with_cache_control(true);
+        }
+
+        content
+    }
+
+    fn handle_event_content(
+        event: AnthropicEvent,
+        buffered_string: &mut String,
+        model_str: &str,
+        sender: &UnboundedSender<LLMClientCompletionResponse>,
+        usage_stats: Option<LLMClientUsageStatistics>,
+    ) -> Result<(), LLMClientError> {
+        match event {
+            AnthropicEvent::ContentBlockStart { content_block, .. } => match content_block {
+                ContentBlockStart::InputToolUse { name, .. } => {
+                    info!("anthropic::tool_use::{}", &name);
+                    Ok(())
+                }
+                ContentBlockStart::TextDelta { text } => {
+                    *buffered_string += &text;
+                    Self::send_completion_response(buffered_string, &text, model_str, sender, usage_stats)
+                }
+            },
+            AnthropicEvent::ContentBlockDelta { delta, .. } => match delta {
+                ContentBlockDeltaType::TextDelta { text } => {
+                    *buffered_string += &text;
+                    Self::send_completion_response(buffered_string, &text, model_str, sender, usage_stats)
+                }
+                ContentBlockDeltaType::InputJsonDelta { partial_json } => {
+                    debug!("input_json_delta::{}", &partial_json);
+                    Ok(())
+                }
+            },
+            _ => Ok(()),
+        }
+    }
+
+    fn send_completion_response(
+        buffered_string: &str,
+        text: &str,
+        model_str: &str,
+        sender: &UnboundedSender<LLMClientCompletionResponse>,
+        usage_stats: Option<LLMClientUsageStatistics>,
+    ) -> Result<(), LLMClientError> {
+        let mut response = LLMClientCompletionResponse::new(
+            buffered_string.to_owned(),
+            Some(text.to_owned()),
+            model_str.to_owned(),
+        );
+        if let Some(stats) = usage_stats {
+            response = response.set_usage_statistics(stats);
+        }
+        sender.send(response).map_err(|e| {
+            error!("Failed to send completion response: {}", e);
+            LLMClientError::SendError(e)
+        })
+    }
+
     pub fn new(role: String, content: String) -> Self {
         Self {
             role,
@@ -237,97 +361,39 @@ impl AnthropicRequest {
         completion_request: LLMClientCompletionRequest,
         model_str: String,
     ) -> Self {
-        let temperature = completion_request.temperature();
-        let max_tokens = match completion_request.get_max_tokens() {
-            Some(tokens) => Some(tokens),
-            None => Some(8192),
-        };
         let messages = completion_request.messages();
-        // grab the tools over here ONLY from the system message
+        
+        // Get system message content
+        let system = messages
+            .iter()
+            .find(|m| m.role().is_system())
+            .map(AnthropicMessage::collect_content)
+            .unwrap_or_default();
+
+        // Get tools from system message
         let tools = messages
             .iter()
-            .find(|message| message.is_system_message())
-            .map(|message| {
-                message
-                    .tools()
-                    .into_iter()
-                    .filter_map(|tool| Some(tool.clone()))
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        // First we try to find the system message
-        let system_message = messages
-            .iter()
-            .find(|message| message.role().is_system())
-            .map(|message| {
-                let mut content = vec![AnthropicMessageContent::text(message.content().to_owned(), None)];
-                if message.is_cache_point() && !content.is_empty() {
-                    let last_idx = content.len() - 1;
-                    content[last_idx] = content[last_idx].cache_control(Some(AnthropicCacheControl {
-                        r#type: AnthropicCacheType::Ephemeral,
-                    }));
-                }
-                content
-            })
+            .find(|m| m.is_system_message())
+            .map(|m| m.tools().into_iter().collect())
             .unwrap_or_default();
 
+        // Convert user/assistant messages
         let messages = messages
             .into_iter()
-            .filter(|message| message.role().is_user() || message.role().is_assistant())
-            .map(|message| {
-                let anthropic_message_content = AnthropicMessageContent::text(message.content().to_owned(), None);
-                let images = message
-                    .images()
-                    .into_iter()
-                    .map(|image| AnthropicMessageContent::image(image))
-                    .collect::<Vec<_>>();
-                let tools = message
-                    .tool_use_value()
-                    .into_iter()
-                    .map(|tool_use| AnthropicMessageContent::tool_use(tool_use))
-                    .collect::<Vec<_>>();
-                let tool_return = message
-                    .tool_return_value()
-                    .into_iter()
-                    .map(|tool_return| AnthropicMessageContent::tool_return(tool_return))
-                    .collect::<Vec<_>>();
-                // if we have a tool return then we should not add the content string at all
-                let mut final_content = if tool_return.is_empty() {
-                    if message.content().is_empty() {
-                        vec![]
-                    } else {
-                        vec![anthropic_message_content]
-                    }
-                } else {
-                    vec![]
-                }
-                .into_iter()
-                .chain(images)
-                .chain(tools)
-                .chain(tool_return)
-                .collect::<Vec<_>>();
-
-                // Only set cache point on the last content if this is a cache point message
-                if message.is_cache_point() && !final_content.is_empty() {
-                    let last_idx = final_content.len() - 1;
-                    final_content[last_idx] = final_content[last_idx].cache_control(Some(AnthropicCacheControl {
-                        r#type: AnthropicCacheType::Ephemeral,
-                    }));
-                }
-                AnthropicMessage {
-                    role: message.role().to_string(),
-                    content: final_content,
-                }
+            .filter(|m| m.role().is_user() || m.role().is_assistant())
+            .map(|m| AnthropicMessage {
+                role: m.role().to_string(),
+                content: AnthropicMessage::collect_content(m),
             })
-            .collect::<Vec<_>>();
+            .collect();
 
-        AnthropicRequest {
-            system: system_message,
+        Self {
+            system,
             messages,
-            temperature,
+            temperature: completion_request.temperature(),
+            max_tokens: completion_request.get_max_tokens().or(Some(8192)),
             tools,
             stream: true,
-            max_tokens,
             model: model_str,
         }
     }
@@ -408,260 +474,83 @@ impl AnthropicClient {
         request: LLMClientCompletionRequest,
         metadata: HashMap<String, String>,
         sender: UnboundedSender<LLMClientCompletionResponse>,
-        // The first parameter in the Vec<(String, (String, String))> is the tool_type and the
-        // second one is (tool_id + serialized_json value of the tool use)
     ) -> Result<(String, Vec<(String, (String, String))>), LLMClientError> {
-        let endpoint = self.chat_endpoint();
-        let messages = request
-            .messages()
-            .into_iter()
-            .map(|message| message.clone())
-            .collect::<Vec<_>>();
         let model_str = self.get_model_string(request.model())?;
-        let message_tokens = request
-            .messages()
-            .iter()
-            .map(|message| message.content().len())
-            .collect::<Vec<_>>();
-        let mut message_tokens_count = 0;
-        message_tokens.into_iter().for_each(|tokens| {
-            message_tokens_count += tokens;
-        });
-        let anthropic_request =
-            AnthropicRequest::from_client_completion_request(request, model_str.to_owned());
+        let messages = request.messages().to_vec();
+        let anthropic_request = AnthropicRequest::from_client_completion_request(request, model_str.to_owned());
 
-        let current_time = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis();
-        let response_stream = self
-            .client
-            .post(endpoint)
-            .header(
-                "x-api-key".to_owned(),
-                self.generate_api_bearer_key(api_key)?,
-            )
-            .header("anthropic-version".to_owned(), "2023-06-01".to_owned())
-            .header("content-type".to_owned(), "application/json".to_owned())
-            // anthropic-beta: prompt-caching-2024-07-31
-            // enables prompt caching: https://arc.net/l/quote/qtlllqgf
-            .header(
-                "anthropic-beta".to_owned(),
-                "prompt-caching-2024-07-31,max-tokens-3-5-sonnet-2024-07-15,computer-use-2024-10-22".to_owned(),
-            )
-            .json(&anthropic_request)
-            .send()
-            .await
-            .map_err(|e| {
-                error!("sidecar.anthropic.error: {:?}", &e);
-                e
-            })?;
-
-        // Check for 401 Unauthorized status
-        if response_stream.status() == reqwest::StatusCode::UNAUTHORIZED {
-            error!("Unauthorized access to Anthropic API");
-            return Err(LLMClientError::UnauthorizedAccess);
-        }
-
+        let response_stream = self.send_request(&anthropic_request, api_key).await?;
         let mut event_source = response_stream.bytes_stream().eventsource();
 
-        // let event_next = event_source.next().await;
-        // dbg!(&event_next);
+        let mut response_text = String::new();
+        let mut tool_uses = Vec::new();
+        let mut active_tool = (None, None, String::new()); // (name, id, input_json)
 
-        let mut buffered_string = "".to_owned();
-        // controls which tool we will be using if any
-        let mut tool_use_indication: Vec<(String, (String, String))> = vec![];
-
-        // handle all the tool parameters that are coming
-        // we will keep a global tracker over here
-        let mut current_tool_use = None;
-        let current_tool_use_ref = &mut current_tool_use;
-        let mut current_tool_use_id = None;
-        let current_tool_use_id_ref = &mut current_tool_use_id;
-        let mut running_tool_input = "".to_owned();
-        let running_tool_input_ref = &mut running_tool_input;
-
-        // loop over the content we are getting
         while let Some(Ok(event)) = event_source.next().await {
-            // TODO: debugging this
-            let event = serde_json::from_str::<AnthropicEvent>(&event.data);
-            match event {
-                Ok(AnthropicEvent::ContentBlockStart { content_block, .. }) => {
-                    match content_block {
+            if let Ok(event) = serde_json::from_str::<AnthropicEvent>(&event.data) {
+                match event {
+                    AnthropicEvent::ContentBlockStart { content_block, .. } => match content_block {
                         ContentBlockStart::InputToolUse { name, id } => {
-                            *current_tool_use_ref = Some(name.to_owned());
-                            *current_tool_use_id_ref = Some(id.to_owned());
-                            info!("anthropic::tool_use::{}", &name);
+                            active_tool = (Some(name.clone()), Some(id), String::new());
+                            info!("anthropic::tool_use::{}", name);
                         }
                         ContentBlockStart::TextDelta { text } => {
-                            buffered_string = buffered_string + &text;
-                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                                buffered_string.to_owned(),
-                                Some(text),
-                                model_str.to_owned(),
-                            )) {
-                                error!("Failed to send completion response: {}", e);
-                                return Err(LLMClientError::SendError(e));
+                            response_text.push_str(&text);
+                            AnthropicMessage::send_completion_response(
+                                &response_text, &text, &model_str, &sender, None,
+                            )?;
+                        }
+                    },
+                    AnthropicEvent::ContentBlockDelta { delta, .. } => match delta {
+                        ContentBlockDeltaType::TextDelta { text } => {
+                            response_text.push_str(&text);
+                            AnthropicMessage::send_completion_response(
+                                &response_text, &text, &model_str, &sender, None,
+                            )?;
+                        }
+                        ContentBlockDeltaType::InputJsonDelta { partial_json } => {
+                            active_tool.2.push_str(&partial_json);
+                        }
+                    },
+                    AnthropicEvent::ContentBlockStop { .. } => {
+                        if let (Some(name), Some(id), input) = active_tool.clone() {
+                            if !input.is_empty() {
+                                tool_uses.push((name, (id, input)));
                             }
                         }
+                        active_tool = (None, None, String::new());
                     }
-                }
-                Ok(AnthropicEvent::ContentBlockDelta { delta, .. }) => match delta {
-                    ContentBlockDeltaType::TextDelta { text } => {
-                        buffered_string = buffered_string + &text;
-                        let time_now = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis();
-                        let time_diff = time_now - current_time;
-                        debug!(
-                            event_name = "anthropic.buffered_string",
-                            message_tokens_count = message_tokens_count,
-                            generated_tokens_count = &buffered_string.len(),
-                            time_taken = time_diff,
-                        );
-                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                            buffered_string.to_owned(),
-                            Some(text),
-                            model_str.to_owned(),
-                        )) {
-                            error!("Failed to send completion response: {}", e);
-                            return Err(LLMClientError::SendError(e));
-                        }
+                    AnthropicEvent::MessageStart { message } => {
+                        debug!("anthropic::cache_hit::{:?}", message.usage.cache_read_input_tokens);
                     }
-                    ContentBlockDeltaType::InputJsonDelta { partial_json } => {
-                        *running_tool_input_ref = running_tool_input_ref.to_owned() + &partial_json;
-                        // println!("input_json_delta::{}", &partial_json);
-                    }
-                },
-                Ok(AnthropicEvent::ContentBlockStop { _index }) => {
-                    // if the code block has stopped we need to pack our bags and
-                    // create an entry for the tool which we want to use
-                    if let (Some(current_tool_use), Some(current_tool_use_id)) = (
-                        current_tool_use_ref.clone(),
-                        current_tool_use_id_ref.clone(),
-                    ) {
-                        tool_use_indication.push((
-                            current_tool_use.to_owned(),
-                            (
-                                current_tool_use_id.to_owned(),
-                                running_tool_input_ref.to_owned(),
-                            ),
-                        ));
-                    }
-
-                    // now empty the tool use tracker
-                    *current_tool_use_ref = None;
-                    *running_tool_input_ref = "".to_owned();
-                    *current_tool_use_id_ref = None;
-                }
-                Ok(AnthropicEvent::MessageStart { message }) => {
-                    println!(
-                        "anthropic::cache_hit::{:?}",
-                        message.usage.cache_read_input_tokens
-                    );
-                }
-                Err(e) => {
-                    error!("Error parsing event: {:?}", e);
-                    // break;
-                }
-                _ => {
-                    // dbg!(&event);
+                    _ => {}
                 }
             }
         }
 
-        if tool_use_indication.is_empty() {
+        if tool_uses.is_empty() {
             info!("anthropic::tool_not_found");
         }
 
-        let request_id = uuid::Uuid::new_v4();
+        let request_id = uuid::Uuid::new_v4().to_string();
         let parea_log_completion = PareaLogCompletion::new(
-            messages
-                .into_iter()
-                .map(|message| {
-                    PareaLogMessage::new(message.role().to_string(), {
-                        // we generate the content in a special way so we can read it on parea
-                        let content = message.content();
-                        let tool_use_value = message
-                            .tool_use_value()
-                            .into_iter()
-                            .map(|tool_use_value| {
-                                serde_json::to_string(&tool_use_value).expect("to work")
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        let tool_return_value = message
-                            .tool_return_value()
-                            .into_iter()
-                            .map(|llm_return_value| {
-                                serde_json::to_string(&llm_return_value).expect("to work")
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        format!(
-                            r#"<content>
-{content}
-</content>
-<tool_use_value>
-{tool_use_value}
-</tool_use_value>
-<tool_return_value>
-{tool_return_value}
-</tool_return_value>"#
-                        )
-                    })
-                })
-                .collect::<Vec<_>>(),
+            messages.into_iter().map(|m| PareaLogMessage::new(
+                m.role().to_string(),
+                Self::format_message_content(&m),
+            )).collect(),
             metadata.clone(),
-            {
-                format!(
-                    "<content>
-{}
-</content>
-<tool_use_indication>
-{}
-</tool_use_indication>",
-                    &buffered_string,
-                    tool_use_indication
-                        .to_vec()
-                        .into_iter()
-                        .map(|(_, (tool_use_type, tool_use_value))| {
-                            format!(
-                                "<tool_use_value>
-<tool_type>
-{}
-</tool_type>
-<tool_content>
-{}
-</tool_content>
-</tool_use_value>",
-                                tool_use_type, tool_use_value
-                            )
-                        })
-                        .collect::<Vec<_>>()
-                        .join("\n")
-                )
-            },
+            Self::format_completion_content(&response_text, &tool_uses),
             0.2,
-            request_id.to_string(),
-            request_id.to_string(),
-            metadata
-                .get("root_trace_id")
-                .map(|s| s.to_owned())
-                .unwrap_or(request_id.to_string()),
+            request_id.clone(),
+            request_id.clone(),
+            metadata.get("root_trace_id").cloned().unwrap_or_else(|| request_id.clone()),
             "ClaudeSonnet".to_owned(),
             "Anthropic".to_owned(),
-            metadata
-                .get("event_type")
-                .map(|s| s.to_owned())
-                .unwrap_or("no_event_type".to_owned()),
+            metadata.get("event_type").cloned().unwrap_or_else(|| "no_event_type".to_owned()),
         );
-        let _ = PareaClient::new()
-            .log_completion(parea_log_completion)
-            .await;
+        let _ = PareaClient::new().log_completion(parea_log_completion).await;
 
-        Ok((buffered_string, tool_use_indication))
+        Ok((response_text, tool_uses))
     }
 }
 
@@ -846,83 +735,49 @@ impl LLMClient for AnthropicClient {
         request: LLMClientCompletionStringRequest,
         sender: UnboundedSender<LLMClientCompletionResponse>,
     ) -> Result<String, LLMClientError> {
-        let endpoint = self.chat_endpoint();
         let model_str = self.get_model_string(request.model())?;
-        let anthropic_request =
-            AnthropicRequest::from_client_string_request(request, model_str.to_owned());
+        let anthropic_request = AnthropicRequest::from_client_string_request(request, model_str.to_owned());
 
-        let response = self
-            .client
-            .post(endpoint)
-            .header(
-                "x-api-key".to_owned(),
-                self.generate_api_bearer_key(api_key)?,
-            )
-            .header(
-                "anthropic-beta".to_owned(),
-                "max-tokens-3-5-sonnet-2024-07-15".to_owned(),
-            )
-            .header("anthropic-version".to_owned(), "2023-06-01".to_owned())
-            .header("content-type".to_owned(), "application/json".to_owned())
-            .json(&anthropic_request)
-            .send()
-            .await?;
+        let response_stream = self.send_request(&anthropic_request, api_key).await?;
+        let mut event_source = response_stream.bytes_stream().eventsource();
 
-        // Check for 401 Unauthorized status
-        if response.status() == reqwest::StatusCode::UNAUTHORIZED {
-            error!("Unauthorized access to Anthropic API");
-            return Err(LLMClientError::UnauthorizedAccess);
-        }
+        let mut buffered_string = String::new();
+        let mut usage_stats = LLMClientUsageStatistics::new();
 
-        let mut response_stream = response.bytes_stream().eventsource();
-
-        let mut buffered_string = "".to_owned();
-        while let Some(Ok(event)) = response_stream.next().await {
-            let event = serde_json::from_str::<AnthropicEvent>(&event.data);
-            match event {
-                Ok(AnthropicEvent::ContentBlockStart { content_block, .. }) => {
-                    match content_block {
-                        ContentBlockStart::InputToolUse { name, id: _id } => {
-                            println!("anthropic::tool_use::{}", &name);
+        while let Some(Ok(event)) = event_source.next().await {
+            if let Ok(event) = serde_json::from_str::<AnthropicEvent>(&event.data) {
+                match event {
+                    AnthropicEvent::MessageStart { message } => {
+                        if let Some(tokens) = message.usage.input_tokens {
+                            usage_stats = usage_stats.set_input_tokens(tokens);
                         }
-                        ContentBlockStart::TextDelta { text } => {
-                            buffered_string = buffered_string + &text;
-                            if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                                buffered_string.to_owned(),
-                                Some(text),
-                                model_str.to_owned(),
-                            )) {
-                                error!("Failed to send completion response: {}", e);
-                                return Err(LLMClientError::SendError(e));
-                            }
+                        if let Some(tokens) = message.usage.output_tokens {
+                            usage_stats = usage_stats.set_output_tokens(tokens);
+                        }
+                        if let Some(tokens) = message.usage.cache_read_input_tokens {
+                            usage_stats = usage_stats.set_cached_input_tokens(tokens);
                         }
                     }
-                }
-                Ok(AnthropicEvent::ContentBlockDelta { delta, .. }) => match delta {
-                    ContentBlockDeltaType::TextDelta { text } => {
-                        buffered_string = buffered_string + &text;
-                        let _ = std::time::SystemTime::now()
-                            .duration_since(std::time::UNIX_EPOCH)
-                            .unwrap()
-                            .as_millis();
-                        if let Err(e) = sender.send(LLMClientCompletionResponse::new(
-                            buffered_string.to_owned(),
-                            Some(text),
-                            model_str.to_owned(),
-                        )) {
-                            error!("Failed to send completion response: {}", e);
-                            return Err(LLMClientError::SendError(e));
+                    AnthropicEvent::MessageDelta { usage, .. } => {
+                        if let Some(tokens) = usage.input_tokens {
+                            usage_stats = usage_stats.set_input_tokens(tokens);
+                        }
+                        if let Some(tokens) = usage.output_tokens {
+                            usage_stats = usage_stats.set_output_tokens(tokens);
+                        }
+                        if let Some(tokens) = usage.cache_read_input_tokens {
+                            usage_stats = usage_stats.set_cached_input_tokens(tokens);
                         }
                     }
-                    ContentBlockDeltaType::InputJsonDelta { partial_json } => {
-                        println!("input_json_delta::{}", &partial_json);
+                    _ => {
+                        AnthropicMessage::handle_event_content(
+                            event,
+                            &mut buffered_string,
+                            &model_str,
+                            &sender,
+                            Some(usage_stats.clone()),
+                        )?;
                     }
-                },
-                Err(_) => {
-                    break;
-                }
-                _ => {
-                    dbg!(&event);
                 }
             }
         }
