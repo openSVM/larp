@@ -39,17 +39,22 @@ enum AnthropicMessageContent {
         cache_control: Option<AnthropicCacheControl>,
     },
     #[serde(rename = "image")]
-    Image { source: AnthropicImageSource },
+    Image {
+        source: AnthropicImageSource,
+        cache_control: Option<AnthropicCacheControl>,
+    },
     #[serde(rename = "tool_use")]
     ToolUse {
         id: String,
         name: String,
         input: serde_json::Value,
+        cache_control: Option<AnthropicCacheControl>,
     },
     #[serde(rename = "tool_result")]
     ToolReturn {
         tool_use_id: String,
         content: String,
+        cache_control: Option<AnthropicCacheControl>,
     },
 }
 
@@ -61,17 +66,6 @@ impl AnthropicMessageContent {
         }
     }
 
-    fn cache_control(mut self, cache_control_update: Option<AnthropicCacheControl>) -> Self {
-        if let Self::Text {
-            text: _,
-            ref mut cache_control,
-        } = self
-        {
-            *cache_control = cache_control_update;
-        }
-        self
-    }
-
     pub fn image(llm_image: &LLMClientMessageImage) -> Self {
         Self::Image {
             source: AnthropicImageSource {
@@ -79,6 +73,7 @@ impl AnthropicMessageContent {
                 media_type: llm_image.media().to_owned(),
                 data: llm_image.data().to_owned(),
             },
+            cache_control: None,
         }
     }
 
@@ -87,6 +82,7 @@ impl AnthropicMessageContent {
             id: llm_tool_use.id().to_owned(),
             name: llm_tool_use.name().to_owned(),
             input: llm_tool_use.input().clone(),
+            cache_control: None,
         }
     }
 
@@ -94,7 +90,20 @@ impl AnthropicMessageContent {
         Self::ToolReturn {
             tool_use_id: llm_tool_return.tool_use_id().to_owned(),
             content: llm_tool_return.content().to_owned(),
+            cache_control: None,
         }
+    }
+
+    fn cache_control(mut self, cache_control_update: Option<AnthropicCacheControl>) -> Self {
+        match &mut self {
+            Self::Text { cache_control, .. } |
+            Self::Image { cache_control, .. } |
+            Self::ToolUse { cache_control, .. } |
+            Self::ToolReturn { cache_control, .. } => {
+                *cache_control = cache_control_update;
+            }
+        }
+        self
     }
 }
 
@@ -278,17 +287,41 @@ impl AnthropicRequest {
                 let images = message
                     .images()
                     .into_iter()
-                    .map(|image| AnthropicMessageContent::image(image))
+                    .map(|image| {
+                        let mut content = AnthropicMessageContent::image(image);
+                        if message.is_cache_point() {
+                            content = content.cache_control(Some(AnthropicCacheControl {
+                                r#type: AnthropicCacheType::Ephemeral,
+                            }));
+                        }
+                        content
+                    })
                     .collect::<Vec<_>>();
                 let tools = message
                     .tool_use_value()
                     .into_iter()
-                    .map(|tool_use| AnthropicMessageContent::tool_use(tool_use))
+                    .map(|tool_use| {
+                        let mut content = AnthropicMessageContent::tool_use(tool_use);
+                        if message.is_cache_point() {
+                            content = content.cache_control(Some(AnthropicCacheControl {
+                                r#type: AnthropicCacheType::Ephemeral,
+                            }));
+                        }
+                        content
+                    })
                     .collect::<Vec<_>>();
                 let tool_return = message
                     .tool_return_value()
                     .into_iter()
-                    .map(|tool_return| AnthropicMessageContent::tool_return(tool_return))
+                    .map(|tool_return| {
+                        let mut content = AnthropicMessageContent::tool_return(tool_return);
+                        if message.is_cache_point() {
+                            content = content.cache_control(Some(AnthropicCacheControl {
+                                r#type: AnthropicCacheType::Ephemeral,
+                            }));
+                        }
+                        content
+                    })
                     .collect::<Vec<_>>();
                 // if we have a tool return then we should not add the content string at all
                 let final_content = if tool_return.is_empty() {
