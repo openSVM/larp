@@ -96,10 +96,10 @@ impl AnthropicMessageContent {
 
     fn set_cache_control(&mut self, cache_control: Option<AnthropicCacheControl>) {
         match self {
-            Self::Text { ref mut cache_control: cc, .. } => *cc = cache_control,
-            Self::Image { ref mut cache_control: cc, .. } => *cc = cache_control,
-            Self::ToolUse { ref mut cache_control: cc, .. } => *cc = cache_control,
-            Self::ToolReturn { ref mut cache_control: cc, .. } => *cc = cache_control,
+            Self::Text { cache_control: ref mut cc, .. } => *cc = cache_control,
+            Self::Image { cache_control: ref mut cc, .. } => *cc = cache_control,
+            Self::ToolUse { cache_control: ref mut cc, .. } => *cc = cache_control,
+            Self::ToolReturn { cache_control: ref mut cc, .. } => *cc = cache_control,
         }
     }
 }
@@ -260,10 +260,9 @@ impl AnthropicRequest {
                 let mut anthropic_message_content =
                     AnthropicMessageContent::text(message.content().to_owned(), None);
                 if message.is_cache_point() {
-                    anthropic_message_content =
-                        anthropic_message_content.cache_control(Some(AnthropicCacheControl {
-                            r#type: AnthropicCacheType::Ephemeral,
-                        }));
+                    anthropic_message_content.set_cache_control(Some(AnthropicCacheControl {
+                        r#type: AnthropicCacheType::Ephemeral,
+                    }));
                 }
                 vec![anthropic_message_content]
             })
