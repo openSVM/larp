@@ -150,6 +150,9 @@ impl FireworksAIClient {
             LLMType::Llama3_1_70bInstruct => {
                 Some("accounts/fireworks/models/llama-v3p1-70b-instruct".to_owned())
             }
+            LLMType::DeepSeekR1 => {
+                Some("accounts/fireworks/models/deepseek-r1".to_owned())
+            }
             _ => None,
         }
     }
