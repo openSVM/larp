@@ -285,7 +285,7 @@ impl AnthropicRequest {
             .filter(|message| message.role().is_user() || message.role().is_assistant())
             .map(|message| {
                 let mut content = Vec::new();
-                let mut anthropic_message_content =
+                let anthropic_message_content =
                     AnthropicMessageContent::text(message.content().to_owned(), None);
 
                 let images = message
