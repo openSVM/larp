@@ -3,7 +3,7 @@
 use super::model_selection::LLMClientConfig;
 use super::plan::check_session_storage_path;
 use super::types::json as json_result;
-use axum::response::{sse, IntoResponse, Sse};
+use axum::response::{Html, sse, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
 use llm_client::clients::types::{LLMClientError, LLMType};
@@ -834,22 +834,11 @@ pub async fn user_feedback_on_exchange(
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MCTSDataRequest {
     session_id: String,
-    exchange_id: String,
 }
-
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-pub struct MCTSDataResponse {
-    html: String,
-}
-
-impl ApiResponse for MCTSDataResponse {}
 
 pub async fn get_mcts_data(
     Extension(app): Extension<Application>,
-    Json(MCTSDataRequest {
-        session_id,
-        exchange_id,
-    }): Json<MCTSDataRequest>,
+    Json(MCTSDataRequest { session_id }): Json<MCTSDataRequest>,
 ) -> Result<impl IntoResponse> {
     let session_storage_path =
         check_session_storage_path(app.config.clone(), session_id.to_string()).await;
@@ -857,7 +846,7 @@ pub async fn get_mcts_data(
 
     // Get the MCTS data from session storage
     let mcts_data = session_service
-        .get_mcts_data(&session_id, &exchange_id, session_storage_path)
+        .get_mcts_data(&session_id, session_storage_path)
         .await;
 
     // Generate HTML with color-coded tool types and tool input/output
@@ -939,7 +928,8 @@ pub async fn get_mcts_data(
         Err(_) => String::from("<html><body>No MCTS data found</body></html>"),
     };
 
-    Ok(json_result(MCTSDataResponse { html }))
+    // Return HTML response directly
+    Ok(Html(html))
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]

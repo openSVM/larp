@@ -1152,7 +1152,6 @@ impl SessionService {
     pub async fn get_mcts_data(
         &self,
         _session_id: &str,
-        _exchange_id: &str,
         storage_path: String,
     ) -> Result<SearchTreeMinimal, SymbolError> {
         let session = self.load_from_storage(storage_path).await?;
