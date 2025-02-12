@@ -359,6 +359,7 @@ pub struct ToolUseAgent {
     shell: String,
     properties: ToolUseAgentProperties,
     temperature: f32,
+    context_crunching_llm: Option<LLMProperties>,
 }
 
 impl ToolUseAgent {
@@ -377,12 +378,19 @@ impl ToolUseAgent {
             properties,
             // we always default to 0.2 temp to start with
             temperature: 0.2,
+            context_crunching_llm: None,
         }
     }
 
     /// Update the temperature for the tool use agent
     pub fn set_temperature(mut self, temperature: f32) -> Self {
         self.temperature = temperature;
+        self
+    }
+
+    /// Set the LLM properties to use for context crunching
+    pub fn set_context_crunching_llm(mut self, llm_properties: Option<LLMProperties>) -> Self {
+        self.context_crunching_llm = llm_properties;
         self
     }
 
@@ -1267,13 +1275,16 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             LLMClientMessage::system(self.system_message_for_context_crunching()).cache_point();
         let user_message = LLMClientMessage::user(self.user_message_for_context_crunching(&input));
 
-        let llm_properties = LLMProperties::new(
-            LLMType::O3MiniHigh,
-            llm_client::provider::LLMProvider::OpenAI,
-            llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
-                std::env::var("OPENAI_API_KEY").expect("env var to be present"),
-            )),
-        );
+        let llm_properties = match &self.context_crunching_llm {
+            Some(props) => props.clone(),
+            None => LLMProperties::new(
+                LLMType::O3MiniHigh,
+                llm_client::provider::LLMProvider::OpenAI,
+                llm_client::provider::LLMProviderAPIKeys::OpenAI(OpenAIProvider::new(
+                    std::env::var("OPENAI_API_KEY").expect("env var to be present"),
+                )),
+            ),
+        };
 
         let message_properties = input.symbol_event_message_properties.clone();
         if let Some(result) = self

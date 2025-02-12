@@ -1750,6 +1750,7 @@ pub async fn agent_tool_use(
                         Some(repo_name),
                         message_properties,
                         is_devtools_context,
+                        None, // No context crunching LLM for web requests
                     )
                     .await
             })
