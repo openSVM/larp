@@ -670,11 +670,24 @@ impl SessionService {
                 {
                     // if the input tokens are greater than 60k then do context crunching
                     // over here and lighten the context for the agent
-                    let token_threshold = if matches!(message_properties.llm_properties().provider(), 
-                        LLMProvider::LMStudio | 
-                        LLMProvider::Ollama |
-                        LLMProvider::OpenAICompatible |
-                        LLMProvider::CodeStory(_)) {
+                    // if the input tokens are greater than 60k then do context crunching
+                    // over here and lighten the context for the agent
+                    // For custom LLMs, local models, or models commonly run locally, we use a higher token threshold
+                    let llm_type = message_properties.llm_properties().llm_type();
+                    let token_threshold = if llm_type.is_custom() 
+                        || matches!(llm_type,
+                            LLMType::Mixtral |
+                            LLMType::MistralInstruct |
+                            LLMType::Llama3_8bInstruct |
+                            LLMType::Llama3_1_8bInstruct |
+                            LLMType::Llama3_1_70bInstruct |
+                            LLMType::CodeLLama70BInstruct |
+                            LLMType::CodeLlama13BInstruct |
+                            LLMType::CodeLlama7BInstruct |
+                            LLMType::DeepSeekCoder1_3BInstruct |
+                            LLMType::DeepSeekCoder6BInstruct |
+                            LLMType::DeepSeekCoder33BInstruct
+                        ) {
                         120_000
                     } else {
                         60_000
