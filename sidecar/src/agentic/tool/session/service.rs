@@ -670,7 +670,13 @@ impl SessionService {
                 {
                     // if the input tokens are greater than 60k then do context crunching
                     // over here and lighten the context for the agent
-                    if input_tokens >= 60_000 {
+                    // For custom LLMs, we use a higher token threshold of 120k
+                    let token_threshold = if tool_agent.llm_broker().is_custom_llm() {
+                        120_000
+                    } else {
+                        60_000
+                    };
+                    if input_tokens >= token_threshold {
                         println!("context_crunching");
                         // the right way to do this would be since the last reasoning node which was present here
                         let last_reasoning_node_index =
