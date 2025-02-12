@@ -42,7 +42,14 @@ impl<T> Drop for DropDetector<T> {
     fn drop(&mut self) {
         println!("DropDetector is being dropped!");
     }
-}
+
+    #[tokio::test]
+    async fn test_preserve_final_newline() {
+        let code = "fn main() {\n    println!(\"Hello\");\n}\n";
+        let edits = r#"/path/to/file.rs
+```rust
+<<<<<<< SEARCH
+    println!("Hello, World!");
 
 #[derive(Debug)]
 pub struct SearchAndReplaceEditingResponse {
@@ -65,7 +72,14 @@ impl SearchAndReplaceEditingResponse {
     pub fn response(&self) -> &str {
         &self.response
     }
-}
+
+    #[tokio::test]
+    async fn test_preserve_final_newline() {
+        let code = "fn main() {\n    println!(\"Hello\");\n}\n";
+        let edits = r#"/path/to/file.rs
+```rust
+<<<<<<< SEARCH
+    println!("Hello, World!");
 
 #[derive(Debug, Clone)]
 pub struct SearchAndReplaceEditingRequest {
@@ -165,7 +179,14 @@ impl SearchAndReplaceEditingRequest {
             should_stream,
         }
     }
-}
+
+    #[tokio::test]
+    async fn test_preserve_final_newline() {
+        let code = "fn main() {\n    println!(\"Hello\");\n}\n";
+        let edits = r#"/path/to/file.rs
+```rust
+<<<<<<< SEARCH
+    println!("Hello");
 
 pub struct StreamedEditingForEditor {
     client: reqwest_middleware::ClientWithMiddleware,
@@ -1324,12 +1345,15 @@ impl SearchAndReplaceAccumulator {
 
     fn update_code_lines(&mut self, block_range: &Range) {
         // if the code lines are empty then we can be smart about how we update the range
-        if self.code_lines.len() == 0 {
+        if self.code_lines.is_empty() {
             if let Some(updated_answer) = self.updated_block.clone() {
                 self.code_lines = updated_answer.lines().map(|line| line.to_owned()).collect();
+                // Ensure we end with a newline if the original was empty
+                self.code_lines.push("".to_owned());
             }
             return;
         }
+
         if let Some(updated_answer) = self.updated_block.clone() {
             let updated_range_start_line = block_range.start_line() - self.start_line;
             let updated_range_end_line = block_range.end_line() - self.start_line;
@@ -1339,22 +1363,43 @@ impl SearchAndReplaceAccumulator {
             }
             updated_code_lines.push_str(&updated_answer);
             updated_code_lines.push('\n');
-            updated_code_lines
-                .push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
-            self.code_lines = updated_code_lines
-                .lines()
-                .map(|line| line.to_owned())
-                .collect();
+            
+            // Only add remaining lines if they exist
+            if updated_range_end_line + 1 < self.code_lines.len() {
+                updated_code_lines.push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
+                // Preserve final newline if it existed
+                if self.code_lines.last().map_or(false, |line| line.is_empty()) {
+                    updated_code_lines.push('\n');
+                }
+            } else if self.code_lines.last().map_or(false, |line| line.is_empty()) {
+                // If we're at the end and had a trailing newline, preserve it
+                updated_code_lines.push('\n');
+            }
+
+            self.code_lines = updated_code_lines.lines().map(|line| line.to_owned()).collect();
+            // Preserve empty line at the end if it existed
+            if updated_code_lines.ends_with('\n') {
+                self.code_lines.push("".to_owned());
+            }
         } else {
             let updated_range_start_line = block_range.start_line() - self.start_line;
             let updated_range_end_line = block_range.end_line() - self.start_line;
             let mut updated_code_lines = self.code_lines[..updated_range_start_line].join("\n");
-            updated_code_lines
-                .push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
-            self.code_lines = updated_code_lines
-                .lines()
-                .map(|line| line.to_owned())
-                .collect();
+            if updated_range_end_line + 1 < self.code_lines.len() {
+                if !updated_code_lines.is_empty() {
+                    updated_code_lines.push('\n');
+                }
+                updated_code_lines.push_str(&self.code_lines[(updated_range_end_line + 1)..].join("\n"));
+                // Preserve final newline if it existed
+                if self.code_lines.last().map_or(false, |line| line.is_empty()) {
+                    updated_code_lines.push('\n');
+                }
+            }
+            self.code_lines = updated_code_lines.lines().map(|line| line.to_owned()).collect();
+            // Preserve empty line at the end if it existed
+            if updated_code_lines.ends_with('\n') {
+                self.code_lines.push("".to_owned());
+            }
         }
         self.updated_block = None;
     }
@@ -1432,9 +1477,15 @@ fn get_range_for_search_block(
 
 #[cfg(test)]
 mod tests {
-    use super::SearchAndReplaceAccumulator;
+    use super::*;
 
-    /// TODO(skcd): Broken test here to debug multiple search and replace blocks being
+    #[tokio::test]
+    async fn test_preserve_final_newline() {
+        let code = "fn main() {\n    println!(\"Hello\");\n}\n";
+        let edits = r#"/path/to/file.rs
+```rust
+<<<<<<< SEARCH
+    println!("Hello");
     /// part of the same edit
     #[tokio::test]
     async fn test_multiple_search_and_edit_blocks() {
@@ -1509,7 +1560,7 @@ mod tests {
                 .to_owned();
     }
 
-    pub fn function(message: String) -> Self {
+    pub fn function(message: String) -> impl Future<Output = Self> {
         Self::new(LLMClientRole::Function, message)
     }
 
