@@ -92,17 +92,6 @@ impl LLMBroker {
         self
     }
 
-    pub fn is_custom_llm(&self) -> bool {
-        // Check if any of our providers are custom LLMs
-        self.providers.keys().any(|provider| match provider {
-            LLMProvider::LMStudio | 
-            LLMProvider::Ollama |
-            LLMProvider::OpenAICompatible |
-            LLMProvider::CodeStory(_) => true,
-            _ => false,
-        })
-    }
-
     pub async fn stream_answer(
         &self,
         api_key: LLMProviderAPIKeys,
