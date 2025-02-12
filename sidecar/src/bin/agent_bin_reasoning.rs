@@ -206,7 +206,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             Some(args.repo_name.clone()),
             message_properties,
             false, // not in devtools context
-            context_crunching_llm,
+            None, // No context crunching LLM for agent_bin_reasoning
         )
         .await;
     println!("agent::tool_use::end");

@@ -213,7 +213,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             Some(args.repo_name.clone()),
             message_properties,
             false, // not in devtools context
-            context_crunching_llm,
+            None, // No context crunching LLM for agent_bin
         )
         .await;
     println!("agent::tool_use::end");
