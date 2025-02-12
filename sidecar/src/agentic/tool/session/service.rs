@@ -670,8 +670,11 @@ impl SessionService {
                 {
                     // if the input tokens are greater than 60k then do context crunching
                     // over here and lighten the context for the agent
-                    // For custom LLMs, we use a higher token threshold of 120k
-                    let token_threshold = if tool_agent.llm_broker().is_custom_llm() {
+                    let token_threshold = if matches!(message_properties.llm_properties().provider(), 
+                        LLMProvider::LMStudio | 
+                        LLMProvider::Ollama |
+                        LLMProvider::OpenAICompatible |
+                        LLMProvider::CodeStory(_)) {
                         120_000
                     } else {
                         60_000
