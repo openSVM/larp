@@ -252,6 +252,10 @@ fn agentic_router() -> Router {
             "/user_handle_session_undo",
             post(sidecar::webserver::agentic::handle_session_undo),
         )
+        .route(
+            "/get_mcts_data",
+            post(sidecar::webserver::agentic::get_mcts_data),
+        )
 }
 
 fn tree_sitter_router() -> Router {
