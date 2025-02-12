@@ -12,8 +12,8 @@ use crate::{
     agentic::{
         symbol::{
             errors::SymbolError, events::message_event::SymbolEventMessageProperties,
-            manager::SymbolManager, scratch_pad::ScratchPadAgent, tool_box::ToolBox,
-            ui_event::UIEventWithID,
+            identifier::LLMProperties, manager::SymbolManager, scratch_pad::ScratchPadAgent,
+            tool_box::ToolBox, ui_event::UIEventWithID,
         },
         tool::{
             code_edit::code_editor::EditorCommand,
@@ -387,6 +387,7 @@ impl SessionService {
         repo_name: Option<String>,
         message_properties: SymbolEventMessageProperties,
         is_devtools_context: bool,
+        context_crunching_llm: Option<LLMProperties>,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
         let mut session =
@@ -458,7 +459,8 @@ impl SessionService {
             std::env::consts::OS.to_owned(),
             shell.to_owned(),
             ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
-        );
+        )
+        .set_context_crunching_llm(context_crunching_llm.clone());
 
         session = session
             .human_message_tool_use(
@@ -578,6 +580,7 @@ impl SessionService {
                         root_directory.clone(),
                         exchange_id.clone(),
                         message_properties.clone(),
+                        context_crunching_llm.clone(),
                     )
                     .await;
 
@@ -600,6 +603,7 @@ impl SessionService {
                     root_directory,
                     exchange_id,
                     message_properties,
+                    context_crunching_llm,
                 )
                 .await;
             println!("agent_loop::output::({:?})", &output);
@@ -624,6 +628,7 @@ impl SessionService {
         root_directory: String,
         parent_exchange_id: String,
         mut message_properties: SymbolEventMessageProperties,
+        _context_crunching_llm: Option<LLMProperties>,
     ) -> Result<(), SymbolError> {
         let mut previous_failure = false;
         loop {
