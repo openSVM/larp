@@ -1039,7 +1039,7 @@ impl SessionService {
 
     pub async fn move_to_checkpoint(
         &self,
-        session_id: &str,
+        _session_id: &str,
         exchange_id: &str,
         storage_path: String,
     ) -> Result<(), SymbolError> {
