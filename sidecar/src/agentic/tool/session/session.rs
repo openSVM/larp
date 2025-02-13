@@ -3118,13 +3118,16 @@ reason: {}"#,
         // Create a temporary file path by appending .tmp to the original path
         let temp_path = format!("{}.tmp", storage_path);
 
+        // Ensure the content is properly trimmed to avoid any trailing whitespace issues
+        let trimmed_content = content.trim_end();
+
         // Write to temporary file first
         let mut temp_file = tokio::fs::File::create(&temp_path)
             .await
             .map_err(|e| SymbolError::IOError(e))?;
 
         temp_file
-            .write_all(content.as_bytes())
+            .write_all(trimmed_content.as_bytes())
             .await
             .map_err(|e| SymbolError::IOError(e))?;
 

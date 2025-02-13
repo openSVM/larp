@@ -1192,9 +1192,17 @@ impl SessionService {
             .await
             .map_err(|e| SymbolError::IOError(e))?;
 
-        let session: Session = serde_json::from_str(content.trim()).expect(&format!(
-            "converting to session from json is okay: {storage_path}"
-        ));
+        // Trim the content to handle any potential trailing whitespace
+        let trimmed_content = content.trim();
+        
+        let session: Session = serde_json::from_str(trimmed_content)
+            .map_err(|e| {
+                SymbolError::IOError(std::io::Error::new(
+                    std::io::ErrorKind::InvalidData,
+                    format!("Error deserializing session: {}: {}", storage_path, e),
+                ))
+            })?;
+        
         Ok(session)
     }
 
