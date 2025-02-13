@@ -728,6 +728,42 @@ pub async fn handle_session_undo(
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AgenticMoveToCheckpoint {
+    session_id: String,
+    exchange_id: String,
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct AgenticMoveToCheckpointResponse {
+    done: bool,
+}
+
+impl ApiResponse for AgenticMoveToCheckpointResponse {}
+
+pub async fn move_to_checkpoint(
+    Extension(app): Extension<Application>,
+    Json(AgenticMoveToCheckpoint {
+        session_id,
+        exchange_id,
+    }): Json<AgenticMoveToCheckpoint>,
+) -> Result<impl IntoResponse> {
+    println!("webserver::agent_session::move_to_checkpoint::hit");
+    println!(
+        "webserver::agent_session::move_to_checkpoint::session_id({})",
+        &session_id
+    );
+
+    let session_storage_path =
+        check_session_storage_path(app.config.clone(), session_id.to_string()).await;
+
+    let session_service = app.session_service.clone();
+    let _ = session_service
+        .move_to_checkpoint(&session_id, &exchange_id, session_storage_path)
+        .await;
+    Ok(Json(AgenticMoveToCheckpointResponse { done: true }))
+}
+
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct AgenticEditFeedbackExchangeResponse {
     success: bool,
 }

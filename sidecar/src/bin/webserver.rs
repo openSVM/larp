@@ -253,6 +253,10 @@ fn agentic_router() -> Router {
             post(sidecar::webserver::agentic::handle_session_undo),
         )
         .route(
+            "/move_to_checkpoint",
+            post(sidecar::webserver::agentic::move_to_checkpoint),
+        )
+        .route(
             "/get_mcts_data",
             post(sidecar::webserver::agentic::get_mcts_data),
         )
