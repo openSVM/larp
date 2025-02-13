@@ -1037,6 +1037,25 @@ impl SessionService {
         Ok(())
     }
 
+    pub async fn move_to_checkpoint(
+        &self,
+        session_id: &str,
+        exchange_id: &str,
+        storage_path: String,
+    ) -> Result<(), SymbolError> {
+        let session_maybe = self.load_from_storage(storage_path.to_owned()).await;
+        if session_maybe.is_err() {
+            return Ok(());
+        }
+        let mut session = session_maybe.expect("is_err to hold");
+        
+        // Mark exchanges as deleted or not deleted based on the checkpoint
+        session = session.move_to_checkpoint(exchange_id).await?;
+        
+        self.save_to_storage(&session, None).await?;
+        Ok(())
+    }
+
     pub async fn delete_exchanges_until(
         &self,
         exchange_id: &str,

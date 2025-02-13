@@ -1093,6 +1093,29 @@ impl Session {
         Ok(self)
     }
 
+    pub async fn move_to_checkpoint(
+        mut self,
+        exchange_id: &str,
+    ) -> Result<Self, SymbolError> {
+        // Find the index of the target exchange
+        let target_index = self.exchanges.iter().position(|exchange| &exchange.exchange_id == exchange_id);
+        
+        if let Some(target_index) = target_index {
+            // Mark exchanges as compressed (deleted) or not compressed based on the checkpoint
+            for (i, exchange) in self.exchanges.iter_mut().enumerate() {
+                if i <= target_index {
+                    // Exchanges up to and including the target are not compressed
+                    exchange.is_compressed = false;
+                } else {
+                    // Exchanges after the target are compressed (deleted)
+                    exchange.is_compressed = true;
+                }
+            }
+        }
+        
+        Ok(self)
+    }
+
     pub async fn react_to_feedback(
         mut self,
         exchange_id: &str,
