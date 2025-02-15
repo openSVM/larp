@@ -1454,9 +1454,37 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
             println!("sonnet_failed::failing_back_to_gemini-pro");
             let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiPro);
-            if let Some(result) = self
+            if let Ok(Some(result)) = self
                 .try_with_llm(
                     gemini_pro_properties,
+                    cancellation_token.clone(),
+                    root_request_id.clone(),
+                    ui_sender.clone(),
+                    exchange_id,
+                    final_messages.to_vec(),
+                    None,
+                )
+                .await
+            {
+                // only return over here if we have success with the tool output
+                if matches!(
+                    result,
+                    ToolUseAgentOutput {
+                        r#type: ToolUseAgentOutputType::Success(_),
+                        usage_statistics: _,
+                    }
+                ) {
+                    return Ok(result);
+                }
+            }
+        }
+
+        if llm_properties.llm() == &LLMType::ClaudeSonnet {
+            println!("sonnet_failed::failing_back_to_gpt4o");
+            let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
+            if let Ok(Some(result)) = self
+                .try_with_llm(
+                    gpt4o_properties,
                     cancellation_token,
                     root_request_id,
                     ui_sender,
@@ -1464,9 +1492,20 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     final_messages,
                     None,
                 )
-                .await?
+                .await
             {
-                return Ok(result);
+                {
+                    // only return over here if we have success with the tool output
+                    if matches!(
+                        result,
+                        ToolUseAgentOutput {
+                            r#type: ToolUseAgentOutputType::Success(_),
+                            usage_statistics: _,
+                        }
+                    ) {
+                        return Ok(result);
+                    }
+                }
             }
         }
 
