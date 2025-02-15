@@ -1421,11 +1421,11 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        // If original LLM (Sonnet) failed, try with gemini-pro-1.5
+        // If original LLM (Sonnet) failed, try with gemini-flash-2.0
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
-            println!("sonnet_failed::failing_back_to_gemini-pro");
-            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiPro);
-            if let Some(result) = self
+            println!("sonnet_failed::failing_back_to_gemini-2.0-flash");
+            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::Gemini2_0Flash);
+            if let Ok(Some(result)) = self
                 .try_with_llm(
                     gemini_pro_properties,
                     cancellation_token.clone(),
@@ -1435,7 +1435,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     final_messages.to_vec(),
                     None,
                 )
-                .await?
+                .await
             {
                 // only return over here if we have success with the tool output
                 if matches!(
@@ -1450,10 +1450,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        // If gemini-pro-1.5 failed, try with gemini-2.0-flash
+        // If gemini-pro-1.5 failed, try with gemini-pro-1.5
         if llm_properties.llm() == &LLMType::ClaudeSonnet {
-            println!("sonnet_failed::failing_back_to_gemini-2.0-flash");
-            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::Gemini2_0Flash);
+            println!("sonnet_failed::failing_back_to_gemini-pro");
+            let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiPro);
             if let Some(result) = self
                 .try_with_llm(
                     gemini_pro_properties,
