@@ -3,7 +3,7 @@
 use super::model_selection::LLMClientConfig;
 use super::plan::check_session_storage_path;
 use super::types::json as json_result;
-use axum::response::{Html, sse, IntoResponse, Sse};
+use axum::response::{sse, Html, IntoResponse, Sse};
 use axum::{extract::Query as axumQuery, Extension, Json};
 use futures::{stream, StreamExt};
 use llm_client::clients::types::{LLMClientError, LLMType};
