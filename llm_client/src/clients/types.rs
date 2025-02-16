@@ -166,6 +166,13 @@ impl<'de> Deserialize<'de> for LLMType {
 }
 
 impl LLMType {
+    pub fn is_cache_control_explicit(&self) -> bool {
+        matches!(
+            self,
+            LLMType::ClaudeSonnet | LLMType::ClaudeHaiku | LLMType::ClaudeOpus
+        )
+    }
+
     pub fn is_openai(&self) -> bool {
         matches!(
             self,

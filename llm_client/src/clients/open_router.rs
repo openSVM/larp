@@ -250,6 +250,7 @@ pub struct OpenRouterResponse {
 
 impl OpenRouterRequest {
     pub fn from_chat_request(request: LLMClientCompletionRequest, model: String) -> Self {
+        let llm_model = request.model().clone();
         let tools = request
             .messages()
             .into_iter()
@@ -312,9 +313,12 @@ impl OpenRouterRequest {
                                     let is_cache_enabled = message.is_cache_point();
                                     let mut content_messaage =
                                         OpenRouterRequestMessageType::text(content.to_owned());
-                                    if is_cache_enabled {
+
+                                    // if we explicilty need to tell about cache control
+                                    if is_cache_enabled && llm_model.is_cache_control_explicit() {
                                         content_messaage = content_messaage.set_cache_control();
                                     }
+
                                     vec![content_messaage]
                                         .into_iter()
                                         .chain(images.into_iter().map(|image| {
