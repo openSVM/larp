@@ -146,6 +146,9 @@ impl SessionService {
 
         println!("session_service::session_created");
 
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
+
         // add human message
         session = session.human_message(
             exchange_id.to_owned(),
@@ -227,6 +230,10 @@ impl SessionService {
                 user_context.clone(),
             )
         };
+
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
+
         // One trick over here which we can do for now is keep track of the
         // exchange which we are going to reply to this way we make sure
         // that we are able to get the right exchange properly
@@ -323,6 +330,9 @@ impl SessionService {
                 user_context.clone(),
             )
         };
+
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
 
         // add an exchange that we are going to genrate a plan over here
         session = session.plan(exchange_id.to_owned(), query, user_context);
@@ -449,6 +459,9 @@ impl SessionService {
                 })
                 .collect(),
             );
+
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
 
         let tool_agent = ToolUseAgent::new(
             llm_broker.clone(),
@@ -895,6 +908,9 @@ impl SessionService {
             )
         };
 
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
+
         // add an exchange that we are going to perform anchored edits
         session = session.agentic_edit(exchange_id, edit_request, user_context, codebase_search);
 
@@ -957,6 +973,9 @@ impl SessionService {
                 user_context.clone(),
             )
         };
+
+        // truncate hidden messages
+        session.truncate_hidden_exchanges();
 
         let selection_variable = user_context.variables.iter().find(|variable| {
             variable.is_selection()
@@ -1048,10 +1067,10 @@ impl SessionService {
             return Ok(());
         }
         let mut session = session_maybe.expect("is_err to hold");
-        
+
         // Mark exchanges as deleted or not deleted based on the checkpoint
         session = session.move_to_checkpoint(exchange_id).await?;
-        
+
         self.save_to_storage(&session, None).await?;
         Ok(())
     }
@@ -1194,7 +1213,7 @@ impl SessionService {
 
         // Trim the content to handle any potential trailing whitespace
         let trimmed_content = content.trim();
-        
+
         let session: Session = serde_json::from_str(trimmed_content)
             .map_err(|e| {
                 SymbolError::IOError(std::io::Error::new(
@@ -1202,7 +1221,7 @@ impl SessionService {
                     format!("Error deserializing session: {}: {}", storage_path, e),
                 ))
             })?;
-        
+
         Ok(session)
     }
 
