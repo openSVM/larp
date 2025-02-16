@@ -316,6 +316,12 @@ pub struct Exchange {
     /// stays smallish and nimble
     #[serde(default)]
     is_compressed: bool,
+    /// is_hidden implies that the user has been going through the undo/redo
+    /// motions, and the exchanges that are undone are marked as hidden.
+    /// Importantly, when the user sends a new message with some hidden messages,
+    /// they get permanently truncated.
+    #[serde(default)]
+    is_hidden: bool,
 }
 
 impl Exchange {
@@ -340,6 +346,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::UserMessage,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -353,6 +360,7 @@ impl Exchange {
             }),
             exchange_state: ExchangeState::UserMessage,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -374,6 +382,7 @@ impl Exchange {
             }),
             exchange_state: ExchangeState::UserMessage,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -399,6 +408,7 @@ impl Exchange {
             }),
             exchange_state: ExchangeState::UserMessage,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -411,6 +421,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::Running,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -423,6 +434,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::Running,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -439,6 +451,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::Running,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -461,6 +474,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::Running,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -482,6 +496,7 @@ impl Exchange {
             )),
             exchange_state: ExchangeState::Running,
             is_compressed: false,
+            is_hidden: false,
         }
     }
 
@@ -525,7 +540,7 @@ impl Exchange {
     /// We can have consecutive human messages now on every API so this is no
     /// longer a big worry
     async fn to_conversation_message(&self, is_json_mode: bool) -> Option<SessionChatMessage> {
-        if self.is_compressed {
+        if self.is_compressed || self.is_hidden {
             return None;
         }
         let session_chat_message = match &self.exchange_type {
@@ -852,14 +867,6 @@ impl Session {
         self.exchanges.len()
     }
 
-    pub fn exchanges_not_compressed(&self) -> usize {
-        self.exchanges
-            .iter()
-            .filter(|exchange| !exchange.is_compressed)
-            .collect::<Vec<_>>()
-            .len()
-    }
-
     fn find_exchange_by_id(&self, exchange_id: &str) -> Option<&Exchange> {
         self.exchanges
             .iter()
@@ -1099,20 +1106,20 @@ impl Session {
     ) -> Result<Self, SymbolError> {
         // Find the index of the target exchange
         let target_index = self.exchanges.iter().position(|exchange| &exchange.exchange_id == exchange_id);
-        
+
         if let Some(target_index) = target_index {
-            // Mark exchanges as compressed (deleted) or not compressed based on the checkpoint
+            // Mark exchanges based on their position relative to the checkpoint
             for (i, exchange) in self.exchanges.iter_mut().enumerate() {
-                if i <= target_index {
-                    // Exchanges up to and including the target are not compressed
-                    exchange.is_compressed = false;
+                // If target_index is 0, we want to compress it and everything after
+                // Otherwise, we only want to compress everything after the target_index
+                let will_compress = if target_index == 0 {
+                    i >= target_index
                 } else {
-                    // Exchanges after the target are compressed (deleted)
-                    exchange.is_compressed = true;
-                }
+                    i > target_index
+                };
+                exchange.is_hidden = will_compress;
             }
         }
-        
         Ok(self)
     }
 
@@ -1170,6 +1177,7 @@ impl Session {
                                 }),
                                 exchange_state: exchange.exchange_state,
                                 is_compressed: exchange.is_compressed,
+                                is_hidden: exchange.is_hidden,
                             }
                         }
                         _ => exchange,
@@ -1739,6 +1747,7 @@ impl Session {
                 }),
             exchange_state: _,
             is_compressed: _,
+            is_hidden: _,
         }) = exchange_in_focus
         else {
             return Ok(self);
@@ -2031,6 +2040,7 @@ impl Session {
                 }),
             exchange_state: _,
             is_compressed: _,
+            is_hidden: _,
         }) = last_exchange
         {
             let edits_performed = scratch_pad_agent
@@ -2080,6 +2090,7 @@ impl Session {
                 }),
             exchange_state: _,
             is_compressed: _,
+            is_hidden: _,
         }) = last_exchange
         {
             let mut converted_messages = vec![];
@@ -2188,6 +2199,7 @@ impl Session {
                     }),
                 exchange_state: _,
                 is_compressed: _,
+                is_hidden: _,
             }) => {
                 // do something over here
                 let files_to_edit = plan_steps
@@ -2223,6 +2235,7 @@ impl Session {
                     }),
                 exchange_state: _,
                 is_compressed: _,
+                is_hidden: _,
             } => {
                 vec![fs_file_path.to_owned()]
             }
@@ -2349,6 +2362,12 @@ impl Session {
                 message_properties.request_id_str().to_owned(),
             ));
         Ok(())
+    }
+
+    pub fn truncate_hidden_exchanges(&mut self) {
+        println!("session::truncate_hidden_exchanges::before({})", self.exchanges.len());
+        self.exchanges.retain(|exchange| !exchange.is_hidden);
+        println!("session::truncate_hidden_exchanges::after({})", self.exchanges.len());
     }
 
     pub fn has_running_code_edits(&self, exchange_id: &str) -> bool {
