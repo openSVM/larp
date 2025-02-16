@@ -516,7 +516,7 @@ async fn send_edit_events(
     Sse<std::pin::Pin<Box<dyn tokio_stream::Stream<Item = anyhow::Result<sse::Event>> + Send>>>,
 > {
     let codestory_client =
-        CodeStoryClient::new("https://codestory-provider-dot-anton-390822.ue.r.appspot.com");
+        CodeStoryClient::new("https://ai-provider.codestory.ai");
     // To implement this using the new flow we do the following:
     // - If the file is less than 500 lines, then we can start editing the whole file
     // - If the file is more than 500 lines, then we use the reranking to select the most relevant parts of the file
