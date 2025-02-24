@@ -165,8 +165,9 @@ impl CodeStoryClient {
             LLMType::DeepSeekCoder33BInstruct => {
                 Ok("deepseek-ai/deepseek-coder-33b-instruct".to_owned())
             }
-            LLMType::ClaudeSonnet => Ok("claude-3-5-sonnet-20241022".to_owned()), // updated to latest sonnet
+            LLMType::ClaudeSonnet => Ok("claude-3-7-sonnet-20250219".to_owned()), // updated to latest sonnet
             LLMType::ClaudeHaiku => Ok("claude-3-5-haiku-20241022".to_owned()), // updated to latest haiku
+            LLMType::ClaudeOpus => Ok("claude-3-opus-20240229".to_owned()),
             LLMType::GeminiPro => Ok("google/gemini-flash-1.5".to_owned()),
             LLMType::GeminiProFlash => Ok("gemini-1.5-flash".to_owned()),
             LLMType::Gemini2_0Flash => Ok("google/gemini-2.0-flash-001".to_owned()),
