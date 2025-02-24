@@ -249,6 +249,7 @@ impl fmt::Display for LLMType {
             LLMType::DeepSeekCoderV3 => write!(f, "deepseek/deepseek-chat"),
             LLMType::ClaudeOpus => write!(f, "ClaudeOpus"),
             LLMType::ClaudeSonnet => write!(f, "ClaudeSonnet"),
+            LLMType::ClaudeSonnet37 => write!(f, "ClaudeSonnet37"),
             LLMType::ClaudeHaiku => write!(f, "ClaudeHaiku"),
             LLMType::PPLXSonnetSmall => write!(f, "PPLXSonnetSmall"),
             LLMType::CohereRerankV3 => write!(f, "CohereRerankV3"),
