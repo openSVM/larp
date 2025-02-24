@@ -199,7 +199,7 @@ impl CodeStoryClient {
             LLMType::CodeLlama13BInstruct
             | LLMType::CodeLlama7BInstruct
             | LLMType::DeepSeekCoder33BInstruct => Ok(self.together_api_endpoint(&self.api_base)),
-            LLMType::ClaudeSonnet | LLMType::ClaudeHaiku => {
+            LLMType::ClaudeSonnet | LLMType::ClaudeSonnet37 | LLMType::ClaudeHaiku => {
                 Ok(self.openrouter_api_endpoint(&self.api_base))
             }
             LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash => {

@@ -197,7 +197,7 @@ impl LLMType {
     pub fn is_anthropic(&self) -> bool {
         matches!(
             self,
-            LLMType::ClaudeOpus | LLMType::ClaudeSonnet | LLMType::ClaudeHaiku
+            LLMType::ClaudeOpus | LLMType::ClaudeSonnet | LLMType::ClaudeHaiku | LLMType::ClaudeSonnet37
         )
     }
 
