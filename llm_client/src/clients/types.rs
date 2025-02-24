@@ -134,6 +134,7 @@ impl<'de> Deserialize<'de> for LLMType {
                     "DeepSeekCoder33BInstruct" => Ok(LLMType::DeepSeekCoder33BInstruct),
                     "ClaudeOpus" => Ok(LLMType::ClaudeOpus),
                     "ClaudeSonnet" => Ok(LLMType::ClaudeSonnet),
+                    "ClaudeSonnet37" => Ok(LLMType::ClaudeSonnet37),
                     "ClaudeHaiku" => Ok(LLMType::ClaudeHaiku),
                     "PPLXSonnetSmall" => Ok(LLMType::PPLXSonnetSmall),
                     "CohereRerankV3" => Ok(LLMType::CohereRerankV3),
