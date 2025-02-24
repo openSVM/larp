@@ -748,6 +748,11 @@ impl LLMClientCompletionStringRequest {
     pub fn get_max_tokens(&self) -> Option<usize> {
         self.max_tokens
     }
+
+    pub fn set_thinking_budget(mut self, thinking_budget: usize) -> Self {
+        self.thinking_budget = Some(thinking_budget);
+        self
+    }
 }
 
 impl LLMClientCompletionRequest {
@@ -764,6 +769,7 @@ impl LLMClientCompletionRequest {
             frequency_penalty,
             stop_words: None,
             max_tokens: None,
+            thinking_budget: None,
         }
     }
 
