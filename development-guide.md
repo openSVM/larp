@@ -44,6 +44,97 @@ sidecar/
    - Copy `.env.example` to `.env`
    - Set required API keys and configurations
 
+## Docker Development Environment
+
+1. **Docker Setup:**
+   ```dockerfile
+   # Development Dockerfile
+   FROM rust:1.73 as rust-builder
+   WORKDIR /app
+   RUN apt-get update && apt-get install -y \
+       nodejs \
+       npm \
+       git
+   
+   # Install development tools
+   RUN rustup component add rustfmt clippy
+   RUN cargo install cargo-watch
+   
+   # Copy project files
+   COPY . .
+   
+   # Install dependencies
+   RUN cargo build
+   RUN cd frontend && npm install
+   
+   # Development command
+   CMD ["cargo", "watch", "-x", "run"]
+   ```
+
+2. **Docker Compose Setup:**
+   ```yaml
+   # docker-compose.dev.yml
+   version: '3.8'
+   services:
+     sidecar:
+       build:
+         context: .
+         dockerfile: Dockerfile.dev
+       ports:
+         - "3001:3001"
+       volumes:
+         - .:/app
+         - cargo-cache:/usr/local/cargo/registry
+         - target-cache:/app/target
+       environment:
+         - RUST_LOG=debug
+         - OPENAI_API_KEY=${OPENAI_API_KEY}
+       command: cargo watch -x run
+   
+     frontend:
+       image: node:18
+       working_dir: /app/frontend
+       volumes:
+         - .:/app
+         - node-modules:/app/frontend/node_modules
+       ports:
+         - "3000:3000"
+       command: npm run dev
+   
+   volumes:
+     cargo-cache:
+     target-cache:
+     node-modules:
+   ```
+
+3. **Development Workflow:**
+   ```bash
+   # Start development environment
+   docker-compose -f docker-compose.dev.yml up -d
+
+   # View logs
+   docker-compose -f docker-compose.dev.yml logs -f
+
+   # Run tests in container
+   docker-compose -f docker-compose.dev.yml exec sidecar cargo test
+
+   # Access container shell
+   docker-compose -f docker-compose.dev.yml exec sidecar bash
+   ```
+
+4. **Benefits:**
+   - Consistent development environment
+   - Hot-reloading for both backend and frontend
+   - Isolated dependencies
+   - Easy cleanup and reset
+   - Volume caching for faster builds
+
+5. **Performance Tips:**
+   - Use volume caching for cargo and node_modules
+   - Enable BuildKit for faster builds
+   - Use multi-stage builds for production
+   - Configure resource limits appropriately
+
 ## Core Components
 
 ### 1. AI Agent System
