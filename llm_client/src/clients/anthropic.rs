@@ -336,6 +336,7 @@ impl AnthropicRequest {
             stream: true,
             max_tokens,
             model: model_str,
+            thinking,
         }
     }
 
@@ -349,6 +350,11 @@ impl AnthropicRequest {
             "user".to_owned(),
             completion_request.prompt().to_owned(),
         )];
+        let thinking = completion_request.thinking_budget().map(|budget| AnthropicThinking {
+            r#type: "enabled".to_string(),
+            budget_tokens: budget,
+        });
+
         AnthropicRequest {
             system: vec![],
             messages,
@@ -357,6 +363,7 @@ impl AnthropicRequest {
             stream: true,
             max_tokens,
             model: model_str,
+            thinking,
         }
     }
 }
