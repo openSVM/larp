@@ -242,6 +242,25 @@ struct AnthropicRequest {
 }
 
 impl AnthropicRequest {
+    pub fn new_chat(
+        messages: Vec<AnthropicMessage>,
+        temperature: f32,
+        top_p: Option<f32>,
+        max_tokens: Option<usize>,
+        model_str: String,
+    ) -> Self {
+        AnthropicRequest {
+            system: vec![],
+            messages,
+            tools: vec![],
+            temperature,
+            stream: true,
+            max_tokens,
+            model: model_str,
+            thinking: None,
+        }
+    }
+
     fn from_client_completion_request(
         completion_request: LLMClientCompletionRequest,
         model_str: String,
