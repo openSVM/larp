@@ -472,3 +472,85 @@
 - Authentication may be required for certain endpoints
 - Error responses include descriptive messages
 - Some endpoints support streaming responses using Server-Sent Events (SSE)
+
+## Required Enhancements for Full Independence
+
+To make Sidecar a fully independent self-sufficient unit, the following additional capabilities and endpoints would be needed:
+
+### Authentication & Authorization
+1. **Token Management**
+   - `/auth/token` - Generate and manage authentication tokens
+   - `/auth/validate` - Validate token authenticity
+   - `/auth/refresh` - Refresh expired tokens
+
+### Model Management
+1. **LLM Integration**
+   - `/models/list` - List available language models
+   - `/models/configure` - Configure model parameters
+   - `/models/status` - Check model availability and health
+
+### File System Operations
+1. **Extended File Management**
+   - `/fs/watch` - File system watch capabilities
+   - `/fs/search` - Advanced file search with filters
+   - `/fs/git` - Git integration endpoints
+   - `/fs/workspace` - Workspace management
+
+### Language Server Integration
+1. **LSP Management**
+   - `/lsp/start` - Start language servers
+   - `/lsp/status` - Check LSP status
+   - `/lsp/configure` - Configure language servers
+   - `/lsp/capabilities` - Query LSP capabilities
+
+### Caching & Performance
+1. **Cache Management**
+   - `/cache/clear` - Clear various caches
+   - `/cache/status` - Check cache status
+   - `/cache/configure` - Configure caching behavior
+
+### Metrics & Monitoring
+1. **Observability**
+   - `/metrics` - Prometheus-compatible metrics endpoint
+   - `/traces` - Distributed tracing endpoint
+   - `/logs` - Log aggregation and query
+
+### Configuration Management
+1. **Dynamic Configuration**
+   - `/config/update` - Update runtime configuration
+   - `/config/reload` - Reload configuration from disk
+   - `/config/validate` - Validate configuration changes
+
+### Resource Management
+1. **System Resources**
+   - `/resources/status` - CPU, memory, disk usage
+   - `/resources/limits` - Set resource limits
+   - `/resources/scale` - Scale resources up/down
+
+### Plugin System
+1. **Plugin Management**
+   - `/plugins/list` - List available plugins
+   - `/plugins/install` - Install new plugins
+   - `/plugins/configure` - Configure plugin settings
+   - `/plugins/status` - Check plugin health
+
+### Session Management
+1. **Enhanced Session Control**
+   - `/session/cleanup` - Cleanup stale sessions
+   - `/session/transfer` - Transfer session state
+   - `/session/backup` - Backup session data
+
+### Security
+1. **Security Controls**
+   - `/security/scan` - Security scanning endpoints
+   - `/security/audit` - Audit logging
+   - `/security/policy` - Security policy management
+
+These enhancements would make Sidecar:
+1. Independently deployable without external dependencies
+2. Self-managing with proper resource control
+3. Secure with robust authentication
+4. Observable with comprehensive monitoring
+5. Extensible through plugin system
+6. Resilient with proper session management
+7. Configurable for different deployment scenarios
