@@ -143,7 +143,7 @@ impl Application {
             tool_box,
             anchored_request_tracker,
             session_service,
-            model_state,
+            lsp_state,
         })
     }
 

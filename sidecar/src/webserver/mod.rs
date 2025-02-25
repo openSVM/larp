@@ -16,7 +16,7 @@ pub mod types;
 use axum::Router;
 use std::sync::Arc;
 use crate::{
-    auth, fs, lsp, cache, metrics, plugins, security, models,
+    auth, fs, lsp, cache, metrics, plugins, security,
     webserver::{
         health, config, tree_sitter, agent, agentic,
     },
@@ -45,10 +45,9 @@ pub async fn create_router(app: Arc<Application>) -> anyhow::Result<Router> {
         // Independent service routes with state
         .merge(auth::router())
         .merge(fs::router())
-        .merge(lsp::router())
+        .merge(lsp::router().with_state(app.lsp_state.clone()))
         .merge(cache::router().with_state(cache_state))
         .merge(metrics::router().with_state(metrics_state))
         .merge(plugins::router().with_state(plugin_manager))
-        .merge(security::router().with_state(security_manager))
-        .merge(models::router().with_state(app.model_state.clone())))
+        .merge(security::router().with_state(security_manager)))
 }
