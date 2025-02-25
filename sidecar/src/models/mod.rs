@@ -37,7 +37,7 @@ pub struct ConfigureRequest {
     config: ModelConfig,
 }
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<ModelState>> {
     Router::new()
         .route("/models/list", get(list_models))
         .route("/models/configure", post(configure_model))
@@ -45,24 +45,65 @@ pub fn router() -> Router {
 }
 
 async fn list_models() -> Json<Vec<String>> {
-    // In a real implementation, this would query available models
-    Json(vec![
-        "gpt-4".to_string(),
-        "gpt-3.5-turbo".to_string(),
-        "codellama-34b".to_string(),
-    ])
+    let models = vec![
+        LLMType::Gpt4.to_string(),
+        LLMType::GPT3_5_16k.to_string(),
+        LLMType::ClaudeOpus.to_string(),
+        LLMType::ClaudeSonnet.to_string(),
+        LLMType::CodeLLama70BInstruct.to_string(),
+        LLMType::MistralInstruct.to_string(),
+        LLMType::GeminiPro.to_string(),
+    ];
+    Json(models)
 }
 
 async fn configure_model(
+    State(state): State<Arc<ModelState>>,
     Json(req): Json<ConfigureRequest>,
 ) -> Result<StatusCode, StatusCode> {
-    // In a real implementation, this would update model configuration
+    let mut configs = state.configs.write().await;
+    configs.insert(req.model_name, req.config);
     Ok(StatusCode::OK)
 }
 
-async fn check_status() -> Json<HashMap<String, ModelInfo>> {
+async fn check_status(
+    State(state): State<Arc<ModelState>>,
+) -> Json<HashMap<String, ModelInfo>> {
     let mut status = HashMap::new();
-    
+    let configs = state.configs.read().await;
+    let status_cache = state.status_cache.read().await;
+
+    // Check each provider's status
+    for provider in state.broker.providers.keys() {
+        match provider {
+            LLMProvider::OpenAI => {
+                add_model_status(&mut status, "gpt-4", &configs, &status_cache);
+                add_model_status(&mut status, "gpt-3.5-turbo-16k", &configs, &status_cache);
+            }
+            LLMProvider::Anthropic => {
+                add_model_status(&mut status, "claude-opus", &configs, &status_cache);
+                add_model_status(&mut status, "claude-sonnet", &configs, &status_cache);
+            }
+            LLMProvider::TogetherAI => {
+                add_model_status(&mut status, "codellama-70b", &configs, &status_cache);
+                add_model_status(&mut status, "mistral-instruct", &configs, &status_cache);
+            }
+            LLMProvider::GeminiPro => {
+                add_model_status(&mut status, "gemini-pro", &configs, &status_cache);
+            }
+            _ => {}
+        }
+    }
+
+    Json(status)
+}
+
+fn add_model_status(
+    status: &mut HashMap<String, ModelInfo>,
+    model_name: &str,
+    configs: &HashMap<String, ModelConfig>,
+    status_cache: &HashMap<String, ModelStatus>,
+) {
     let default_config = ModelConfig {
         temperature: 0.7,
         max_tokens: 2048,
@@ -71,14 +112,18 @@ async fn check_status() -> Json<HashMap<String, ModelInfo>> {
         presence_penalty: 0.0,
     };
 
+    let config = configs.get(model_name).cloned().unwrap_or(default_config);
+    let model_status = status_cache
+        .get(model_name)
+        .cloned()
+        .unwrap_or(ModelStatus::Available);
+
     status.insert(
-        "gpt-4".to_string(),
+        model_name.to_string(),
         ModelInfo {
-            name: "gpt-4".to_string(),
-            status: ModelStatus::Available,
-            config: default_config.clone(),
+            name: model_name.to_string(),
+            status: model_status,
+            config,
         },
     );
-
-    Json(status)
 }

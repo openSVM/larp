@@ -14,15 +14,20 @@ pub mod tree_sitter;
 pub mod types;
 
 use axum::Router;
+use std::sync::Arc;
 use crate::{
-    auth, fs, lsp, cache, metrics, plugins, security,
+    auth, fs, lsp, cache, metrics, plugins, security, models,
     webserver::{
         health, config, tree_sitter, agent, agentic,
     },
 };
 
-pub fn router() -> Router {
-    Router::new()
+pub async fn create_router() -> anyhow::Result<Router> {
+    // Initialize ModelState
+    let model_state = Arc::new(models::ModelState::new().await?);
+    model_state.initialize_default_configs().await;
+
+    Ok(Router::new()
         // Existing routes
         .merge(health::router())
         .merge(config::router())
@@ -37,4 +42,5 @@ pub fn router() -> Router {
         .merge(metrics::router())
         .merge(plugins::router())
         .merge(security::router())
+        .merge(models::router().with_state(model_state)))
 }
