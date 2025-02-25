@@ -1422,7 +1422,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         }
 
         // If original LLM (Sonnet3.7) failed, try with sonnet3.5 first
-        if llm_properties.llm() == &LLMType::ClaudeSonnet37 {
+        if llm_properties.llm() == &LLMType::ClaudeSonnet3_7 {
             println!("sonnet37_failed::failing_back_to_sonnet35");
             let sonnet35_properties = llm_properties.clone().set_llm(LLMType::ClaudeSonnet);
             if let Ok(Some(result)) = self
@@ -1450,7 +1450,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         }
 
         // If sonnet3.5 failed or if using a different model, try with gemini-flash-2.0
-        if llm_properties.llm() == &LLMType::ClaudeSonnet37 || llm_properties.llm() == &LLMType::ClaudeSonnet {
+        if llm_properties.llm() == &LLMType::ClaudeSonnet3_7
+            || llm_properties.llm() == &LLMType::ClaudeSonnet
+        {
             println!("sonnet_failed::failing_back_to_gemini-2.0-flash");
             let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::Gemini2_0Flash);
             if let Ok(Some(result)) = self
@@ -1479,7 +1481,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         }
 
         // If gemini-pro-1.5 failed, try with gemini-pro-1.5
-        if llm_properties.llm() == &LLMType::ClaudeSonnet {
+        if llm_properties.llm() == &LLMType::ClaudeSonnet
+            || llm_properties.llm() == &LLMType::ClaudeSonnet3_7
+        {
             println!("sonnet_failed::failing_back_to_gemini-pro");
             let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::GeminiPro);
             if let Ok(Some(result)) = self
@@ -1507,7 +1511,9 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        if llm_properties.llm() == &LLMType::ClaudeSonnet {
+        if llm_properties.llm() == &LLMType::ClaudeSonnet
+            || llm_properties.llm() == &LLMType::ClaudeSonnet3_7
+        {
             println!("sonnet_failed::failing_back_to_gpt4o");
             let gpt4o_properties = llm_properties.clone().set_llm(LLMType::Gpt4O);
             if let Ok(Some(result)) = self

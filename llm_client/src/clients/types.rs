@@ -65,6 +65,8 @@ pub enum LLMType {
     ClaudeOpus,
     /// Claude Sonnet model
     ClaudeSonnet,
+    // Claude Sonnet 3.7 model
+    ClaudeSonnet3_7,
     /// Claude Haiku model
     ClaudeHaiku,
     /// PPLX Sonnet Small model
@@ -197,7 +199,10 @@ impl LLMType {
     pub fn is_anthropic(&self) -> bool {
         matches!(
             self,
-            LLMType::ClaudeOpus | LLMType::ClaudeSonnet | LLMType::ClaudeSonnet3_7 | LLMType::ClaudeHaiku
+            LLMType::ClaudeOpus
+                | LLMType::ClaudeSonnet
+                | LLMType::ClaudeSonnet3_7
+                | LLMType::ClaudeHaiku
         )
     }
 
