@@ -1421,8 +1421,36 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
             }
         }
 
-        // If original LLM (Sonnet) failed, try with gemini-flash-2.0
-        if llm_properties.llm() == &LLMType::ClaudeSonnet {
+        // If original LLM (Sonnet3.7) failed, try with sonnet3.5 first
+        if llm_properties.llm() == &LLMType::ClaudeSonnet37 {
+            println!("sonnet37_failed::failing_back_to_sonnet35");
+            let sonnet35_properties = llm_properties.clone().set_llm(LLMType::ClaudeSonnet);
+            if let Ok(Some(result)) = self
+                .try_with_llm(
+                    sonnet35_properties,
+                    cancellation_token.clone(),
+                    root_request_id.clone(),
+                    ui_sender.clone(),
+                    exchange_id,
+                    final_messages.to_vec(),
+                    None,
+                )
+                .await
+            {
+                if matches!(
+                    result,
+                    ToolUseAgentOutput {
+                        r#type: ToolUseAgentOutputType::Success(_),
+                        usage_statistics: _,
+                    }
+                ) {
+                    return Ok(result);
+                }
+            }
+        }
+
+        // If sonnet3.5 failed or if using a different model, try with gemini-flash-2.0
+        if llm_properties.llm() == &LLMType::ClaudeSonnet37 || llm_properties.llm() == &LLMType::ClaudeSonnet {
             println!("sonnet_failed::failing_back_to_gemini-2.0-flash");
             let gemini_pro_properties = llm_properties.clone().set_llm(LLMType::Gemini2_0Flash);
             if let Ok(Some(result)) = self

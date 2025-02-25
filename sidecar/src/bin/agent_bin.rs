@@ -141,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let llm_model = if let Some(model_name) = args.model_name {
         LLMType::Custom(model_name)
     } else {
-        LLMType::ClaudeSonnet
+        LLMType::ClaudeSonnet37
     };
 
     let llm_provider = LLMProperties::new(
