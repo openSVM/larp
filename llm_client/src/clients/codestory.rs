@@ -166,6 +166,7 @@ impl CodeStoryClient {
                 Ok("deepseek-ai/deepseek-coder-33b-instruct".to_owned())
             }
             LLMType::ClaudeSonnet => Ok("claude-3-5-sonnet-20241022".to_owned()), // updated to latest sonnet
+            LLMType::ClaudeSonnet3_7 => Ok("claude-3-7-sonnet-20250219".to_owned()),
             LLMType::ClaudeHaiku => Ok("claude-3-5-haiku-20241022".to_owned()), // updated to latest haiku
             LLMType::GeminiPro => Ok("google/gemini-flash-1.5".to_owned()),
             LLMType::GeminiProFlash => Ok("gemini-1.5-flash".to_owned()),
@@ -199,7 +200,7 @@ impl CodeStoryClient {
             LLMType::CodeLlama13BInstruct
             | LLMType::CodeLlama7BInstruct
             | LLMType::DeepSeekCoder33BInstruct => Ok(self.together_api_endpoint(&self.api_base)),
-            LLMType::ClaudeSonnet | LLMType::ClaudeHaiku => {
+            LLMType::ClaudeSonnet | LLMType::ClaudeSonnet3_7 | LLMType::ClaudeHaiku => {
                 Ok(self.openrouter_api_endpoint(&self.api_base))
             }
             LLMType::GeminiPro | LLMType::GeminiProFlash | LLMType::Gemini2_0Flash => {
