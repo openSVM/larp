@@ -35,7 +35,7 @@ pub struct StartRequest {
     config: LspConfig,
 }
 
-pub fn router() -> Router {
+pub fn router() -> Router<Arc<LspState>> {
     Router::new()
         .route("/lsp/start", post(start_server))
         .route("/lsp/status", get(server_status))
@@ -43,49 +43,57 @@ pub fn router() -> Router {
         .route("/lsp/capabilities", get(get_capabilities))
 }
 
-async fn start_server(Json(req): Json<StartRequest>) -> Result<StatusCode, StatusCode> {
-    // In a real implementation, this would start the language server
+async fn start_server(
+    State(state): State<Arc<LspState>>,
+    Json(req): Json<StartRequest>
+) -> Result<StatusCode, StatusCode> {
+    state.start_server(&req.language, req.config)
+        .await
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
     Ok(StatusCode::OK)
 }
 
-async fn server_status() -> Json<HashMap<String, LspServerInfo>> {
+async fn server_status(
+    State(state): State<Arc<LspState>>
+) -> Json<HashMap<String, LspServerInfo>> {
+    let servers = state.servers.read().await;
     let mut status = HashMap::new();
     
-    status.insert(
-        "rust".to_string(),
-        LspServerInfo {
-            language: "rust".to_string(),
-            status: LspStatus::Running,
-            pid: Some(1234),
-            capabilities: vec![
-                "completions".to_string(),
-                "diagnostics".to_string(),
-                "formatting".to_string(),
-            ],
-        },
-    );
-
+    for (language, instance) in servers.iter() {
+        status.insert(
+            language.clone(),
+            LspServerInfo {
+                language: language.clone(),
+                status: instance.status.clone(),
+                pid: Some(instance.pid),
+                capabilities: vec![
+                    "completions".to_string(),
+                    "diagnostics".to_string(),
+                    "formatting".to_string(),
+                ],
+            },
+        );
+    }
+    
     Json(status)
 }
 
 async fn configure_server(
-    Json(config): Json<LspConfig>,
+    State(state): State<Arc<LspState>>,
+    Json(config): Json<LspConfig>
 ) -> Result<StatusCode, StatusCode> {
-    // In a real implementation, this would configure the language server
-    Ok(StatusCode::OK)
+    let mut servers = state.servers.write().await;
+    if let Some(instance) = servers.get_mut(&config.root_path) {
+        instance.config = config;
+        Ok(StatusCode::OK)
+    } else {
+        Err(StatusCode::NOT_FOUND)
+    }
 }
 
-async fn get_capabilities() -> Json<HashMap<String, Vec<String>>> {
-    let mut capabilities = HashMap::new();
-    capabilities.insert(
-        "rust".to_string(),
-        vec![
-            "completions".to_string(),
-            "diagnostics".to_string(),
-            "formatting".to_string(),
-            "references".to_string(),
-            "definition".to_string(),
-        ],
-    );
-    Json(capabilities)
+async fn get_capabilities(
+    State(state): State<Arc<LspState>>
+) -> Json<HashMap<String, Vec<String>>> {
+    let capabilities = state.capabilities.read().await;
+    Json(capabilities.clone())
 }

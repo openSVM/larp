@@ -38,8 +38,34 @@ pub fn router() -> Router {
         .route("/fs/workspace", get(get_workspace_info))
 }
 
-async fn watch_directory(Json(req): Json<WatchRequest>) -> Result<StatusCode, StatusCode> {
-    // In a real implementation, this would set up file system watchers
+async fn watch_directory(
+    State(state): State<Arc<FsState>>,
+    Json(req): Json<WatchRequest>
+) -> Result<StatusCode, StatusCode> {
+    let path = PathBuf::from(&req.path);
+    if !path.exists() {
+        return Err(StatusCode::BAD_REQUEST);
+    }
+
+    let tx = state.event_tx.clone();
+    let mut watcher = notify::recommended_watcher(move |res: Result<Event, _>| {
+        if let Ok(event) = res {
+            let _ = tx.send(event);
+        }
+    }).map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mode = if req.recursive {
+        RecursiveMode::Recursive
+    } else {
+        RecursiveMode::NonRecursive
+    };
+
+    watcher.watch(&path, mode)
+        .map_err(|_| StatusCode::INTERNAL_SERVER_ERROR)?;
+
+    let mut watchers = state.watchers.write().await;
+    watchers.insert(req.path, watcher);
+
     Ok(StatusCode::OK)
 }
 
