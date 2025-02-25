@@ -141,7 +141,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let llm_model = if let Some(model_name) = args.model_name {
         LLMType::Custom(model_name)
     } else {
-        LLMType::ClaudeSonnet37
+        LLMType::ClaudeSonnet3_7
     };
 
     let llm_provider = LLMProperties::new(
@@ -213,7 +213,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             Some(args.repo_name.clone()),
             message_properties,
             false, // not in devtools context
-            None, // No context crunching LLM for agent_bin
+            None,  // No context crunching LLM for agent_bin
         )
         .await;
     println!("agent::tool_use::end");
