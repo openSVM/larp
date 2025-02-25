@@ -20,12 +20,20 @@ use crate::{
     webserver::{
         health, config, tree_sitter, agent, agentic,
     },
+    application::Application,
 };
 
-pub async fn create_router() -> anyhow::Result<Router> {
-    // Initialize ModelState
-    let model_state = Arc::new(models::ModelState::new().await?);
-    model_state.initialize_default_configs().await;
+pub async fn create_router(app: Arc<Application>) -> anyhow::Result<Router> {
+    // Initialize states for independent services
+    let cache_state = cache::CacheState::new(cache::CacheConfig {
+        max_size: 1024 * 1024 * 100, // 100MB
+        ttl_seconds: 3600,
+        compression_enabled: true,
+    });
+    
+    let metrics_state = metrics::MetricsState::new();
+    let plugin_manager = plugins::PluginManager::new();
+    let security_manager = security::SecurityManager::new();
 
     Ok(Router::new()
         // Existing routes
@@ -34,13 +42,13 @@ pub async fn create_router() -> anyhow::Result<Router> {
         .merge(tree_sitter::router())
         .merge(agent::router())
         .merge(agentic::router())
-        // New independent routes
+        // Independent service routes with state
         .merge(auth::router())
         .merge(fs::router())
         .merge(lsp::router())
-        .merge(cache::router())
-        .merge(metrics::router())
-        .merge(plugins::router())
-        .merge(security::router())
-        .merge(models::router().with_state(model_state)))
+        .merge(cache::router().with_state(cache_state))
+        .merge(metrics::router().with_state(metrics_state))
+        .merge(plugins::router().with_state(plugin_manager))
+        .merge(security::router().with_state(security_manager))
+        .merge(models::router().with_state(app.model_state.clone())))
 }

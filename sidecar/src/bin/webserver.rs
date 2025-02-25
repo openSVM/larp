@@ -160,8 +160,8 @@ pub async fn start(app: Application) -> anyhow::Result<()> {
 
     api = api.route("/health", get(sidecar::webserver::health::health));
 
-    // Create the router with model state
-    let router = sidecar::webserver::create_router().await?;
+    // Create the router with application state
+    let router = sidecar::webserver::create_router(app.clone()).await?;
     
     let api = api
         .merge(router)

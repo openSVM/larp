@@ -163,7 +163,37 @@ pub fn router() -> Router<Arc<ModelState>> {
 }
 
 async fn list_models() -> Json<Vec<String>> {
-    let models = vec![
+    let models = state.list_available_models().await;
+    Json(models)
+}
+
+// Example model configuration file documentation
+/// ```json
+/// {
+///   "config_path": "/path/to/config",
+///   "model_overrides": {
+///     "gpt-4": {
+///       "config": {
+///         "temperature": 0.7,
+///         "max_tokens": 4096,
+///         "top_p": 1.0,
+///         "frequency_penalty": 0.0,
+///         "presence_penalty": 0.0
+///       },
+///       "enabled": true,
+///       "endpoint": "https://custom-endpoint/v1"
+///     }
+///   },
+///   "enabled_providers": ["OpenAI", "Anthropic"],
+///   "provider_endpoints": {
+///     "OpenAI": "https://api.openai.com/v1",
+///     "Anthropic": "https://api.anthropic.com/v1"
+///   }
+/// }
+/// ```
+
+fn get_default_models() -> Vec<String> {
+    vec![
         // OpenAI
         LLMType::Gpt4_32k.to_string(),
         LLMType::Gpt4_Preview.to_string(),
