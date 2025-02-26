@@ -122,10 +122,14 @@ const ChatInterface: React.FC<ChatInterfaceProps> = ({ selectedFile, allFiles })
             onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
             placeholder="Ask Sidecar..."
             className="flex-grow bg-gray-800 text-white p-2 rounded-l-md focus:outline-none"
+            disabled={loading}
           />
           <button 
             onClick={handleSendMessage}
-            className="bg-primary text-white p-2 rounded-r-md hover:bg-blue-600"
+            className={`text-white p-2 rounded-r-md ${
+              loading ? 'bg-gray-600 cursor-not-allowed' : 'bg-primary hover:bg-blue-600'
+            }`}
+            disabled={loading}
           >
             <FiSend />
           </button>

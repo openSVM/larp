@@ -38,7 +38,8 @@ export default function Home() {
             <div className="bg-background border-r border-border p-2 overflow-auto h-full">
               <FileExplorer 
                 onFileSelect={handleFileSelect} 
-                selectedFile={selectedFile} 
+                selectedFile={selectedFile}
+                onFilesLoaded={handleFilesLoaded}
               />
             </div>
             

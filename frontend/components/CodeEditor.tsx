@@ -114,8 +114,13 @@ const CodeEditor: React.FC<CodeEditorProps> = ({ selectedFile }) => {
             value={fileContent}
             height="100%"
             theme={vscodeDark}
-            extensions={[getLanguageExtension()]}
+            extensions={[
+              getLanguageExtension(),
+              lintGutter(),
+              createLSPLinter()
+            ]}
             onChange={handleCodeChange}
+            ref={editorRef}
             basicSetup={{
               lineNumbers: true,
               highlightActiveLineGutter: true,

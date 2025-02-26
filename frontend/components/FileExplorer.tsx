@@ -17,7 +17,13 @@ const FileExplorer: React.FC<FileExplorerProps> = ({ onFileSelect, selectedFile 
     setError(null);
     try {
       const response = await listFiles('.');
-      setFiles(response.files || []);
+      const fileList = response.files || [];
+      setFiles(fileList);
+      
+      // Notify parent component about loaded files
+      if (onFilesLoaded) {
+        onFilesLoaded(fileList);
+      }
     } catch (err) {
       console.error('Error fetching files:', err);
       setError('Failed to load files');
