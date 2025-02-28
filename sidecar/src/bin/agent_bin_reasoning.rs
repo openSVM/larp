@@ -14,7 +14,10 @@ use sidecar::{
             events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
             identifier::LLMProperties,
         },
-        tool::{r#type::ToolType, session::tool_use_agent::ToolUseAgentProperties},
+        tool::{
+            r#type::ToolType,
+            session::tool_use_agent::{AgentThinkingMode, ToolUseAgentProperties},
+        },
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -197,6 +200,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tool_use_agent_properties = ToolUseAgentProperties::new(
         false,
         "bash".to_owned(),
+        AgentThinkingMode::MiniCOTBeforeTool,
+        false, // is running under eval
         Some(args.repo_name.to_owned()),
         None,
     );

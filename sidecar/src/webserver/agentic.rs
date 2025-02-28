@@ -35,7 +35,7 @@ use crate::agentic::tool::errors::ToolError;
 use crate::agentic::tool::lsp::open_file::OpenFileResponse;
 use crate::agentic::tool::plan::service::PlanService;
 use crate::agentic::tool::session::session::AideAgentMode;
-use crate::agentic::tool::session::tool_use_agent::ToolUseAgentProperties;
+use crate::agentic::tool::session::tool_use_agent::{AgentThinkingMode, ToolUseAgentProperties};
 use crate::chunking::text_document::Range;
 use crate::repo::types::RepoRef;
 use crate::webserver::plan::{
@@ -1785,8 +1785,14 @@ pub async fn agent_tool_use(
     })
     .collect();
 
-    let tool_use_agent_properties =
-        ToolUseAgentProperties::new(true, shell.to_owned(), Some(repo_name), aide_rules);
+    let tool_use_agent_properties = ToolUseAgentProperties::new(
+        true,
+        shell.to_owned(),
+        AgentThinkingMode::MiniCOTBeforeTool,
+        false, // running under eval harness
+        Some(repo_name),
+        aide_rules,
+    );
     let _ = tokio::spawn({
         let sender = sender.clone();
         let session_id = session_id.clone();

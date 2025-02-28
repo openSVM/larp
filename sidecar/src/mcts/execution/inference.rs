@@ -23,7 +23,7 @@ use crate::{
             session::{
                 chat::SessionChatMessage,
                 tool_use_agent::{
-                    ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
+                    AgentThinkingMode, ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
                     ToolUseAgentOutputType, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
                 },
             },
@@ -260,6 +260,8 @@ impl InferenceEngine {
             ToolUseAgentProperties::new(
                 true,
                 "bash".to_owned(),
+                AgentThinkingMode::MiniCOTBeforeTool,
+                true,
                 Some(search_tree.repo_name()),
                 None,
             ),
@@ -448,6 +450,8 @@ impl InferenceEngine {
             ToolUseAgentProperties::new(
                 true,
                 "bash".to_owned(),
+                AgentThinkingMode::MiniCOTBeforeTool,
+                true, // is running under eval harness
                 Some(search_tree.repo_name()),
                 None,
             ),

@@ -14,7 +14,10 @@ use sidecar::{
             events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
             identifier::LLMProperties,
         },
-        tool::{r#type::ToolType, session::tool_use_agent::ToolUseAgentProperties},
+        tool::{
+            r#type::ToolType,
+            session::tool_use_agent::{AgentThinkingMode, ToolUseAgentProperties},
+        },
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -204,6 +207,8 @@ Your thinking should be thorough and so it's fine if it's very long."#,
     let tool_use_agent_properties = ToolUseAgentProperties::new(
         false,
         "bash".to_owned(),
+        AgentThinkingMode::MiniCOTBeforeTool,
+        false,
         Some(args.repo_name.clone()),
         aide_rules,
     );
