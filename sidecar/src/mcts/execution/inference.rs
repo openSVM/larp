@@ -23,7 +23,7 @@ use crate::{
             session::{
                 chat::SessionChatMessage,
                 tool_use_agent::{
-                    ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
+                    AgentThinkingMode, ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
                     ToolUseAgentOutputType, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
                 },
             },
@@ -257,8 +257,14 @@ impl InferenceEngine {
             search_tree.llm_client(),
             search_tree.root_directory(),
             "linux".to_owned(),
-            "bash".to_owned(),
-            ToolUseAgentProperties::new(true, Some(search_tree.repo_name()), None),
+            ToolUseAgentProperties::new(
+                true,
+                "bash".to_owned(),
+                AgentThinkingMode::MiniCOTBeforeTool,
+                true,
+                Some(search_tree.repo_name()),
+                None,
+            ),
         );
 
         let session_messages = messages
@@ -441,8 +447,14 @@ impl InferenceEngine {
             search_tree.llm_client(),
             search_tree.root_directory(),
             "linux".to_owned(),
-            "bash".to_owned(),
-            ToolUseAgentProperties::new(true, Some(search_tree.repo_name()), None),
+            ToolUseAgentProperties::new(
+                true,
+                "bash".to_owned(),
+                AgentThinkingMode::MiniCOTBeforeTool,
+                true, // is running under eval harness
+                Some(search_tree.repo_name()),
+                None,
+            ),
         );
 
         let mut session_messages = messages

@@ -158,6 +158,8 @@ pub enum ToolType {
     RequestScreenshot,
     // Context crunching
     ContextCrunching,
+    // Think tool
+    ThinkTool,
     // dynamically configured MCP servers
     McpTool(String),
 }
@@ -264,6 +266,7 @@ impl std::fmt::Display for ToolType {
             ToolType::FindFiles => write!(f, "find_file"),
             ToolType::RequestScreenshot => write!(f, "request_screenshot"),
             ToolType::ContextCrunching => write!(f, "context_crunching"),
+            ToolType::ThinkTool => write!(f, "think_tool"),
             ToolType::McpTool(name) => write!(f, "{}", name),
         }
     }
