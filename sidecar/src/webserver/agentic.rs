@@ -1748,6 +1748,41 @@ pub async fn agent_tool_use(
 
     let cloned_session_id = session_id.to_string();
     let session_service = app.session_service.clone();
+
+    // the different tools the agent has access to
+    let tools = vec![
+        ToolType::ListFiles,
+        ToolType::SearchFileContentWithRegex,
+        ToolType::OpenFile,
+        ToolType::CodeEditing,
+        ToolType::AttemptCompletion,
+        ToolType::TerminalCommand,
+        ToolType::FindFiles,
+    ]
+    .into_iter()
+    .chain(tool_box.mcp_tools().iter().cloned())
+    .chain(if is_devtools_context {
+        vec![ToolType::RequestScreenshot]
+    } else {
+        vec![]
+    })
+    .into_iter()
+    // editor specific tools over here
+    .chain(
+        // these tools are only availabe inside the editor
+        // they are not available on the agent-farm yet, which is true in this flow
+        vec![
+            ToolType::LSPDiagnostics,
+            // disable for testing
+            ToolType::AskFollowupQuestions,
+        ],
+    )
+    .chain(if semantic_search {
+        vec![ToolType::SemanticSearch]
+    } else {
+        vec![]
+    })
+    .collect();
     let _ = tokio::spawn({
         let sender = sender.clone();
         let session_id = session_id.clone();
@@ -1765,17 +1800,16 @@ pub async fn agent_tool_use(
                         project_labels,
                         repo_ref,
                         root_directory,
+                        tools,
                         tool_box,
                         llm_broker,
                         user_context,
                         aide_rules,
                         reasoning,
                         true, // we are running inside the editor over here
-                        semantic_search,
                         mcts_log_directory,
                         Some(repo_name),
                         message_properties,
-                        is_devtools_context,
                         None, // No context crunching LLM for web requests
                     )
                     .await

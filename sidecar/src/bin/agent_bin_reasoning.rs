@@ -9,9 +9,12 @@ use llm_client::{
     provider::{AnthropicAPIKey, LLMProvider, LLMProviderAPIKeys},
 };
 use sidecar::{
-    agentic::symbol::{
-        events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
-        identifier::LLMProperties,
+    agentic::{
+        symbol::{
+            events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
+            identifier::LLMProperties,
+        },
+        tool::r#type::ToolType,
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -181,6 +184,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tool_box = application.tool_box.clone();
     let llm_broker = application.llm_broker.clone();
 
+    let tools = vec![
+        ToolType::ListFiles,
+        ToolType::SearchFileContentWithRegex,
+        ToolType::OpenFile,
+        ToolType::CodeEditing,
+        ToolType::AttemptCompletion,
+        ToolType::TerminalCommand,
+        ToolType::FindFiles,
+    ];
+
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
     let _ = session_service
@@ -195,17 +208,16 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             vec![],
             RepoRef::local(&cloned_working_directory).expect("repo_ref to work"),
             cloned_working_directory,
+            tools,
             tool_box,
             llm_broker,
             UserContext::default(),
             None,
             true, // turn on reasoning
             false,
-            false,
             Some(args.log_directory.clone()),
             Some(args.repo_name.clone()),
             message_properties,
-            false, // not in devtools context
             None, // No context crunching LLM for agent_bin_reasoning
         )
         .await;

@@ -386,17 +386,16 @@ impl SessionService {
         project_labels: Vec<String>,
         repo_ref: RepoRef,
         root_directory: String,
+        tools: Vec<ToolType>,
         tool_box: Arc<ToolBox>,
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
         aide_rules: Option<String>,
         reasoning: bool,
         running_in_editor: bool,
-        semantic_search: bool,
         mcts_log_directory: Option<String>,
         repo_name: Option<String>,
         message_properties: SymbolEventMessageProperties,
-        is_devtools_context: bool,
         context_crunching_llm: Option<LLMProperties>,
     ) -> Result<(), SymbolError> {
         println!("session_service::tool_use_agentic::start");
@@ -420,45 +419,7 @@ impl SessionService {
             // always update the tools over here, no matter what the session had before
             // this is essential because the same session might be crossing over from
             // a chat or edit
-            .set_tools(
-                vec![
-                    ToolType::ListFiles,
-                    ToolType::SearchFileContentWithRegex,
-                    ToolType::OpenFile,
-                    ToolType::CodeEditing,
-                    ToolType::AttemptCompletion,
-                    ToolType::RepoMapGeneration,
-                    ToolType::TerminalCommand,
-                    ToolType::FindFiles,
-                    // remove this later
-                    // ToolType::SemanticSearch,
-                ]
-                .into_iter()
-                .chain(tool_box.mcp_tools().iter().cloned())
-                .chain(if is_devtools_context {
-                    vec![ToolType::RequestScreenshot]
-                } else {
-                    vec![]
-                })
-                .into_iter()
-                .chain(if running_in_editor {
-                    // these tools are only availabe inside the editor
-                    // they are not available on the agent-farm yet
-                    vec![
-                        ToolType::LSPDiagnostics,
-                        // disable for testing
-                        ToolType::AskFollowupQuestions,
-                    ]
-                } else {
-                    vec![]
-                })
-                .chain(if semantic_search {
-                    vec![ToolType::SemanticSearch]
-                } else {
-                    vec![]
-                })
-                .collect(),
-            );
+            .set_tools(tools);
 
         // truncate hidden messages
         session.truncate_hidden_exchanges();
@@ -586,7 +547,6 @@ impl SessionService {
                         shell.to_owned(),
                         user_context.clone(),
                         running_in_editor,
-                        reasoning,
                         mcts_log_directory.clone(),
                         tool_box.clone(),
                         tool_agent.clone(),
@@ -609,7 +569,6 @@ impl SessionService {
                     shell.to_owned(),
                     user_context.clone(),
                     running_in_editor,
-                    reasoning,
                     mcts_log_directory,
                     tool_box,
                     tool_agent,
@@ -632,9 +591,6 @@ impl SessionService {
         shell: String,
         user_context: UserContext,
         running_in_editor: bool,
-        // reasoning is passed so we can short circuit the loop early on when
-        // the agent has been going over context etc
-        _reasoning: bool,
         mcts_log_directory: Option<String>,
         tool_box: Arc<ToolBox>,
         tool_agent: ToolUseAgent,
@@ -1214,13 +1170,12 @@ impl SessionService {
         // Trim the content to handle any potential trailing whitespace
         let trimmed_content = content.trim();
 
-        let session: Session = serde_json::from_str(trimmed_content)
-            .map_err(|e| {
-                SymbolError::IOError(std::io::Error::new(
-                    std::io::ErrorKind::InvalidData,
-                    format!("Error deserializing session: {}: {}", storage_path, e),
-                ))
-            })?;
+        let session: Session = serde_json::from_str(trimmed_content).map_err(|e| {
+            SymbolError::IOError(std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                format!("Error deserializing session: {}: {}", storage_path, e),
+            ))
+        })?;
 
         Ok(session)
     }
