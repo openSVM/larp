@@ -14,7 +14,7 @@ use sidecar::{
             events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
             identifier::LLMProperties,
         },
-        tool::r#type::ToolType,
+        tool::{r#type::ToolType, session::tool_use_agent::ToolUseAgentProperties},
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -201,6 +201,13 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         ToolType::FindFiles,
     ];
 
+    let tool_use_agent_properties = ToolUseAgentProperties::new(
+        false,
+        "bash".to_owned(),
+        Some(args.repo_name.clone()),
+        aide_rules,
+    );
+
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
     let _ = session_service
@@ -219,11 +226,10 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             tool_box,
             llm_broker,
             UserContext::default(),
-            aide_rules,
             false,
             false,
             Some(args.log_directory.clone()),
-            Some(args.repo_name.clone()),
+            tool_use_agent_properties,
             message_properties,
             None, // No context crunching LLM for agent_bin
         )

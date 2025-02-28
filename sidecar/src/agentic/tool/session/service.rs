@@ -390,11 +390,10 @@ impl SessionService {
         tool_box: Arc<ToolBox>,
         llm_broker: Arc<LLMBroker>,
         user_context: UserContext,
-        aide_rules: Option<String>,
         reasoning: bool,
         running_in_editor: bool,
         mcts_log_directory: Option<String>,
-        repo_name: Option<String>,
+        tool_use_agent_properties: ToolUseAgentProperties,
         message_properties: SymbolEventMessageProperties,
         context_crunching_llm: Option<LLMProperties>,
     ) -> Result<(), SymbolError> {
@@ -431,8 +430,7 @@ impl SessionService {
             // close to the vscode server
             // we should ideally get this information from the vscode-server side setting
             std::env::consts::OS.to_owned(),
-            shell.to_owned(),
-            ToolUseAgentProperties::new(running_in_editor, repo_name, aide_rules),
+            tool_use_agent_properties,
         )
         .set_context_crunching_llm(context_crunching_llm.clone());
 

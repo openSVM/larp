@@ -257,8 +257,12 @@ impl InferenceEngine {
             search_tree.llm_client(),
             search_tree.root_directory(),
             "linux".to_owned(),
-            "bash".to_owned(),
-            ToolUseAgentProperties::new(true, Some(search_tree.repo_name()), None),
+            ToolUseAgentProperties::new(
+                true,
+                "bash".to_owned(),
+                Some(search_tree.repo_name()),
+                None,
+            ),
         );
 
         let session_messages = messages
@@ -441,8 +445,12 @@ impl InferenceEngine {
             search_tree.llm_client(),
             search_tree.root_directory(),
             "linux".to_owned(),
-            "bash".to_owned(),
-            ToolUseAgentProperties::new(true, Some(search_tree.repo_name()), None),
+            ToolUseAgentProperties::new(
+                true,
+                "bash".to_owned(),
+                Some(search_tree.repo_name()),
+                None,
+            ),
         );
 
         let mut session_messages = messages

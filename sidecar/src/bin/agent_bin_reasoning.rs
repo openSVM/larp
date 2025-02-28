@@ -14,7 +14,7 @@ use sidecar::{
             events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
             identifier::LLMProperties,
         },
-        tool::r#type::ToolType,
+        tool::{r#type::ToolType, session::tool_use_agent::ToolUseAgentProperties},
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -194,6 +194,13 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ToolType::FindFiles,
     ];
 
+    let tool_use_agent_properties = ToolUseAgentProperties::new(
+        false,
+        "bash".to_owned(),
+        Some(args.repo_name.to_owned()),
+        None,
+    );
+
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
     let _ = session_service
@@ -212,11 +219,10 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tool_box,
             llm_broker,
             UserContext::default(),
-            None,
             true, // turn on reasoning
             false,
             Some(args.log_directory.clone()),
-            Some(args.repo_name.clone()),
+            tool_use_agent_properties,
             message_properties,
             None, // No context crunching LLM for agent_bin_reasoning
         )

@@ -337,14 +337,21 @@ pub enum ToolUseAgentOutputType {
 #[derive(Clone)]
 pub struct ToolUseAgentProperties {
     in_editor: bool,
+    shell: String,
     repo_name: Option<String>,
     aide_rules: Option<String>,
 }
 
 impl ToolUseAgentProperties {
-    pub fn new(in_editor: bool, repo_name: Option<String>, aide_rules: Option<String>) -> Self {
+    pub fn new(
+        in_editor: bool,
+        shell: String,
+        repo_name: Option<String>,
+        aide_rules: Option<String>,
+    ) -> Self {
         Self {
             in_editor,
+            shell,
             repo_name,
             aide_rules,
         }
@@ -356,7 +363,6 @@ pub struct ToolUseAgent {
     llm_client: Arc<LLMBroker>,
     working_directory: String,
     operating_system: String,
-    shell: String,
     properties: ToolUseAgentProperties,
     temperature: f32,
     context_crunching_llm: Option<LLMProperties>,
@@ -367,14 +373,12 @@ impl ToolUseAgent {
         llm_client: Arc<LLMBroker>,
         working_directory: String,
         operating_system: String,
-        shell: String,
         properties: ToolUseAgentProperties,
     ) -> Self {
         Self {
             llm_client,
             working_directory,
             operating_system,
-            shell,
             properties,
             // we always default to 0.2 temp to start with
             temperature: 0.2,
@@ -732,7 +736,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
     fn system_message_for_context_crunching(&self) -> String {
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
-        let default_shell = self.shell.to_owned();
+        let default_shell = self.properties.shell.to_owned();
         let repo_name = self
             .properties
             .repo_name
@@ -886,7 +890,7 @@ Additional guildelines and rules the user has provided which must be followed:
             }
             None => "".to_owned(),
         };
-        let default_shell = self.shell.to_owned();
+        let default_shell = self.properties.shell.to_owned();
         format!(
             r#"You are SOTA-agent, a highly skilled AI software engineer with extensive knowledge in all programming languages, frameworks, design patterns, and best practices. Your primary goal is to accomplish tasks related to software development, file manipulation, and system operations within the specified project directory.
 
