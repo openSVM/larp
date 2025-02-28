@@ -9,9 +9,12 @@ use llm_client::{
     provider::{AnthropicAPIKey, LLMProvider, LLMProviderAPIKeys},
 };
 use sidecar::{
-    agentic::symbol::{
-        events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
-        identifier::LLMProperties,
+    agentic::{
+        symbol::{
+            events::{input::SymbolEventRequestId, message_event::SymbolEventMessageProperties},
+            identifier::LLMProperties,
+        },
+        tool::r#type::ToolType,
     },
     application::{application::Application, config::configuration::Configuration},
     repo::types::RepoRef,
@@ -188,6 +191,16 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         args.repo_name,
     ));
 
+    let tools = vec![
+        ToolType::ListFiles,
+        ToolType::SearchFileContentWithRegex,
+        ToolType::OpenFile,
+        ToolType::CodeEditing,
+        ToolType::AttemptCompletion,
+        ToolType::TerminalCommand,
+        ToolType::FindFiles,
+    ];
+
     // wait for the agent to finish over here while busy looping
     println!("agent::tool_use::start");
     let _ = session_service
@@ -202,18 +215,17 @@ Your thinking should be thorough and so it's fine if it's very long."#,
             vec![],
             RepoRef::local(&cloned_working_directory).expect("repo_ref to work"),
             cloned_working_directory,
+            tools,
             tool_box,
             llm_broker,
             UserContext::default(),
             aide_rules,
             false,
             false,
-            false,
             Some(args.log_directory.clone()),
             Some(args.repo_name.clone()),
             message_properties,
-            false, // not in devtools context
-            None,  // No context crunching LLM for agent_bin
+            None, // No context crunching LLM for agent_bin
         )
         .await;
     println!("agent::tool_use::end");
