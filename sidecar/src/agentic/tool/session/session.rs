@@ -1100,12 +1100,12 @@ impl Session {
         Ok(self)
     }
 
-    pub async fn move_to_checkpoint(
-        mut self,
-        exchange_id: &str,
-    ) -> Result<Self, SymbolError> {
+    pub async fn move_to_checkpoint(mut self, exchange_id: &str) -> Result<Self, SymbolError> {
         // Find the index of the target exchange
-        let target_index = self.exchanges.iter().position(|exchange| &exchange.exchange_id == exchange_id);
+        let target_index = self
+            .exchanges
+            .iter()
+            .position(|exchange| &exchange.exchange_id == exchange_id);
 
         if let Some(target_index) = target_index {
             // Mark exchanges based on their position relative to the checkpoint
@@ -2365,9 +2365,15 @@ impl Session {
     }
 
     pub fn truncate_hidden_exchanges(&mut self) {
-        println!("session::truncate_hidden_exchanges::before({})", self.exchanges.len());
+        println!(
+            "session::truncate_hidden_exchanges::before({})",
+            self.exchanges.len()
+        );
         self.exchanges.retain(|exchange| !exchange.is_hidden);
-        println!("session::truncate_hidden_exchanges::after({})", self.exchanges.len());
+        println!(
+            "session::truncate_hidden_exchanges::after({})",
+            self.exchanges.len()
+        );
     }
 
     pub fn has_running_code_edits(&self, exchange_id: &str) -> bool {
@@ -3054,6 +3060,23 @@ reason: {}"#,
             }
             ToolInputPartial::Reasoning(_) => {
                 // we do not call this as a tool explicitly
+            }
+            ToolInputPartial::Thinking(_) => {
+                // we don't do any tool calling here but take the input of the thought
+                // and store it as part of our observation, not even sending the UI event
+                // here since we are running stateless from now on
+
+                if let Some(action_node) = self.action_nodes.last_mut() {
+                    action_node.add_observation_mut("Your thought has been logged.".to_owned());
+                    action_node.set_time_taken_seconds(tool_use_time_taken.elapsed().as_secs_f32());
+                }
+                self = self.tool_output(
+                    &exchange_id,
+                    tool_type.clone(),
+                    "Your thought has been logged".to_owned(),
+                    UserContext::default(),
+                    exchange_id.to_owned(),
+                );
             }
             ToolInputPartial::RequestScreenshot(_) => {
                 println!("request_screenshot");

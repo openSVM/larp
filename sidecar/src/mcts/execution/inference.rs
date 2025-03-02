@@ -576,6 +576,7 @@ Always include the <thinking></thinking> section before using the tool."#
                 // we never hit this branch for ask followup
                 Err(InferenceError::WrongToolOutput)
             }
+            ToolInputPartial::Thinking(_) => Err(InferenceError::WrongToolOutput),
             ToolInputPartial::AttemptCompletion(attemp_completion) => {
                 let message = attemp_completion.to_string();
                 Ok(ActionObservation::new(

@@ -86,6 +86,7 @@ use super::{
     swe_bench::test_tool::SWEBenchTestRequest,
     terminal::terminal::{TerminalInput, TerminalInputPartial},
     test_runner::runner::{TestRunnerRequest, TestRunnerRequestPartial},
+    thinking::thinking::ThinkingPartialInput,
 };
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -107,6 +108,7 @@ pub enum ToolInputPartial {
     RequestScreenshot(RequestScreenshotInputPartial),
     ContextCrunching(ContextCrunchingInputPartial),
     McpTool(McpToolPartial),
+    Thinking(ThinkingPartialInput),
 }
 
 impl ToolInputPartial {
@@ -129,6 +131,7 @@ impl ToolInputPartial {
             Self::RequestScreenshot(_) => ToolType::RequestScreenshot,
             Self::ContextCrunching(_) => ToolType::ContextCrunching,
             Self::McpTool(partial) => ToolType::McpTool(partial.full_name.clone()),
+            Self::Thinking(_) => ToolType::Think,
         }
     }
 
@@ -157,6 +160,7 @@ impl ToolInputPartial {
             Self::RequestScreenshot(request_screenshot) => request_screenshot.to_string(),
             Self::ContextCrunching(context_crunching) => context_crunching.to_string(),
             Self::McpTool(mcp_partial) => mcp_partial.to_string(),
+            Self::Thinking(thinking_partial) => thinking_partial.to_string(),
         }
     }
 
@@ -197,6 +201,7 @@ impl ToolInputPartial {
                 serde_json::to_value(context_crunching).ok()
             }
             Self::McpTool(mcp_partial) => serde_json::to_value(mcp_partial).ok(),
+            Self::Thinking(thinking_partial) => serde_json::to_value(thinking_partial).ok(),
         }
     }
 
@@ -215,6 +220,7 @@ impl ToolInputPartial {
             ToolType::CodeEditorTool => Some(CodeEditorParameters::to_json()),
             ToolType::RequestScreenshot => Some(RequestScreenshotInputPartial::to_json()),
             ToolType::McpTool(_name) => None,
+            ToolType::Think => Some(ThinkingPartialInput::to_json()),
             _ => None,
         }
     }
