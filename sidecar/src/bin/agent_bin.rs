@@ -209,7 +209,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         "bash".to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
         false,
-        Some(args.repo_name.clone()),
+        args.repo_name.to_owned(),
         aide_rules,
     );
 

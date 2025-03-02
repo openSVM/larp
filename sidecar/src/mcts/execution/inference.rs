@@ -262,7 +262,7 @@ impl InferenceEngine {
                 "bash".to_owned(),
                 AgentThinkingMode::MiniCOTBeforeTool,
                 true,
-                Some(search_tree.repo_name()),
+                search_tree.repo_name(),
                 None,
             ),
         );
@@ -452,7 +452,7 @@ impl InferenceEngine {
                 "bash".to_owned(),
                 AgentThinkingMode::MiniCOTBeforeTool,
                 true, // is running under eval harness
-                Some(search_tree.repo_name()),
+                search_tree.repo_name(),
                 None,
             ),
         );
