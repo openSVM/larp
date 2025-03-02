@@ -4,7 +4,7 @@ use std::{collections::HashMap, sync::Arc};
 
 use color_eyre::owo_colors::OwoColorize;
 use colored::Colorize;
-use llm_client::broker::LLMBroker;
+use llm_client::{broker::LLMBroker, clients::types::LLMType};
 use tokio::sync::Mutex;
 use tokio_util::sync::CancellationToken;
 
@@ -650,11 +650,13 @@ impl SessionService {
                     // if the input tokens are greater than 60k then do context crunching
                     // over here and lighten the context for the agent
                     // For custom LLMs, we use a higher token threshold
-                    let token_threshold = if message_properties.llm_properties().llm().is_custom() {
-                        120_000
-                    } else {
-                        60_000
-                    };
+                    let llm = message_properties.llm_properties().llm();
+                    let token_threshold =
+                        if llm.is_custom() || matches!(llm, &LLMType::ClaudeSonnet3_7) {
+                            150_000
+                        } else {
+                            60_000
+                        };
                     if input_tokens >= token_threshold {
                         println!("context_crunching");
                         // the right way to do this would be since the last reasoning node which was present here
