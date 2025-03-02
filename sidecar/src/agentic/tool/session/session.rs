@@ -70,7 +70,8 @@ use super::{
 
 #[derive(Debug)]
 pub enum AgentToolUseOutput {
-    Success((ToolInputPartial, Session)),
+    // Tool input, Tool Use id, Updated session
+    Success((ToolInputPartial, String, Session)),
     Failed(String),
     Cancelled,
     Errored(SymbolError),
@@ -1445,6 +1446,7 @@ impl Session {
                 ));
                 Ok(AgentToolUseOutput::Success((
                     tool_input_partial.clone(),
+                    tool_use_id.to_owned(),
                     self,
                 )))
             }
@@ -2478,6 +2480,7 @@ impl Session {
         mut self,
         tool_type: ToolType,
         tool_input_partial: ToolInputPartial,
+        tool_use_id: String,
         tool_box: Arc<ToolBox>,
         root_directory: String,
         message_properties: SymbolEventMessageProperties,
@@ -2535,7 +2538,7 @@ impl Session {
                     tool_type.clone(),
                     formatted_output, // truncated
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::AskFollowupQuestions(followup_question) => {
@@ -2669,7 +2672,7 @@ impl Session {
                         diff_changes.l1_changes()
                     ),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::LSPDiagnostics(diagnostics) => {
@@ -2715,7 +2718,7 @@ impl Session {
                     tool_type.clone(),
                     formatted_diagnostics,
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::FindFile(find_files) => {
@@ -2762,7 +2765,7 @@ impl Session {
                     tool_type.clone(),
                     response,
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::ListFiles(list_files) => {
@@ -2812,7 +2815,7 @@ impl Session {
                     tool_type.clone(),
                     response,
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::OpenFile(open_file) => {
@@ -2853,7 +2856,7 @@ impl Session {
                     tool_type.clone(),
                     response,
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::SemanticSearch(semantic_search) => {
@@ -2929,7 +2932,7 @@ reason: {}"#,
                     tool_type.clone(),
                     semantic_search_response.to_owned(),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::SearchFileContentWithRegex(search_file) => {
@@ -2982,7 +2985,7 @@ reason: {}"#,
                     tool_type.clone(),
                     response.to_owned(),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::TerminalCommand(terminal_command) => {
@@ -3059,7 +3062,7 @@ reason: {}"#,
                     tool_type.clone(),
                     output,
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::RepoMapGeneration(repo_map_request) => {
@@ -3100,7 +3103,7 @@ reason: {}"#,
                     tool_type.clone(),
                     repo_map_str.to_owned(),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::ContextCrunching(_context_crunching) => {
@@ -3126,7 +3129,7 @@ reason: {}"#,
                     tool_type.clone(),
                     "Your thought has been logged".to_owned(),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
             ToolInputPartial::RequestScreenshot(_) => {
@@ -3196,7 +3199,7 @@ reason: {}"#,
                     tool_type.clone(),
                     data.to_owned(),
                     UserContext::default(),
-                    exchange_id.to_owned(),
+                    tool_use_id.to_owned(),
                 );
             }
         }
