@@ -1,42 +1,49 @@
-//! The thinking tool for the agent, where it gets to explore a bit about the problem
-//! space and come up with plans
+//! The thinking tool allows the LLM to log a thought for itself
+//! This can be extremely useful when forcing the agent to think explicitly
 
-use std::sync::Arc;
-
-use async_trait::async_trait;
-use llm_client::broker::LLMBroker;
-
-use crate::agentic::{
-    symbol::identifier::LLMProperties,
-    tool::{errors::ToolError, input::ToolInput, output::ToolOutput, r#type::Tool},
-};
-
-pub struct BeforeCodeEditThinkingRequest {
-    llm_properties: LLMProperties,
-    original_user_query: String,
-    plan: String,
-    symbol_content: String,
-    content_prefix: String,
-    context_suffix: String,
+/// Helps with logging the thought from the LLM and nothing more than that
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct ThinkingPartialInput {
+    thought: String,
 }
 
-// This probably needs to run in a loop kind of, cause we want to either exhaust
-// the search space or stop at some point, if we keep varying this to an extent
-// we should be able to get all the information
-// we really need to start keeping history somewhere
-pub struct BeforeCodeEditThinkingResponse {
-    // we will probably get symbols which we have to ask questions to
-    questions_to_ask: Vec<()>,
-    steps_to_take_after: Vec<()>,
-}
+impl ThinkingPartialInput {
+    pub fn thought(&self) -> &str {
+        &self.thought
+    }
 
-pub struct Thinking {
-    llm_broker: Arc<LLMBroker>,
-}
+    pub fn to_string(&self) -> String {
+        format!(
+            r#"<thought>
+{}
+</thought>"#,
+            self.thought
+        )
+    }
 
-#[async_trait]
-impl Tool for Thinking {
-    async fn invoke(&self, input: ToolInput) -> Result<ToolOutput, ToolError> {
-        todo!("")
+    pub fn to_json() -> serde_json::Value {
+        serde_json::json!({
+            "name": "Think",
+            "description": r#"Use the tool to think about something. It will not obtain new information or make any changes to the repository, but just log the thought. Use it when complex reasoning or brainstorming is needed.
+
+Common use cases:
+1. When exploring a repository and discovering the source of a bug, call this tool to brainstorm several unique ways of fixing the bug, and assess which change(s) are likely to be simplest and most effective
+2. After receiving test results, use this tool to brainstorm ways to fix failing tests
+3. When planning a complex refactoring, use this tool to outline different approaches and their tradeoffs
+4. When designing a new feature, use this tool to think through architecture decisions and implementation details
+5. When debugging a complex issue, use this tool to organize your thoughts and hypotheses
+
+The tool simply logs your thought process for better transparency and does not execute any code or make changes."#,
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "thought": {
+                        "type": "string",
+                        "description": "(required) Your thoughts."
+                    }
+                },
+                "required": ["thought"],
+            },
+        })
     }
 }
