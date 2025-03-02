@@ -435,7 +435,7 @@ impl SessionService {
         .set_context_crunching_llm(context_crunching_llm.clone());
 
         // only when it is json mode that we switch the human message
-        if tool_agent.is_json_mode() {
+        if tool_agent.is_json_mode_and_eval() {
             session = session.pr_description(exchange_id.to_owned(), user_message.to_owned());
         } else {
             session = session
@@ -677,8 +677,8 @@ impl SessionService {
 
                         let output = context_crunching_output.output_type();
                         match output {
-                            ToolUseAgentOutputType::Success((tool_input_partial, _thinking)) => {
-                                match tool_input_partial {
+                            ToolUseAgentOutputType::Success(tool_use_success) => {
+                                match tool_use_success.tool_parameters().clone() {
                                     ToolInputPartial::ContextCrunching(context_crunching) => {
                                         // add the context crunching to our action nodes
                                         session.add_action_node(

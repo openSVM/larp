@@ -63,8 +63,8 @@ use super::{
     },
     hot_streak::SessionHotStreakRequest,
     tool_use_agent::{
-        ToolUseAgent, ToolUseAgentInput, ToolUseAgentOutput, ToolUseAgentOutputType,
-        ToolUseAgentReasoningInput, ToolUseAgentReasoningParams,
+        ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools, ToolUseAgentOutput,
+        ToolUseAgentOutputType, ToolUseAgentReasoningInput, ToolUseAgentReasoningParams,
     },
 };
 
@@ -1359,7 +1359,7 @@ impl Session {
         message_properties: SymbolEventMessageProperties,
     ) -> Result<AgentToolUseOutput, SymbolError> {
         let mut converted_messages = vec![];
-        let is_json_mode = tool_use_agent.is_json_mode();
+        let is_json_mode = tool_use_agent.is_json_mode_and_eval();
         for previous_message in self.exchanges.iter() {
             let converted_message = previous_message.to_conversation_message(is_json_mode).await;
             if let Some(converted_message) = converted_message {
@@ -1373,30 +1373,50 @@ impl Session {
             .grab_pending_subprocess_output(message_properties.clone())
             .await?;
 
-        // Now we can create the input for the tool use agent
-        let tool_use_agent_input = ToolUseAgentInput::new(
-            converted_messages,
-            self.tools
-                .to_vec()
-                .into_iter()
-                .filter_map(|tool_type| tool_box.tools().get_tool_description(&tool_type))
-                .collect(),
-            self.tools
-                .to_vec()
-                .into_iter()
-                .filter_map(|tool_type| tool_box.tools().get_tool_reminder(&tool_type))
-                .collect(),
-            pending_spawned_process_output,
-            message_properties.clone(),
-        );
-
         // now we can invoke the tool use agent over here and get the parsed input and store it
-        let output = tool_use_agent.invoke(tool_use_agent_input).await;
+        // figure out how to pass in the is_json_mode over here, or we can implicitly decide
+        // inside but the flows are a bit different altho there are code paths which should make
+        // this work
+        let output = if is_json_mode {
+            let input = ToolUseAgentInputOnlyTools::new(
+                converted_messages,
+                // get the json schema for the tools over here
+                // we are testing out the new thinking tool over here
+                self.tools
+                    .to_vec()
+                    .into_iter()
+                    .filter_map(|tool_type| tool_box.tools().get_tool_json(&tool_type))
+                    .collect(),
+                message_properties.clone(),
+            );
+            tool_use_agent.invoke_json_tool_swe_bench(input).await
+        } else {
+            // Now we can create the input for the tool use agent
+            let tool_use_agent_input = ToolUseAgentInput::new(
+                converted_messages,
+                self.tools
+                    .to_vec()
+                    .into_iter()
+                    .filter_map(|tool_type| tool_box.tools().get_tool_description(&tool_type))
+                    .collect(),
+                self.tools
+                    .to_vec()
+                    .into_iter()
+                    .filter_map(|tool_type| tool_box.tools().get_tool_reminder(&tool_type))
+                    .collect(),
+                pending_spawned_process_output,
+                message_properties.clone(),
+            );
+            tool_use_agent.invoke(tool_use_agent_input).await
+        };
         let usage_stats = output.as_ref().map(|output| output.usage_statistics()).ok();
 
         // we match on the output type
         match output.map(|output| output.output_type()) {
-            Ok(ToolUseAgentOutputType::Success((tool_input_partial, thinking))) => {
+            Ok(ToolUseAgentOutputType::Success(tool_use_success)) => {
+                let tool_input_partial = tool_use_success.tool_parameters();
+                let tool_thinking = tool_use_success.thinking();
+                let tool_use_id = tool_use_success.tool_use_id();
                 // send over a UI event over here to inform the editor layer that we found a tool to use
                 let _ = message_properties
                     .ui_sender()
@@ -1404,7 +1424,7 @@ impl Session {
                         message_properties.root_request_id().to_owned(),
                         message_properties.request_id_str().to_owned(),
                         tool_input_partial.clone(),
-                        thinking.to_owned(),
+                        tool_thinking.to_owned(),
                     ));
                 let tool_type = tool_input_partial.to_tool_type();
 
@@ -1420,10 +1440,13 @@ impl Session {
                     exchange_id.to_owned(),
                     tool_input_partial.clone(),
                     tool_type,
-                    thinking,
-                    exchange_id,
+                    tool_thinking.to_owned(),
+                    tool_use_id.to_owned(),
                 ));
-                Ok(AgentToolUseOutput::Success((tool_input_partial, self)))
+                Ok(AgentToolUseOutput::Success((
+                    tool_input_partial.clone(),
+                    self,
+                )))
             }
             Ok(ToolUseAgentOutputType::Failure(input_string)) => {
                 // add action node to it

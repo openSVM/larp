@@ -24,7 +24,7 @@ use crate::{
                 chat::SessionChatMessage,
                 tool_use_agent::{
                     AgentThinkingMode, ToolUseAgent, ToolUseAgentInput, ToolUseAgentInputOnlyTools,
-                    ToolUseAgentOutputType, ToolUseAgentOutputWithTools, ToolUseAgentProperties,
+                    ToolUseAgentOutput, ToolUseAgentOutputType, ToolUseAgentProperties,
                 },
             },
             terminal::terminal::TerminalInput,
@@ -128,12 +128,9 @@ impl InferenceEngine {
         // message history
         let mut message_history = vec![];
 
-        let mut problem_statment = None;
-
         // Now create the messages for the previous nodes which we have
         for (_index, current_node) in root_to_leaf_direction.iter().enumerate() {
             if let Some(message) = current_node.message() {
-                problem_statment = Some(message.to_owned());
                 message_history.push(LLMClientMessage::user(message));
             }
 
@@ -225,7 +222,6 @@ impl InferenceEngine {
                 search_tree,
                 is_duplicate_allowed,
                 message_history,
-                problem_statment.expect("to be alway present in the tree"),
                 tool_box,
                 message_properties,
             )
@@ -249,7 +245,6 @@ impl InferenceEngine {
         search_tree: &SearchTree,
         is_duplicate_allowed: bool,
         messages: Vec<LLMClientMessage>,
-        problem_statement: String,
         tool_box: Arc<ToolBox>,
         message_properties: SymbolEventMessageProperties,
     ) -> Result<InferenceEngineResult, InferenceError> {
@@ -288,8 +283,6 @@ impl InferenceEngine {
                 .into_iter()
                 .filter_map(|tool_type| tool_box.tools().get_tool_json(&tool_type))
                 .collect(),
-            problem_statement,
-            self.agent_settings.is_midwit(),
             message_properties.clone(),
         );
 
@@ -299,32 +292,12 @@ impl InferenceEngine {
         // we can try a max of 3 times before giving up
         let max_tool_retry = 3;
 
-        let mut tool_use_output: Result<ToolUseAgentOutputWithTools, SymbolError>;
+        let mut tool_use_output: Result<ToolUseAgentOutput, SymbolError>;
         loop {
             tool_use_output = tool_use_agent
                 .invoke_json_tool_swe_bench(tool_agent_input.clone())
                 .await;
             if tool_use_output.is_ok() {
-                // check if the result of running the tool use output is empty
-                if let Ok(tool_use_output) = tool_use_output.as_ref() {
-                    match tool_use_output {
-                        ToolUseAgentOutputWithTools::Success((tools, _input)) => {
-                            if tools.is_empty() {
-                                println!(
-                                    "{}",
-                                    format!("inference::enging::retrying_empty_tool_output").red()
-                                );
-                                tokio::time::sleep(Duration::from_secs(1)).await;
-                                tool_retry_index = tool_retry_index + 1;
-                                if tool_retry_index >= max_tool_retry {
-                                    break;
-                                }
-                                continue;
-                            }
-                        }
-                        _ => {}
-                    }
-                }
                 break;
             } else {
                 println!(
@@ -341,31 +314,14 @@ impl InferenceEngine {
         }
 
         // Now we get the tool use output
-        match tool_use_output {
+        match tool_use_output.map(|output| output.output_type()) {
             Ok(tool_use_parameters) => match tool_use_parameters {
                 // we are going to execute this branch of the code so we can get the output
                 // over here
-                ToolUseAgentOutputWithTools::Reasoning(_) => {
-                    todo!("unimplemented")
-                }
-                ToolUseAgentOutputWithTools::Success((tool_input_partial, thinking)) => {
-                    if tool_input_partial.is_empty() {
-                        return Ok(InferenceEngineResult::new(
-                            Some(ActionObservation::errored(
-                                "failed to use any tool, please be careful".to_owned(),
-                                // we failed to parse the tool output, so we can expect an correction
-                                // over here
-                                Some(thinking),
-                                true,
-                                false,
-                            )),
-                            ActionToolParameters::errored(
-                                "failed to use any tool, please be careful".to_owned(),
-                            ),
-                            false,
-                        ));
-                    }
-                    let (tool_use_id, tool_input_partial) = tool_input_partial[0].clone();
+                ToolUseAgentOutputType::Success(tool_use_success) => {
+                    let tool_use_id = tool_use_success.tool_use_id().to_owned();
+                    let thinking = tool_use_success.thinking().to_owned();
+                    let tool_input_partial = tool_use_success.tool_parameters().clone();
                     let tool_parameters =
                         ActionToolParameters::tool(tool_use_id, tool_input_partial.clone());
                     // we should also detect duplicates over here before we start executing
@@ -407,13 +363,13 @@ impl InferenceEngine {
                         }
                     }
                 }
-                ToolUseAgentOutputWithTools::Failure(thinking) => {
+                ToolUseAgentOutputType::Failure(thinking) => {
                     Ok(InferenceEngineResult::new(
                         Some(ActionObservation::errored(
                             "Failed to generate a tool to use".to_owned(),
                             // we failed to parse the tool output, so we can expect an correction
                             // over here
-                            thinking,
+                            Some(thinking),
                             true,
                             false,
                         )),
@@ -493,7 +449,9 @@ Always include the <thinking></thinking> section before using the tool."#
             Ok(tool_use_parameters) => match tool_use_parameters {
                 // we are going to execute this branch of the code so we can get the output
                 // over here
-                ToolUseAgentOutputType::Success((tool_input_partial, thinking)) => {
+                ToolUseAgentOutputType::Success(tool_use_success) => {
+                    let tool_input_partial = tool_use_success.tool_parameters().clone();
+                    let tool_thinking = tool_use_success.thinking().to_owned();
                     let tool_parameters = ActionToolParameters::tool(
                         "tool_use".to_owned(),
                         tool_input_partial.clone(),
@@ -510,7 +468,7 @@ Always include the <thinking></thinking> section before using the tool."#
                         let node_execution_output = self
                             .execute_tool_and_generate_observation(
                                 tool_input_partial,
-                                thinking.to_owned(),
+                                tool_thinking.to_owned(),
                                 tool_box.clone(),
                                 message_properties.clone(),
                             )
@@ -528,7 +486,7 @@ Always include the <thinking></thinking> section before using the tool."#
                                 // failure so this is terminal
                                 Some(ActionObservation::errored(
                                     e.to_string(),
-                                    Some(thinking),
+                                    Some(tool_thinking),
                                     false,
                                     true,
                                 )),
