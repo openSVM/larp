@@ -40,6 +40,7 @@ use crate::{
             session::chat::SessionChatRole,
             terminal::terminal::TerminalInputPartial,
             test_runner::runner::TestRunnerRequestPartial,
+            thinking::thinking::ThinkingPartialInput,
         },
     },
     mcts::action_node::ActionNode,
@@ -348,7 +349,7 @@ pub struct ToolUseAgentProperties {
     shell: String,
     // keeping this disabled for now while  we write out the prompts and run a few
     // evals on this to measure how the performance is
-    _thinking: AgentThinkingMode,
+    thinking: AgentThinkingMode,
     // if the current agent is running under a eval harness, this helps tune the system
     // prompt for the agent appropriately
     is_eval_run: bool,
@@ -369,7 +370,7 @@ impl ToolUseAgentProperties {
             in_editor,
             shell,
             is_eval_run,
-            _thinking: thinking,
+            thinking,
             repo_name,
             aide_rules,
         }
@@ -402,6 +403,14 @@ impl ToolUseAgent {
             temperature: 0.2,
             context_crunching_llm: None,
         }
+    }
+
+    // should use json mode for tool calling
+    pub fn is_json_mode(&self) -> bool {
+        // right now gate it behind an eval run and only when we are doing
+        // tool based thinking: we provide think as a tool to the agent
+        self.properties.is_eval_run
+            && matches!(&self.properties.thinking, AgentThinkingMode::ToolBased)
     }
 
     /// Update the temperature for the tool use agent
@@ -1395,6 +1404,20 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                     "str_replace_editor" => ToolInputPartial::CodeEditorParameters(
                         serde_json::from_str::<CodeEditorParameters>(&tool_input).map_err(|e| {
                             println!("str_replace_editor::error::{:?}", e);
+                            SymbolError::ToolError(ToolError::SerdeConversionFailed)
+                        })?,
+                    ),
+                    "code_edit_input" => ToolInputPartial::CodeEditing(
+                        serde_json::from_str::<CodeEditingPartialRequest>(&tool_input).map_err(
+                            |e| {
+                                println!("code_edit_input::error::{:?}", e);
+                                SymbolError::ToolError(ToolError::SerdeConversionFailed)
+                            },
+                        )?,
+                    ),
+                    "Think" => ToolInputPartial::Thinking(
+                        serde_json::from_str::<ThinkingPartialInput>(&tool_input).map_err(|e| {
+                            println!("think::error::{:?}", e);
                             SymbolError::ToolError(ToolError::SerdeConversionFailed)
                         })?,
                     ),

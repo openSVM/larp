@@ -207,7 +207,7 @@ impl ToolInputPartial {
 
     pub fn to_json(tool_type: ToolType) -> Option<serde_json::Value> {
         match tool_type {
-            ToolType::CodeEditing => None,
+            ToolType::CodeEditing => Some(CodeEditingPartialRequest::to_json()),
             ToolType::ListFiles => Some(ListFilesInputPartial::to_json()),
             ToolType::SearchFileContentWithRegex => Some(SearchFileContentInputPartial::to_json()),
             ToolType::OpenFile => Some(OpenFileRequestPartial::to_json()),
