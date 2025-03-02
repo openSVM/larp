@@ -63,6 +63,27 @@ impl CodeEditingPartialRequest {
             self.fs_file_path, self.instruction
         )
     }
+
+    pub fn to_json() -> serde_json::Value {
+        serde_json::json!({
+            "name": "code_edit_input",
+            "description": r#"Edit a file. The tool is able to edit the file precisely based on instruction. If the file doesn't exist, it will be CREATED. The tool will automatically CREATE any directories needed to write the file. BE CONCISE AND DIRECT, DO NOT BE VERBOSE IN YOUR CODEBLOCKS and only give an overview of the changes."#,
+            "input_schema": {
+                "type": "object",
+                "properties": {
+                    "fs_file_path": {
+                        "type": "string",
+                        "description": "(required) The ABSOLUTE path of the file to write to, will be created if not already present."
+                    },
+                    "instruction": {
+                        "type": "string",
+                        "description": "(required) The edit instruction, if you are going to output code blocks make sure they are properly placed in ```{{language}} blocks and extensively use `rest of the code` and `...` placeholders, the goal is to be concise.\nOnly given instructions here which are concise and contain the relevant changes, DO NOT BE VERBOSE, BE CONCISE AND DIRECT.",
+                    }
+                },
+                "required": ["fs_file_path", "instruction"],
+            },
+        })
+    }
 }
 
 #[derive(Clone, Debug)]
@@ -494,7 +515,7 @@ impl Tool for CodeEditingTool {
 
     fn tool_description(&self) -> String {
         "### code_edit_input
-Edit a file. The tool is able to edit the file precisely based on instruction. If the file doesn't exist, it will be CREATED. The tool will automatically CREATE any directories needed to write the file. BE CONCISE AND DIRECT, DO NOT BE VERBOSE IN YOUR CODEBLOCKS and only give an overview of the chagnes.".to_owned()
+Edit a file. The tool is able to edit the file precisely based on instruction. If the file doesn't exist, it will be CREATED. The tool will automatically CREATE any directories needed to write the file. BE CONCISE AND DIRECT, DO NOT BE VERBOSE IN YOUR CODEBLOCKS and only give an overview of the changes.".to_owned()
     }
 
     fn tool_input_format(&self) -> String {

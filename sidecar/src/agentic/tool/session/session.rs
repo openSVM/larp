@@ -1006,6 +1006,33 @@ impl Session {
         self
     }
 
+    // creates a message which tells the agent that this is a PR description
+    pub fn pr_description(mut self, exchange_id: String, human_message: String) -> Session {
+        let user_message = format!(
+            r#"<pr_description>
+{human_message}
+</pr_description>"#
+        );
+
+        // add the action node
+        let mut action_node = ActionNode::default_with_index(self.exchanges());
+        action_node = action_node
+            .set_message(human_message)
+            .update_user_context(UserContext::default());
+        self.action_nodes.push(action_node);
+
+        // push the exchange
+        let exchange = Exchange::human_chat(
+            exchange_id,
+            user_message,
+            UserContext::default(),
+            self.project_labels.to_vec(),
+            self.repo_ref.clone(),
+        );
+        self.exchanges.push(exchange);
+        self
+    }
+
     pub async fn human_message_tool_use(
         mut self,
         exchange_id: String,
@@ -1332,8 +1359,9 @@ impl Session {
         message_properties: SymbolEventMessageProperties,
     ) -> Result<AgentToolUseOutput, SymbolError> {
         let mut converted_messages = vec![];
+        let is_json_mode = tool_use_agent.is_json_mode();
         for previous_message in self.exchanges.iter() {
-            let converted_message = previous_message.to_conversation_message(false).await;
+            let converted_message = previous_message.to_conversation_message(is_json_mode).await;
             if let Some(converted_message) = converted_message {
                 converted_messages.push(converted_message);
             }

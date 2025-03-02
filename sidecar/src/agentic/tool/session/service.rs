@@ -434,16 +434,21 @@ impl SessionService {
         )
         .set_context_crunching_llm(context_crunching_llm.clone());
 
-        session = session
-            .human_message_tool_use(
-                exchange_id.to_owned(),
-                user_message.to_owned(),
-                all_files,
-                open_files,
-                shell.to_owned(),
-                user_context.clone(),
-            )
-            .await;
+        // only when it is json mode that we switch the human message
+        if tool_agent.is_json_mode() {
+            session = session.pr_description(exchange_id.to_owned(), user_message.to_owned());
+        } else {
+            session = session
+                .human_message_tool_use(
+                    exchange_id.to_owned(),
+                    user_message.to_owned(),
+                    all_files,
+                    open_files,
+                    shell.to_owned(),
+                    user_context.clone(),
+                )
+                .await;
+        }
         let _ = self
             .save_to_storage(&session, mcts_log_directory.clone())
             .await;
