@@ -748,7 +748,7 @@ impl SessionService {
                 .await;
 
             match tool_use_output {
-                Ok(AgentToolUseOutput::Success((tool_input_partial, new_session))) => {
+                Ok(AgentToolUseOutput::Success((tool_input_partial, tool_use_id, new_session))) => {
                     // update our session
                     session = new_session;
                     // store to disk
@@ -762,6 +762,7 @@ impl SessionService {
                         .invoke_tool(
                             tool_type.clone(),
                             tool_input_partial,
+                            tool_use_id,
                             tool_box.clone(),
                             root_directory.to_owned(),
                             message_properties.clone(),
