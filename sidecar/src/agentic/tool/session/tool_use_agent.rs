@@ -352,7 +352,7 @@ pub struct ToolUseAgentProperties {
     // if the current agent is running under a eval harness, this helps tune the system
     // prompt for the agent appropriately
     is_eval_run: bool,
-    repo_name: Option<String>,
+    repo_name: String,
     aide_rules: Option<String>,
 }
 
@@ -362,7 +362,7 @@ impl ToolUseAgentProperties {
         shell: String,
         thinking: AgentThinkingMode,
         is_eval_run: bool,
-        repo_name: Option<String>,
+        repo_name: String,
         aide_rules: Option<String>,
     ) -> Self {
         Self {
@@ -888,11 +888,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
         let default_shell = self.properties.shell.to_owned();
-        let repo_name = self
-            .properties
-            .repo_name
-            .clone()
-            .unwrap_or("not provided".to_owned());
+        let repo_name = self.properties.repo_name.to_owned();
         format!(
             r#"**Role:**
 You are a senior engineer tasked with reviewing and summarizing the work an AI agent has completed so far. Your summary ensures that you remain on track with the task.
@@ -1179,7 +1175,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         &self,
         input: ToolUseAgentReasoningInput,
     ) -> Result<ToolUseAgentReasoningParams, SymbolError> {
-        let repo_name = self.properties.repo_name.clone().expect("to be present");
+        let repo_name = self.properties.repo_name.to_owned();
         let message_properties = input.symbol_event_message_properties.clone();
         let system_message = LLMClientMessage::system(self.system_message_for_o1(&repo_name));
         let user_message = LLMClientMessage::user(self.user_message_for_o1(input));
@@ -1229,7 +1225,7 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         &self,
         input: ToolUseAgentInputOnlyTools,
     ) -> Result<ToolUseAgentOutputWithTools, SymbolError> {
-        let repo_name = self.properties.repo_name.clone().expect("to be present");
+        let repo_name = self.properties.repo_name.to_owned();
         let problem_statement = &input.problem_statement;
         let system_message = LLMClientMessage::system(if input.is_midwit_mode {
             self.system_message_midwit_json_mode(&repo_name, problem_statement)
@@ -1470,13 +1466,10 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         input: ToolUseAgentInput,
     ) -> Result<ToolUseAgentOutput, SymbolError> {
         let system_message = if self.properties.is_eval_run {
-            match self.properties.repo_name.as_ref() {
-                Some(repo_name) => LLMClientMessage::system(
-                    self.system_message_midwit_tool_mode(&repo_name, &input),
-                )
-                .cache_point(),
-                None => LLMClientMessage::system(self.system_message(&input)).cache_point(),
-            }
+            LLMClientMessage::system(
+                self.system_message_midwit_tool_mode(&self.properties.repo_name, &input),
+            )
+            .cache_point()
         } else {
             LLMClientMessage::system(self.system_message(&input)).cache_point()
         };

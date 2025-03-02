@@ -1790,7 +1790,7 @@ pub async fn agent_tool_use(
         shell.to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
         false, // running under eval harness
-        Some(repo_name),
+        repo_name,
         aide_rules,
     );
     let _ = tokio::spawn({

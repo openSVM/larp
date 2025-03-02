@@ -202,7 +202,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         "bash".to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
         false, // is running under eval
-        Some(args.repo_name.to_owned()),
+        args.repo_name.to_owned(),
         None,
     );
 

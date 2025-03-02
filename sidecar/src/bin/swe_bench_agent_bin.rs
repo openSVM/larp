@@ -211,7 +211,7 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         "bash".to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
         true, // is running under eval harness
-        Some(args.repo_name.to_owned()),
+        args.repo_name.to_owned(),
         aide_rules.clone(),
     );
 
