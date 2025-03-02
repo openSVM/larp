@@ -55,8 +55,6 @@ use super::{
 pub struct ToolUseAgentInputOnlyTools {
     session_messages: Vec<SessionChatMessage>,
     tools: Vec<serde_json::Value>,
-    problem_statement: String,
-    is_midwit_mode: bool,
     symbol_event_message_properties: SymbolEventMessageProperties,
 }
 
@@ -64,15 +62,11 @@ impl ToolUseAgentInputOnlyTools {
     pub fn new(
         session_messages: Vec<SessionChatMessage>,
         tools: Vec<serde_json::Value>,
-        problem_statement: String,
-        is_midwit_mode: bool,
         symbol_event_message_properties: SymbolEventMessageProperties,
     ) -> Self {
         Self {
             session_messages,
             tools,
-            problem_statement,
-            is_midwit_mode,
             symbol_event_message_properties,
         }
     }
@@ -327,8 +321,37 @@ impl ToolUseAgentOutput {
 }
 
 #[derive(Debug)]
+pub struct ToolUseAgentOuputSuccess {
+    tool_parameters: ToolInputPartial,
+    thinking: String,
+    tool_use_id: String,
+}
+
+impl ToolUseAgentOuputSuccess {
+    pub fn new(tool_parameters: ToolInputPartial, thinking: String, tool_use_id: String) -> Self {
+        Self {
+            tool_parameters,
+            thinking,
+            tool_use_id,
+        }
+    }
+
+    pub fn tool_parameters(&self) -> &ToolInputPartial {
+        &self.tool_parameters
+    }
+
+    pub fn thinking(&self) -> &str {
+        &self.thinking
+    }
+
+    pub fn tool_use_id(&self) -> &str {
+        &self.tool_use_id
+    }
+}
+
+#[derive(Debug)]
 pub enum ToolUseAgentOutputType {
-    Success((ToolInputPartial, String)),
+    Success(ToolUseAgentOuputSuccess),
     Failure(String),
 }
 
@@ -406,7 +429,7 @@ impl ToolUseAgent {
     }
 
     // should use json mode for tool calling
-    pub fn is_json_mode(&self) -> bool {
+    pub fn is_json_mode_and_eval(&self) -> bool {
         // right now gate it behind an eval run and only when we are doing
         // tool based thinking: we provide think as a tool to the agent
         self.properties.is_eval_run
@@ -713,14 +736,14 @@ CAPABILITIES
 
 - You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
 - The code_edit tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
-- You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
+- You can use grep_string to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
 
 ====
 
 RULES
 
 - Your current working directory is: {working_directory}
-- When using the search_files tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
+- When using the grep_string tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
 - When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.
 - Use the tools provided to accomplish the Github Issue efficiently and effectively. When you've completed solving the issue, you must use the attempt_completion tool to present the result to the user.
 - Your goal is to solve the Github Issue be laser focussed on that.
@@ -761,78 +784,29 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
         )
     }
 
-    fn system_message_midwit_json_mode(&self, repo_name: &str, problem_statement: &str) -> String {
-        let working_directory = self.working_directory.to_owned();
-        format!(
-            r#"You are an expert software engineer tasked with solving the <pr_description> the I am going to provide. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the <pr_description>.
-You are an expert in {repo_name} and know in detail everything about this repository and all the different code structures which are present in it source code for it.
-
-<uploaded_files>
-{working_directory}
-</uploaded_files>
-I've uploaded a code repository in the directory {working_directory} (not in /tmp/inputs). Consider the following PR description:
-
-<pr_description>
-{problem_statement}
-</pr_description>
-
-Can you help me implement the necessary changes to the repository {repo_name} so that the requirements specified in the <pr_description> are met?
-I've also setup the developer environment in {working_directory} for {repo_name}. This means you DON'T have to install the libraries in any way!
-
-Your task is to make the minimal changes to files in the {working_directory} directory to ensure the <pr_description> is satisfied.
-
-Tool capabilities:
-- You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
-- You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
-- When using the search_files tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis.
-- Once a file has been created using `create` on `str_replace_editor` tool, you should not keep creating the same file again and again. Focus on editing the file after it has been created.
-- Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like \`ls\` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.
-
-====
-
-SYSTEM INFORMATION
-
-Operating System: linux
-Default Shell: bash
-Current Working Directory: {working_directory}
-Current Repo Name: {repo_name}
-
-====
-
-FOLLOW these steps to resolve the issue:
-1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
-2. Edit the sourcecode of the repo to resolve the issue
-3. Think about edgecases and make sure your fix handles them as well
-
-Your thinking should be thorough and so it's fine if it's very long.
-This is super important and before using any tool you have to output your thinking in <thinking> section like this:'
-<thinking>
-{{your thoughts about using the tool}}
-</thinking>
-NEVER forget to include the <thinking></thinking> section before using a tool. We will not be able to invoke the tool properly if you forget it"#
-        )
-    }
-
     fn system_message_for_swe_bench_json_mode(&self, repo_name: &str) -> String {
         let working_directory = self.working_directory.to_owned();
         let operating_system = self.operating_system.to_owned();
         format!(
-            r#"You are an expert software engineer tasked with solving Github issues which the user will provide. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the issue.
+            r#"You are an expert software engineer tasked with solving Github issues which the user will provide given in <pr_description>. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the issue.
 I have already taken care of all changes to any test files described in {working_directory}. This means you DON'T have to modify the testing logic or any of the tests in any way!
 Your task is to make the minimal changes to non-tests files in the {working_directory} directory to ensure the Github Issue is satisfied.
+
+<uploaded_files>
+{working_directory}
+</uploaded_files>
+
 ====
 
 TOOL USE
 
 You have access to a set of tools. You can use one tool per message (and only one), and you will receive the result of the tool use from the user. You should use the tools step-by-step to accomplish the user task.
 You use the previous information which you get from using the tools to inform your next tool usage.
-You should always output the <thinking></thinking> section before using a tool
 
 # Tool Use Guidelines
 
-1. In <thinking> tags, assess what information you already have and what information you need to proceed with the task. Your thinking should be thorough and so it's fine if it's very long.
-2. Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like \`ls\` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.
-3. If multiple actions are needed, use one tool at a time per message to accomplish the task iteratively, with each tool use being informed by the result of the previous tool use. Do not assume the outcome of any tool use. Each step must be informed by the previous step's result.
+1. Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like \`ls\` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.
+2. If multiple actions are needed, use one tool at a time per message to accomplish the task iteratively, with each tool use being informed by the result of the previous tool use. Do not assume the outcome of any tool use. Each step must be informed by the previous step's result.
 
 It is crucial to proceed step-by-step, waiting for the tool output after each tool use before moving forward with the task.
 
@@ -843,20 +817,19 @@ By waiting for and carefully considering the tool output after each tool use, yo
 CAPABILITIES
 
 - You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
-- The code_edit tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
-- You can use search_files to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
+- The code_edit_input tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
+- You can use grep_string to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
 
 ====
 
 RULES
 
 - Your current working directory is: {working_directory}
-- When using the search_files tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
+- When using the grep_string tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
 - When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.
 - Use the tools provided to accomplish the Github Issue efficiently and effectively. When you've completed solving the issue, you must use the attempt_completion tool to present the result to the user.
 - Your goal is to solve the Github Issue be laser focussed on that.
 - NEVER end attempt_completion result with a question or request to engage in further conversation! Formulate the end of your result in a way that is final and does not require further input from the user.
-- ALWAYS start your tool use with the <thinking></thinking> section.
 - ONLY USE A SINGLE tool at a time, never use multiple tools in the same response.
 
 ====
@@ -873,12 +846,9 @@ Current Repo Name: {repo_name}
 OBJECTIVE
 
 You are an expert software engineer taked with solving Github issues which the user will provide, breaking it down into clear steps and working through them methodically.
-Your first goal should be to reproduce the issue which you can then run using `python reproduce_error.py` using the execute_command to confirm the error, you can put prints to deeply understand the issue.
+Your first goal should be to reproduce the issue which you can then run using `python reproduce_error.py` using the execute_command to confirm the error, you can put prints to deeply understand the issue. Make sure the script exits with exit code 0 on success and 1 on failure.
 You are an expert in {repo_name} and know in detail everything about this repository and all the different code structures which are present in it source code for it.
 
-
-You are NOT ALLOWED to create or edit any of the test-files. You can only run them to check for regressions.
-You are NOT ALLOWED to install any new packages. The dev environment has already been setup for you before you run any command or the reproduce_error.py script.
 
 1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
 2. Create a script to reproduce the error and execute it with `python reproduce_error.py` using the execute_command (which uses bash internally), to confirm the error
@@ -886,10 +856,7 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 4. Rerun your reproduce script and confirm that the error is fixed!
 5. Think about edgecases and make sure your fix handles them as well.
 6. You can ONLY USE 1 TOOL in each step and not multiple tools, using multiple tools is not allowed.
-7. ONLY ATTEMPT COMPLETION if you have finished with your round of edits.
-8. TEST files need to be run using the test_runner command, while the reproduce_error script can be run only using the execute_command tool.
-9. Run test files at the very end so you can catch any regressions in your solution. Some test output might be wrong or conflict the Github Issue so carefully understand the test file and the outcome before commiting to making more changes based on the test output.
-10. NEVER forget to include the <thinking></thinking> section before using a tool. We will not be able to invoke the tool properly if you forget it."#
+7. ONLY ATTEMPT COMPLETION if you have finished with your round of edits."#
         )
     }
 
@@ -1233,15 +1200,11 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
     pub async fn invoke_json_tool_swe_bench(
         &self,
         input: ToolUseAgentInputOnlyTools,
-    ) -> Result<ToolUseAgentOutputWithTools, SymbolError> {
+    ) -> Result<ToolUseAgentOutput, SymbolError> {
         let repo_name = self.properties.repo_name.to_owned();
-        let problem_statement = &input.problem_statement;
-        let system_message = LLMClientMessage::system(if input.is_midwit_mode {
-            self.system_message_midwit_json_mode(&repo_name, problem_statement)
-        } else {
-            self.system_message_for_swe_bench_json_mode(&repo_name)
-        })
-        .insert_tools(input.tools);
+        let system_message =
+            LLMClientMessage::system(self.system_message_for_swe_bench_json_mode(&repo_name))
+                .insert_tools(input.tools);
 
         // grab the previous messages as well
         let llm_properties = input
@@ -1429,13 +1392,30 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
                 tool_inputs_parsed.push((tool_use_id, tool_input));
             }
 
-            Ok(ToolUseAgentOutputWithTools::Success((
-                tool_inputs_parsed,
-                // trim the string properly so we remove all the \n
-                thinking.trim().to_owned(),
-            )))
+            // we are going to be careful over here, we want to make sure that
+            // we give back the correct values over here and that the agent is using
+            // a single tool instead of multiple tools
+            if tool_inputs_parsed.is_empty() {
+                Ok(ToolUseAgentOutput::new(
+                    ToolUseAgentOutputType::Failure("Empty tools selected".to_owned()),
+                    Default::default(),
+                ))
+            } else {
+                let first_tool_selected = tool_inputs_parsed.remove(0);
+                Ok(ToolUseAgentOutput::new(
+                    ToolUseAgentOutputType::Success(ToolUseAgentOuputSuccess {
+                        tool_parameters: first_tool_selected.1,
+                        thinking: thinking.trim().to_owned(),
+                        tool_use_id: first_tool_selected.0,
+                    }),
+                    Default::default(),
+                ))
+            }
         } else {
-            Ok(ToolUseAgentOutputWithTools::Failure(None))
+            Ok(ToolUseAgentOutput::new(
+                ToolUseAgentOutputType::Failure("Failed to query llm".to_owned()),
+                Default::default(),
+            ))
         }
     }
 
@@ -1862,10 +1842,13 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         let result = match delta_updater_task.await {
             Ok(Ok((thinking_for_tool, tool_input_partial, llm_statistics, complete_response))) => {
                 let final_output = match tool_input_partial {
-                    Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success((
-                        tool_input_partial,
-                        thinking_for_tool,
-                    ))),
+                    Some(tool_input_partial) => Ok(ToolUseAgentOutputType::Success(
+                        ToolUseAgentOuputSuccess::new(
+                            tool_input_partial,
+                            thinking_for_tool,
+                            exchange_id.to_owned(),
+                        ),
+                    )),
                     None => Ok(ToolUseAgentOutputType::Failure(complete_response)),
                 };
                 Ok(Some(ToolUseAgentOutput::new(final_output?, llm_statistics)))

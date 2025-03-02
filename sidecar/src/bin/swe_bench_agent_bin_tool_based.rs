@@ -210,7 +210,8 @@ Your thinking should be thorough and so it's fine if it's very long."#,
     let tool_use_agent_properties = ToolUseAgentProperties::new(
         false,
         "bash".to_owned(),
-        AgentThinkingMode::MiniCOTBeforeTool,
+        // This agent will do tool based thinking
+        AgentThinkingMode::ToolBased,
         true, // is running under eval harness
         args.repo_name.to_owned(),
         aide_rules.clone(),
