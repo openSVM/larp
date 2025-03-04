@@ -131,10 +131,6 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = CliArgs::parse();
     eprintln!("run_id::{}", &args.run_id);
 
-    // Ensure OpenAI API key is present early
-    let _openai_key =
-        std::env::var("OPENAI_API_KEY").expect("OPENAI_API_KEY environment variable must be set");
-
     let mut configuration = Configuration::default();
     // we apply the edits directly over here
     configuration.apply_directly = true;
@@ -151,7 +147,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let llm_model = if let Some(model_name) = args.model_name {
         LLMType::Custom(model_name)
     } else {
-        LLMType::ClaudeSonnet
+        LLMType::ClaudeSonnet3_7
     };
 
     let llm_provider = LLMProperties::new(
@@ -187,6 +183,20 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let tool_box = application.tool_box.clone();
     let llm_broker = application.llm_broker.clone();
 
+    let aide_rules = Some(format!(
+        r#"You are helping the user in the repository present in {}
+FOLLOW these steps to resolve the issue:
+1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
+2. Create a script to reproduce the error and execute it with `python reproduce_error.py` using the execute_command (which uses bash internally), to confirm the error. You should always use `python reproduce_error.py` command exactly to run the reproduction error script.
+3. Edit the sourcecode of the repo to resolve the issue
+4. Run the relevant tests present in the repository to make sure there are no regressions with the functionality of the codebase. There might be unrelated test failures which you can ignore.
+5. Rerun your reproduce script and confirm that the error is fixed!
+
+Your thinking should be thorough and so it's fine if it's very long."#,
+        args.repo_name,
+    ));
+
+    // the default tools which are present to the agent
     let tools = vec![
         ToolType::ListFiles,
         ToolType::SearchFileContentWithRegex,
@@ -195,16 +205,19 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         ToolType::AttemptCompletion,
         ToolType::TerminalCommand,
         ToolType::FindFiles,
+        ToolType::TestRunner,
+        ToolType::Think,
     ];
 
     let tool_use_agent_properties = ToolUseAgentProperties::new(
         false,
         "bash".to_owned(),
-        AgentThinkingMode::MiniCOTBeforeTool,
-        false, // is running under eval
-        false, // test running not allowed
+        // This agent will do tool based thinking
+        AgentThinkingMode::ToolBased,
+        true, // is running under eval harness
+        true, // test running not allowed
         args.repo_name.to_owned(),
-        None,
+        aide_rules.clone(),
     );
 
     // wait for the agent to finish over here while busy looping
@@ -225,12 +238,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             tool_box,
             llm_broker,
             UserContext::default(),
-            true, // turn on reasoning
+            false,
             false,
             Some(args.log_directory.clone()),
             tool_use_agent_properties,
             message_properties,
-            None, // No context crunching LLM for agent_bin_reasoning
+            None, // No context crunching LLM for agent_bin
         )
         .await;
     println!("agent::tool_use::end");

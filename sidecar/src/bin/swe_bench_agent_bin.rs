@@ -210,7 +210,8 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         false,
         "bash".to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
-        true, // is running under eval harness
+        true,  // is running under eval harness
+        false, // test running not allowed
         args.repo_name.to_owned(),
         aide_rules.clone(),
     );

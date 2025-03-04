@@ -37,7 +37,7 @@ impl TestRunnerRequestPartial {
     pub fn to_json() -> serde_json::Value {
         serde_json::json!({
             "name": "test_runner",
-            "description": r#"Runs the tests in the provided files
+            "description": r#"Runs the tests in the provided files. You can run the tests to make sure that there are no regressions with the changes you have made.
 
 # Requirements:
 You should verify where the test files are located, only use test_runner tool after you have this information"#,
@@ -109,7 +109,7 @@ impl Tool for TestRunner {
 
     fn tool_description(&self) -> String {
         r#"### test_runner
-Runs the tests in the provided files
+Runs the tests in the provided files. You can run the tests to make sure that there are no regressions with the changes you have made.
 
 #### Requirements:
 You should verify where the test files are located, only use test_runner tool after you have this information"#

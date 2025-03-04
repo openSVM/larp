@@ -212,7 +212,8 @@ Your thinking should be thorough and so it's fine if it's very long."#,
         "bash".to_owned(),
         // This agent will do tool based thinking
         AgentThinkingMode::ToolBased,
-        true, // is running under eval harness
+        true,  // is running under eval harness
+        false, // test running not allowed
         args.repo_name.to_owned(),
         aide_rules.clone(),
     );

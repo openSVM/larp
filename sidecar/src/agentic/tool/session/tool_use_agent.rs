@@ -376,6 +376,8 @@ pub struct ToolUseAgentProperties {
     // if the current agent is running under a eval harness, this helps tune the system
     // prompt for the agent appropriately
     is_eval_run: bool,
+    // is test running allowed
+    is_test_running_allowed: bool,
     repo_name: String,
     aide_rules: Option<String>,
 }
@@ -386,6 +388,7 @@ impl ToolUseAgentProperties {
         shell: String,
         thinking: AgentThinkingMode,
         is_eval_run: bool,
+        is_test_running_allowed: bool,
         repo_name: String,
         aide_rules: Option<String>,
     ) -> Self {
@@ -393,6 +396,7 @@ impl ToolUseAgentProperties {
             in_editor,
             shell,
             is_eval_run,
+            is_test_running_allowed,
             thinking,
             repo_name,
             aide_rules,
@@ -781,6 +785,85 @@ You are NOT ALLOWED to install any new packages. The dev environment has already
 7. ONLY ATTEMPT COMPLETION if you have finished with your round of edits.
 8. Run test files at the very end so you can catch any regressions in your solution. Some test output might be wrong or conflict the Github Issue so carefully understand the test file and the outcome before commiting to making more changes based on the test output.
 9. NEVER forget to include the <thinking></thinking> section before using a tool. We will not be able to invoke the tool properly if you forget it."#
+        )
+    }
+
+    fn system_message_for_swe_bench_json_mode_testing_allowed(&self, repo_name: &str) -> String {
+        let working_directory = self.working_directory.to_owned();
+        let operating_system = self.operating_system.to_owned();
+        format!(
+            r#"You are an expert software engineer tasked with solving Github issues which the user will provide given in <pr_description>. You are an expert at {repo_name} and you will be given a list of tools which you can use one after the other to debug and fix the issue.
+I have already setup the development environment for you in {working_directory}. This means you DON'T have to install any packages or do any work for running tests, you can use the `test_runner` tool directly!
+Your task is to make the minimal changes to non-tests files in the {working_directory} directory to ensure the Github Issue is satisfied.
+
+<uploaded_files>
+{working_directory}
+</uploaded_files>
+
+====
+
+TOOL USE
+
+You have access to a set of tools. You can use one tool per message (and only one), and you will receive the result of the tool use from the user. You should use the tools step-by-step to accomplish the user task.
+You use the previous information which you get from using the tools to inform your next tool usage.
+
+# Tool Use Guidelines
+
+1. Choose the most appropriate tool based on the task and the tool descriptions provided. Assess if you need additional information to proceed, and which of the available tools would be most effective for gathering this information. For example using the list_files tool is more effective than running a command like \`ls\` in the terminal. It's critical that you think about each available tool and use the one that best fits the current step in the task.
+2. If multiple actions are needed, use one tool at a time per message to accomplish the task iteratively, with each tool use being informed by the result of the previous tool use. Do not assume the outcome of any tool use. Each step must be informed by the previous step's result.
+
+It is crucial to proceed step-by-step, waiting for the tool output after each tool use before moving forward with the task.
+
+By waiting for and carefully considering the tool output after each tool use, you can react accordingly and make informed decisions about how to proceed with the task. This iterative process helps ensure the overall success and accuracy of your work.
+
+====
+
+CAPABILITIES
+
+- You have access to tools that let you execute CLI commands on the local checkout, list files, view source code definitions, regex search, read and write files. These tools help you effectively accomplish a wide range of tasks, such as writing code, making edits or improvements to existing files, understanding the current state of a project, and much more.
+- The code_edit_input tool also allows you to implicilty create a new file and write content to it. You can use it to edit the code or create a new file and write content to it.
+- You can use grep_string to perform regex searches across files in a specified directory, outputting context-rich results that include surrounding lines. This is particularly useful for understanding code patterns, finding specific implementations, or identifying areas that need refactoring.
+- Use the find_file tool to locate file using their names, this is more effecient than writing a grep command by hand to find some files.
+- Use the test_runner tool to run tests which are present in the file. Make sure that the file exists before using this tool to run the tests.
+
+====
+
+RULES
+
+- Your current working directory is: {working_directory}
+- When using the grep_string tool, craft your regex patterns carefully to balance specificity and flexibility. Based on the Github Issue you may use it to find code patterns, function definitions, or any text-based information across the project. The results include context, so analyze the surrounding code to better understand the matches. Leverage the search_files tool in combination with other tools for more comprehensive analysis. For example, use it to find specific code patterns, then use read_file to examine the full context of interesting matches before using code_edit_input to make informed changes.
+- When making changes to code, always consider the context in which the code is being used. Ensure that your changes are compatible with the existing codebase and that they follow the project's coding standards and best practices.
+- Use the tools provided to accomplish the Github Issue efficiently and effectively. When you've completed solving the issue, you must use the attempt_completion tool to present the result to the user.
+- Your goal is to solve the Github Issue be laser focussed on that.
+- NEVER end attempt_completion result with a question or request to engage in further conversation! Formulate the end of your result in a way that is final and does not require further input from the user.
+- ONLY USE A SINGLE tool at a time, never use multiple tools in the same response.
+
+====
+
+SYSTEM INFORMATION
+
+Operating System: {operating_system}
+Default Shell: bash
+Current Working Directory: {working_directory}
+Current Repo Name: {repo_name}
+
+====
+
+OBJECTIVE
+
+You are an expert software engineer taked with solving Github issues which the user will provide, breaking it down into clear steps and working through them methodically.
+Your first goal should be to reproduce the issue which you can then run using `python reproduce_error.py` using the execute_command to confirm the error, you can put prints to deeply understand the issue. Make sure the script exits with exit code 0 on success and 1 on failure.
+You are an expert in {repo_name} and know in detail everything about this repository and all the different code structures which are present in it source code for it.
+
+
+1. As a first step, it might be a good idea to explore the repo to familiarize yourself with its structure.
+2. Create a script to reproduce the error and execute it with `python reproduce_error.py` using the execute_command (which uses bash internally), to confirm the error
+3. Edit the sourcecode of the repo to resolve the issue
+4. Rerun your reproduce script and confirm that the error is fixed!
+5. Run relevant tests present in the repository to make sure there are no regressions. There might be unrelated test failures which you can ignore. 
+5. Think about edgecases and make sure your fix handles them as well.
+6. You can ONLY USE 1 TOOL in each step and not multiple tools, using multiple tools is not allowed.
+7. ONLY ATTEMPT COMPLETION if you have finished with your round of edits and made sure that the issue has been fixed."#
         )
     }
 
@@ -1202,9 +1285,15 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         input: ToolUseAgentInputOnlyTools,
     ) -> Result<ToolUseAgentOutput, SymbolError> {
         let repo_name = self.properties.repo_name.to_owned();
-        let system_message =
+        let system_message = if self.properties.is_test_running_allowed {
+            LLMClientMessage::system(
+                self.system_message_for_swe_bench_json_mode_testing_allowed(&repo_name),
+            )
+            .insert_tools(input.tools)
+        } else {
             LLMClientMessage::system(self.system_message_for_swe_bench_json_mode(&repo_name))
-                .insert_tools(input.tools);
+                .insert_tools(input.tools)
+        };
 
         // grab the previous messages as well
         let llm_properties = input
@@ -1469,10 +1558,17 @@ You accomplish a given task iteratively, breaking it down into clear steps and w
         input: ToolUseAgentInput,
     ) -> Result<ToolUseAgentOutput, SymbolError> {
         let system_message = if self.properties.is_eval_run {
-            LLMClientMessage::system(
-                self.system_message_midwit_tool_mode(&self.properties.repo_name, &input),
-            )
-            .cache_point()
+            if self.properties.is_test_running_allowed {
+                LLMClientMessage::system(
+                    self.system_message_midwit_tool_mode(&self.properties.repo_name, &input),
+                )
+                .cache_point()
+            } else {
+                LLMClientMessage::system(
+                    self.system_message_midwit_tool_mode(&self.properties.repo_name, &input),
+                )
+                .cache_point()
+            }
         } else {
             LLMClientMessage::system(self.system_message(&input)).cache_point()
         };
