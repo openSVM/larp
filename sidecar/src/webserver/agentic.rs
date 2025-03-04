@@ -1790,6 +1790,7 @@ pub async fn agent_tool_use(
         shell.to_owned(),
         AgentThinkingMode::MiniCOTBeforeTool,
         false, // running under eval harness
+        false, // test running not allowed
         repo_name,
         aide_rules,
     );
