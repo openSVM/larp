@@ -39,6 +39,9 @@ impl TestRunnerRequestPartial {
             "name": "test_runner",
             "description": r#"Runs the tests in the provided files. You can run the tests to make sure that there are no regressions with the changes you have made.
 
+For example say you want to run `test_function` in src/test_file.py
+Then you should provide `src/test_file.py` as the input (notice how only the file name is provided) and NOT `src/test_file.py::test_function`
+You are only allowed to run all the tests in a test file and not a single test in the file. So do not pass the test you are interested in running in the test file as input.
 # Requirements:
 You should verify where the test files are located, only use test_runner tool after you have this information"#,
             "input_schema": {
