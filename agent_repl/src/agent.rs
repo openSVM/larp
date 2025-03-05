@@ -5,6 +5,7 @@ use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
 use anyhow::Result;
+use log::{debug, error, info, warn};
 
 use crate::models::{AgentAction, AgentResponse, TokenUsage, ToolType};
 use crate::tools;
@@ -131,7 +132,7 @@ impl AgentState {
     pub fn feedback(&self) -> &Vec<String> {
         &self.feedback
     }
-}
+    }
 
 /// Run the agent loop
 pub async fn run_agent_loop(
@@ -139,8 +140,30 @@ pub async fn run_agent_loop(
     query: String,
     tx: mpsc::Sender<AgentResponse>,
 ) -> Result<()> {
-    // Simulate the agent loop from the sidecar codebase
+    // Get the timeout duration
+    let timeout_duration = {
+        let state = agent_state.lock().unwrap();
+        state.timeout_duration()
+    };
     
+    // Run the agent loop with a timeout
+    match timeout(timeout_duration, run_agent_loop_inner(agent_state.clone(), query, tx.clone())).await {
+        Ok(result) => result,
+        Err(_) => {
+            // Timeout occurred
+            tx.send(AgentResponse::Error { message: format!("Agent timed out after {:?}", timeout_duration) }).await?;
+            agent_state.lock().unwrap().stop_agent();
+            Ok(())
+        }
+    }
+}
+
+/// Inner function to run the agent loop
+async fn run_agent_loop_inner(
+    agent_state: Arc<Mutex<AgentState>>,
+    query: String,
+    tx: mpsc::Sender<AgentResponse>,
+) -> Result<()> {
     // First, send a token usage update
     let initial_token_usage = TokenUsage::new(100, 50);
     tx.send(AgentResponse::TokenUsage { usage: initial_token_usage }).await?;
@@ -152,6 +175,18 @@ pub async fn run_agent_loop(
     };
     
     if let Some(repo_path) = repo_path {
+        // Initialize the LLM broker if needed
+        let llm_broker = {
+            let mut state = agent_state.lock().unwrap();
+            if state.llm_broker().is_none() {
+                let broker = Arc::new(LLMBroker::new().await.map_err(|e| anyhow::anyhow!("Failed to initialize LLM broker: {}", e))?);
+                state.set_llm_broker(broker.clone());
+                broker
+            } else {
+                state.llm_broker().unwrap()
+            }
+        };
+        
         // Simulate the agent loop
         
         // Step 1: List files in the repository
@@ -160,7 +195,7 @@ pub async fn run_agent_loop(
         tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
         
         // Simulate tool execution
-        sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Get a list of files in the repository
         let result = tools::list_files(&repo_path, true)?;
@@ -170,12 +205,12 @@ pub async fn run_agent_loop(
         tx.send(AgentResponse::TokenUsage { usage: TokenUsage::new(200, 100) }).await?;
         
         // Step 2: Search for relevant files
-        let tool_type = ToolType::SearchFiles;
+        let tool_type = ToolType::SearchFileContentWithRegex;
         let thinking = "Now I need to find files that might be relevant to the query.".to_string();
         tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
         
         // Simulate tool execution
-        sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Search for files containing keywords from the query
         let result = tools::search_files(&repo_path, &query, None)?;
@@ -185,12 +220,12 @@ pub async fn run_agent_loop(
         tx.send(AgentResponse::TokenUsage { usage: TokenUsage::new(300, 150) }).await?;
         
         // Step 3: Read a file
-        let tool_type = ToolType::ReadFile;
+        let tool_type = ToolType::OpenFile;
         let thinking = "Let me read one of the relevant files to understand its content.".to_string();
         tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
         
         // Simulate tool execution
-        sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Find a file to read (just use the first file in the repository for this simulation)
         let files = tools::list_files(&repo_path, false)?;
@@ -213,12 +248,12 @@ pub async fn run_agent_loop(
             tx.send(AgentResponse::TokenUsage { usage: TokenUsage::new(500, 200) }).await?;
             
             // Step 4: Edit a file
-            let tool_type = ToolType::CodeEdit;
+            let tool_type = ToolType::CodeEditing;
             let thinking = "Based on the query, I need to make some changes to this file.".to_string();
             tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
             
             // Simulate tool execution
-            sleep(Duration::from_millis(500)).await;
+            tokio::time::sleep(Duration::from_millis(500)).await;
             
             // Simulate editing the file
             let result = "File edited successfully. Added implementation for the requested feature.".to_string();
@@ -230,12 +265,12 @@ pub async fn run_agent_loop(
         }
         
         // Step 5: Execute a command
-        let tool_type = ToolType::ExecuteCommand;
+        let tool_type = ToolType::TerminalCommand;
         let thinking = "Let me run a command to verify that the changes work as expected.".to_string();
         tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
         
         // Simulate tool execution
-        sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Simulate running a command
         let result = "Command executed successfully. Tests pass and the feature works as expected.".to_string();
@@ -250,7 +285,7 @@ pub async fn run_agent_loop(
         tx.send(AgentResponse::ToolUse { tool_type: tool_type.clone(), thinking }).await?;
         
         // Simulate tool execution
-        sleep(Duration::from_millis(500)).await;
+        tokio::time::sleep(Duration::from_millis(500)).await;
         
         // Simulate completion
         let message = format!("I've completed the task: {}\n\nI made the following changes:\n1. Identified relevant files\n2. Modified the code to implement the requested feature\n3. Verified that the changes work as expected", query);

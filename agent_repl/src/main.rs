@@ -30,6 +30,7 @@ struct Args {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args = Args::parse();
+    env_logger::init();
     
     // Initialize the agent state
     let agent_state = Arc::new(Mutex::new(AgentState::new()));
@@ -142,6 +143,8 @@ fn print_help() {
     println!("{}", "Available commands:".bold());
     println!("  {} - Set the repository path", "repo <path>".cyan());
     println!("  {} - Set the API key", "key <api_key>".cyan());
+    println!("  {} - Set the timeout in seconds", "timeout <seconds>".cyan());
+    println!("  {} - Set the LLM model", "model <model_name>".cyan());
     println!("  {} - Run the agent with the given query", "run <query>".cyan());
     println!("  {} - Stop the agent", "stop".cyan());
     println!("  {} - Provide feedback to the agent", "feedback <message>".cyan());
@@ -156,6 +159,8 @@ fn print_status(agent_state: &Arc<Mutex<AgentState>>) {
     println!("{}", "Agent Status:".bold());
     println!("  Repository path: {}", state.repo_path().map_or("Not set".to_string(), |p| p.display().to_string()));
     println!("  API key: {}", state.api_key().map_or("Not set".to_string(), |_| "Set".to_string()));
+    println!("  Timeout: {:?}", state.timeout_duration());
+    println!("  LLM model: {}", state.llm_type().to_string());
     println!("  Running: {}", if state.is_running() { "Yes".green() } else { "No".red() });
     println!("  Files opened: {}", state.files_opened().len());
     println!("  Files edited: {}", state.files_edited().len());

@@ -1,16 +1,5 @@
 use std::path::PathBuf;
-
-/// Represents the different types of tools that the agent can use
-#[derive(Debug, Clone, PartialEq)]
-pub enum ToolType {
-    ListFiles,
-    SearchFiles,
-    ReadFile,
-    CodeEdit,
-    ExecuteCommand,
-    FindFile,
-    AttemptCompletion,
-}
+pub use sidecar::agentic::tool::r#type::ToolType;
 
 /// Represents an action that the agent can take
 #[derive(Debug, Clone)]

@@ -1,5 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 use anyhow::{Context, Result};
 use regex::Regex;
 
@@ -95,10 +96,21 @@ pub fn edit_file(path: &Path, content: &str) -> Result<()> {
 }
 
 /// Execute a command
-pub fn execute_command(command: &str) -> Result<String> {
-    // In a real implementation, this would execute the command
-    // For this simulation, we'll just return a success message
-    Ok(format!("Executed command: {}", command))
+pub fn execute_command(command: &str, args: &[&str]) -> Result<String> {
+    let output = Command::new(command)
+        .args(args)
+        .output()
+        .context(format!("Failed to execute command: {} {:?}", command, args))?;
+    
+    if output.status.success() {
+        Ok(String::from_utf8_lossy(&output.stdout).to_string())
+    } else {
+        Err(anyhow::anyhow!(
+            "Command failed with exit code {}: {}",
+            output.status.code().unwrap_or(-1),
+            String::from_utf8_lossy(&output.stderr)
+        ))
+    }
 }
 
 /// Find files matching a pattern
