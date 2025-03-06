@@ -4,8 +4,12 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use tokio::sync::mpsc;
 use tokio::time::sleep;
+use tokio::time::timeout;
 use anyhow::Result;
 use log::{debug, error, info, warn};
+
+use llm_client::broker::LLMBroker;
+use llm_client::clients::types::LLMType;
 
 use crate::models::{AgentAction, AgentResponse, TokenUsage, ToolType};
 use crate::tools;
@@ -21,6 +25,9 @@ pub struct AgentState {
     current_tool: Option<ToolType>,
     current_query: Option<String>,
     feedback: Vec<String>,
+    timeout_duration: Duration,
+    llm_broker: Option<Arc<LLMBroker>>,
+    llm_type: LLMType,
 }
 
 impl AgentState {
@@ -36,6 +43,9 @@ impl AgentState {
             current_tool: None,
             current_query: None,
             feedback: Vec::new(),
+            timeout_duration: Duration::from_secs(300), // Default 5 minutes
+            llm_broker: None,
+            llm_type: LLMType::ClaudeSonnet, // Default model
         }
     }
     
@@ -132,7 +142,37 @@ impl AgentState {
     pub fn feedback(&self) -> &Vec<String> {
         &self.feedback
     }
+
+    /// Set the timeout duration
+    pub fn set_timeout_duration(&mut self, duration: Duration) {
+        self.timeout_duration = duration;
     }
+    
+    /// Get the timeout duration
+    pub fn timeout_duration(&self) -> Duration {
+        self.timeout_duration
+    }
+    
+    /// Set the LLM broker
+    pub fn set_llm_broker(&mut self, broker: Arc<LLMBroker>) {
+        self.llm_broker = Some(broker);
+    }
+    
+    /// Get the LLM broker
+    pub fn llm_broker(&self) -> Option<Arc<LLMBroker>> {
+        self.llm_broker.clone()
+    }
+    
+    /// Set the LLM type
+    pub fn set_llm_type(&mut self, llm_type: LLMType) {
+        self.llm_type = llm_type;
+    }
+    
+    /// Get the LLM type
+    pub fn llm_type(&self) -> &LLMType {
+        &self.llm_type
+    }
+}
 
 /// Run the agent loop
 pub async fn run_agent_loop(
@@ -177,13 +217,18 @@ async fn run_agent_loop_inner(
     if let Some(repo_path) = repo_path {
         // Initialize the LLM broker if needed
         let llm_broker = {
-            let mut state = agent_state.lock().unwrap();
-            if state.llm_broker().is_none() {
+            // Check if we need to create a new broker
+            let needs_new_broker = agent_state.lock().unwrap().llm_broker().is_none();
+            
+            if needs_new_broker {
+                // Create a new broker
                 let broker = Arc::new(LLMBroker::new().await.map_err(|e| anyhow::anyhow!("Failed to initialize LLM broker: {}", e))?);
-                state.set_llm_broker(broker.clone());
+                // Store it in the agent state
+                agent_state.lock().unwrap().set_llm_broker(broker.clone());
                 broker
             } else {
-                state.llm_broker().unwrap()
+                // Get the existing broker
+                agent_state.lock().unwrap().llm_broker().unwrap()
             }
         };
         

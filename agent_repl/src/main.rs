@@ -1,12 +1,15 @@
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
+use tokio::sync::mpsc;
+
 use anyhow::{Context, Result};
 use clap::Parser;
 use colored::Colorize;
 use rustyline::error::ReadlineError;
 use rustyline::DefaultEditor;
-use std::collections::HashSet;
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
-use tokio::sync::mpsc;
+use llm_client::clients::types::LLMType;
 
 mod agent;
 mod models;
@@ -23,7 +26,7 @@ struct Args {
     repo_path: Option<PathBuf>,
 
     /// API key for the LLM service
-    #[arg(short, long, env = "LLM_API_KEY")]
+    #[arg(short, long)]
     api_key: Option<String>,
 }
 
@@ -42,8 +45,9 @@ async fn main() -> Result<()> {
         println!("{} {}", "Repository path set to:".green(), agent_state.lock().unwrap().repo_path().unwrap().display());
     }
     
-    // Set the API key if provided
-    if let Some(api_key) = args.api_key {
+    // Set the API key if provided from args or environment
+    let api_key = args.api_key.or_else(|| std::env::var("LLM_API_KEY").ok());
+    if let Some(api_key) = api_key {
         agent_state.lock().unwrap().set_api_key(api_key);
         println!("{}", "API key set".green());
     }
@@ -106,6 +110,33 @@ async fn run_repl(agent_state: Arc<Mutex<AgentState>>) -> Result<()> {
                         let api_key = cmd.trim_start_matches("key ").trim();
                         agent_state.lock().unwrap().set_api_key(api_key.to_string());
                         println!("{}", "API key set".green());
+                    },
+                    cmd if cmd.starts_with("timeout ") => {
+                        let timeout_str = cmd.trim_start_matches("timeout ").trim();
+                        match timeout_str.parse::<u64>() {
+                            Ok(seconds) => {
+                                let duration = Duration::from_secs(seconds);
+                                agent_state.lock().unwrap().set_timeout_duration(duration);
+                                println!("{} {}s", "Timeout set to:".green(), seconds);
+                            },
+                            Err(_) => {
+                                println!("{}", "Invalid timeout value. Please provide a number in seconds.".red());
+                            }
+                        }
+                    },
+                    cmd if cmd.starts_with("model ") => {
+                        let model_name = cmd.trim_start_matches("model ").trim();
+                        let llm_type = match model_name.to_lowercase().as_str() {
+                            "claude-sonnet" => LLMType::ClaudeSonnet,
+                            "claude-haiku" => LLMType::ClaudeHaiku,
+                            "claude-opus" => LLMType::ClaudeOpus,
+                            "gpt-4" => LLMType::Gpt4,
+                            "gpt-4o" => LLMType::Gpt4O,
+                            "gemini-pro" => LLMType::GeminiPro,
+                            _ => LLMType::Custom(model_name.to_string()),
+                        };
+                        agent_state.lock().unwrap().set_llm_type(llm_type);
+                        println!("{} {}", "LLM model set to:".green(), model_name);
                     },
                     cmd if cmd.starts_with("stop") => {
                         agent_state.lock().unwrap().stop_agent();
@@ -199,10 +230,11 @@ async fn run_agent(agent_state: Arc<Mutex<AgentState>>, query: String) -> Result
             },
             AgentResponse::TokenUsage { usage } => {
                 let mut state = agent_state.lock().unwrap();
+                let usage_clone = usage.clone(); // Clone before moving
                 state.add_token_usage(usage);
                 println!("{} {} tokens (total: {})", 
                     "Token usage:".yellow(), 
-                    usage.total(), 
+                    usage_clone.total(), 
                     state.token_usage().total());
             },
             AgentResponse::FileOpened { path } => {
