@@ -28,6 +28,14 @@ struct Args {
     /// API key for the LLM service
     #[arg(short, long)]
     api_key: Option<String>,
+    
+    /// API key for OpenRouter
+    #[arg(long)]
+    openrouter_api_key: Option<String>,
+    
+    /// API key for Anthropic
+    #[arg(long)]
+    anthropic_api_key: Option<String>,
 }
 
 #[tokio::main]
@@ -50,6 +58,20 @@ async fn main() -> Result<()> {
     if let Some(api_key) = api_key {
         agent_state.lock().unwrap().set_api_key(api_key);
         println!("{}", "API key set".green());
+    }
+    
+    // Set the OpenRouter API key if provided from args or environment
+    let openrouter_api_key = args.openrouter_api_key.or_else(|| std::env::var("OPENROUTER_API_KEY").ok());
+    if let Some(api_key) = openrouter_api_key {
+        agent_state.lock().unwrap().set_openrouter_api_key(api_key);
+        println!("{}", "OpenRouter API key set".green());
+    }
+    
+    // Set the Anthropic API key if provided from args or environment
+    let anthropic_api_key = args.anthropic_api_key.or_else(|| std::env::var("ANTHROPIC_API_KEY").ok());
+    if let Some(api_key) = anthropic_api_key {
+        agent_state.lock().unwrap().set_anthropic_api_key(api_key);
+        println!("{}", "Anthropic API key set".green());
     }
     
     // Start the REPL
@@ -99,8 +121,23 @@ async fn run_repl(agent_state: Arc<Mutex<AgentState>>) -> Result<()> {
                             continue;
                         }
                         
-                        if agent_state.lock().unwrap().api_key().is_none() {
-                            println!("{}", "API key not set. Use 'key <api_key>' to set it.".red());
+                        // Check if the appropriate API key is set based on the model type
+                        let model_type = agent_state.lock().unwrap().llm_type().clone();
+                        let api_key_missing = match model_type {
+                            LLMType::ClaudeSonnet | LLMType::ClaudeHaiku | LLMType::ClaudeOpus => {
+                                agent_state.lock().unwrap().anthropic_api_key().is_none()
+                            },
+                            LLMType::Custom(ref name) if name.contains("anthropic") => {
+                                agent_state.lock().unwrap().anthropic_api_key().is_none()
+                            },
+                            LLMType::Custom(ref name) if name.contains("openrouter") => {
+                                agent_state.lock().unwrap().openrouter_api_key().is_none()
+                            },
+                            _ => agent_state.lock().unwrap().api_key().is_none(),
+                        };
+                        
+                        if api_key_missing {
+                            println!("{}", "API key not set for the selected model. Use 'key <api_key>', 'openrouter_key <api_key>', or 'anthropic_key <api_key>' to set it.".red());
                             continue;
                         }
                         
@@ -110,6 +147,16 @@ async fn run_repl(agent_state: Arc<Mutex<AgentState>>) -> Result<()> {
                         let api_key = cmd.trim_start_matches("key ").trim();
                         agent_state.lock().unwrap().set_api_key(api_key.to_string());
                         println!("{}", "API key set".green());
+                    },
+                    cmd if cmd.starts_with("openrouter_key ") => {
+                        let api_key = cmd.trim_start_matches("openrouter_key ").trim();
+                        agent_state.lock().unwrap().set_openrouter_api_key(api_key.to_string());
+                        println!("{}", "OpenRouter API key set".green());
+                    },
+                    cmd if cmd.starts_with("anthropic_key ") => {
+                        let api_key = cmd.trim_start_matches("anthropic_key ").trim();
+                        agent_state.lock().unwrap().set_anthropic_api_key(api_key.to_string());
+                        println!("{}", "Anthropic API key set".green());
                     },
                     cmd if cmd.starts_with("timeout ") => {
                         let timeout_str = cmd.trim_start_matches("timeout ").trim();
@@ -174,6 +221,8 @@ fn print_help() {
     println!("{}", "Available commands:".bold());
     println!("  {} - Set the repository path", "repo <path>".cyan());
     println!("  {} - Set the API key", "key <api_key>".cyan());
+    println!("  {} - Set the OpenRouter API key", "openrouter_key <api_key>".cyan());
+    println!("  {} - Set the Anthropic API key", "anthropic_key <api_key>".cyan());
     println!("  {} - Set the timeout in seconds", "timeout <seconds>".cyan());
     println!("  {} - Set the LLM model", "model <model_name>".cyan());
     println!("  {} - Run the agent with the given query", "run <query>".cyan());
@@ -190,6 +239,8 @@ fn print_status(agent_state: &Arc<Mutex<AgentState>>) {
     println!("{}", "Agent Status:".bold());
     println!("  Repository path: {}", state.repo_path().map_or("Not set".to_string(), |p| p.display().to_string()));
     println!("  API key: {}", state.api_key().map_or("Not set".to_string(), |_| "Set".to_string()));
+    println!("  OpenRouter API key: {}", state.openrouter_api_key().map_or("Not set".to_string(), |_| "Set".to_string()));
+    println!("  Anthropic API key: {}", state.anthropic_api_key().map_or("Not set".to_string(), |_| "Set".to_string()));
     println!("  Timeout: {:?}", state.timeout_duration());
     println!("  LLM model: {}", state.llm_type().to_string());
     println!("  Running: {}", if state.is_running() { "Yes".green() } else { "No".red() });

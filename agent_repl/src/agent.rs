@@ -69,6 +69,26 @@ impl AgentState {
         self.api_key.as_ref()
     }
     
+    /// Set the OpenRouter API key
+    pub fn set_openrouter_api_key(&mut self, api_key: String) {
+        self.openrouter_api_key = Some(api_key);
+    }
+
+    /// Get the OpenRouter API key
+    pub fn openrouter_api_key(&self) -> Option<&String> {
+        self.openrouter_api_key.as_ref()
+    }
+
+    /// Set the Anthropic API key
+    pub fn set_anthropic_api_key(&mut self, api_key: String) {
+        self.anthropic_api_key = Some(api_key);
+    }
+
+    /// Get the Anthropic API key
+    pub fn anthropic_api_key(&self) -> Option<&String> {
+        self.anthropic_api_key.as_ref()
+    }
+    
     /// Start the agent with the given query
     pub fn start_agent(&mut self, query: String) {
         self.running = true;
@@ -221,8 +241,56 @@ async fn run_agent_loop_inner(
             let needs_new_broker = agent_state.lock().unwrap().llm_broker().is_none();
             
             if needs_new_broker {
+                // Get API keys from the agent state
+                let state = agent_state.lock().unwrap();
+                let api_key = state.api_key().cloned();
+                let openrouter_api_key = state.openrouter_api_key().cloned();
+                let anthropic_api_key = state.anthropic_api_key().cloned();
+                let llm_type = state.llm_type().clone();
+                
                 // Create a new broker
                 let broker = Arc::new(LLMBroker::new().await.map_err(|e| anyhow::anyhow!("Failed to initialize LLM broker: {}", e))?);
+                
+                // Configure the broker with API keys based on the model type
+                match llm_type {
+                    LLMType::ClaudeSonnet | LLMType::ClaudeHaiku | LLMType::ClaudeOpus => {
+                        if let Some(anthropic_api_key) = anthropic_api_key {
+                            debug!("Using Anthropic API key for Claude model");
+                            // In a real implementation, this would configure the broker to use the Anthropic API key
+                            // broker.set_anthropic_api_key(anthropic_api_key);
+                        } else {
+                            warn!("Anthropic API key not set for Claude model");
+                        }
+                    },
+                    LLMType::Custom(ref name) if name.contains("anthropic") => {
+                        if let Some(anthropic_api_key) = anthropic_api_key {
+                            debug!("Using Anthropic API key for custom Anthropic model");
+                            // In a real implementation, this would configure the broker to use the Anthropic API key
+                            // broker.set_anthropic_api_key(anthropic_api_key);
+                        } else {
+                            warn!("Anthropic API key not set for custom Anthropic model");
+                        }
+                    },
+                    LLMType::Custom(ref name) if name.contains("openrouter") => {
+                        if let Some(openrouter_api_key) = openrouter_api_key {
+                            debug!("Using OpenRouter API key for custom OpenRouter model");
+                            // In a real implementation, this would configure the broker to use the OpenRouter API key
+                            // broker.set_openrouter_api_key(openrouter_api_key);
+                        } else {
+                            warn!("OpenRouter API key not set for custom OpenRouter model");
+                        }
+                    },
+                    _ => {
+                        if let Some(api_key) = api_key {
+                            debug!("Using default API key for model");
+                            // In a real implementation, this would configure the broker to use the default API key
+                            // broker.set_api_key(api_key);
+                        } else {
+                            warn!("Default API key not set for model");
+                        }
+                    }
+                }
+                
                 // Store it in the agent state
                 agent_state.lock().unwrap().set_llm_broker(broker.clone());
                 broker

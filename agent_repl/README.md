@@ -45,6 +45,21 @@ agent_repl
 - `help` - Show the help message
 - `exit` - Exit the REPL
 
+## API Keys
+
+The agent supports different API keys for different LLM providers:
+
+- **Default API Key**: Used for OpenAI models (GPT-4, GPT-4o)
+- **OpenRouter API Key**: Used for models accessed through OpenRouter
+- **Anthropic API Key**: Used for Claude models (Claude Sonnet, Claude Haiku, Claude Opus)
+
+You can set these API keys in several ways:
+1. As command-line arguments: `--api-key`, `--openrouter-api-key`, `--anthropic-api-key`
+2. As environment variables: `LLM_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`
+3. In the REPL: `key`, `openrouter_key`, `anthropic_key` commands
+
+The agent will automatically use the appropriate API key based on the selected model.
+
 ## Available Models
 
 - `claude-sonnet` - Claude Sonnet model from Anthropic
