@@ -212,7 +212,7 @@ impl SearchAndReplaceEditing {
         lsp_open_file: Arc<Box<dyn Tool + Send + Sync>>,
     ) -> Self {
         println!(
-            "search_and_reaplce_editing::apply_directly({})",
+            "search_and_replace_editing::apply_directly({})",
             apply_directly
         );
         Self {
