@@ -17,30 +17,349 @@
 ![Latest release](https://img.shields.io/github/v/release/codestoryai/binaries?label=version)
 ![Discord Shield](https://discord.com/api/guilds/1138070673756004464/widget.png?style=shield)
 
-## Sidecar
+# Sidecar: The AI Brain for Aide Editor
 
-Sidecar is the AI brains of Aide the editor. To accomplish the work of creating the prompts, talking to LLM and everything else in between Sidecar is responsible for making sure it all works together.
+## Overview
 
-Broadly speaking these are the following important bits in Sidecar:
+Sidecar is the AI intelligence engine that powers the Aide code editor. It handles everything from prompt creation and LLM communication to code analysis and intelligent editing assistance. This repository contains the core AI functionality that enables Aide to understand and interact with your codebase at a deep level.
 
-- `tool_box.rs` - The collection of all and any tools AI might need is present here, all the language specific smartness is handled by `tool_box.rs`
-- `symbol/` - The symbol folder contains the code which allows each individual symbol to be smart and independent. This can work on any granularity level, all the way from a file to a single function or function inside a class (its very versatile)
-- `llm_prompts/` - This is a relic of the past (and somewhat in use still) for creating prompts especially for the inline completion bits. The inline completions bits are not maintained any longer but if you want to take a stab at working on it, please reach out to us on Discord, we are happy to support you.
-- `repomap` - This creates a repository map using page rank on the code symbols. Most of the code here is a port of the python implementation done on Aider (do check it out if you are in the market for a CLI tool for code-generation)
+## Table of Contents
+
+- [Architecture](#architecture)
+- [Core Components](#core-components)
+- [Knowledge Graph](#knowledge-graph)
+- [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
+- [Key Features](#key-features)
+- [Integration with Aide](#integration-with-aide)
+- [Feature Ideas](#feature-ideas)
+- [Contributing](#contributing)
+- [Feedback](#feedback)
+- [Code of Conduct](#code-of-conduct)
+- [License](#license)
+
+## Architecture
+
+Sidecar is built as a Rust workspace with multiple crates that work together to provide AI-powered code assistance. The architecture follows a modular design with clear separation of concerns.
+
+```mermaid
+flowchart TD
+    A[Aide Editor] <--> B[Webserver API]
+    B <--> C[Application Core]
+    C <--> D[LLM Client]
+    C <--> E[Repository Analysis]
+    C <--> F[Agentic Tools]
+    C <--> G[MCTS Decision Engine]
+    C <--> H[Code Chunking]
+    D <--> I[External LLM Providers]
+    E <--> J[Git Repository]
+    F <--> K[Symbol Management]
+    H <--> L[Language-Specific Parsers]
+```
+
+### Data Flow
+
+```mermaid
+sequenceDiagram
+    participant Editor as Aide Editor
+    participant API as Webserver API
+    participant App as Application Core
+    participant LLM as LLM Client
+    participant Repo as Repository Analysis
+    participant Agent as Agentic Tools
+    
+    Editor->>API: Request (code context, query)
+    API->>App: Process request
+    App->>Repo: Analyze repository context
+    Repo-->>App: Repository context
+    App->>Agent: Select appropriate tools
+    Agent->>LLM: Generate prompt with context
+    LLM-->>Agent: LLM response
+    Agent->>App: Process LLM response
+    App->>API: Formatted response
+    API->>Editor: Display results to user
+```
+
+## Core Components
+
+Sidecar consists of several key components that work together:
+
+### 1. Webserver
+
+The entry point for the application, handling HTTP requests from the Aide editor. It provides API endpoints for various AI-assisted operations.
+
+**Key Files:**
+- `sidecar/src/bin/webserver.rs`: Main entry point
+- `sidecar/src/webserver/mod.rs`: API route definitions
+
+### 2. LLM Client
+
+Handles communication with various Large Language Model providers (OpenAI, Anthropic, etc.).
+
+**Key Features:**
+- Support for multiple LLM providers
+- Token counting and management
+- Request formatting for different models
+- Response parsing and streaming
+
+### 3. Agentic System
+
+The core AI agent system that can perform complex code operations.
+
+**Key Components:**
+- Tool selection and execution
+- Memory management for context retention
+- Symbol-level intelligence for code understanding
+- Session management for ongoing interactions
+
+### 4. Monte Carlo Tree Search (MCTS)
+
+A decision-making system that explores possible code changes and selects the most promising ones.
+
+**Key Features:**
+- Action node representation
+- Selection strategies
+- Value functions for evaluating changes
+- Execution planning
+
+### 5. Repository Mapping
+
+Analyzes and maps the structure of a code repository to provide context for AI operations.
+
+**Key Features:**
+- PageRank-based importance scoring
+- Symbol relationship graphing
+- File and directory analysis
+- Context retrieval for relevant code sections
+
+### 6. Code Chunking
+
+Parses and chunks code into meaningful segments for better understanding by LLMs.
+
+**Key Features:**
+- Language-specific parsing (Rust, Python, JavaScript, TypeScript, Go)
+- Symbol extraction and relationship mapping
+- Scope analysis
+- Text document management
+
+## Knowledge Graph
+
+```mermaid
+graph TD
+    subgraph Workspace
+        Sidecar["sidecar (Main Crate)"] --- LLMClient["llm_client"] 
+        Sidecar --- LLMPrompts["llm_prompts"]
+        Sidecar --- Logging["logging"]
+    end
+    
+    subgraph SidecarComponents
+        Webserver["webserver"] --- Application["application"]
+        Application --- Agentic["agentic"]
+        Application --- MCTS["mcts"]
+        Application --- Repomap["repomap"]
+        Application --- Chunking["chunking"]
+        Application --- Agent["agent"]
+        Application --- Git["git"]
+        Application --- Repo["repo"]
+    end
+    
+    subgraph AgenticComponents
+        SymbolManager["symbol/manager"] --- ToolBox["symbol/tool_box"]
+        ToolBox --- Tools["tool/*"]
+        SymbolManager --- Memory["memory/*"]
+    end
+    
+    subgraph LLMComponents
+        Clients["clients/*"] --- Provider["provider"]
+        Provider --- Broker["broker"]
+        Broker --- Tokenizer["tokenizer"]
+    end
+    
+    Sidecar --- SidecarComponents
+    Agentic --- AgenticComponents
+    LLMClient --- LLMComponents
+```
+
+### Component Relationships
+
+```mermaid
+classDiagram
+    class Application {
+        +config: Configuration
+        +repo_pool: RepositoryPool
+        +language_parsing: TSLanguageParsing
+        +llm_broker: LLMBroker
+        +symbol_manager: SymbolManager
+        +tool_box: ToolBox
+        +initialize()
+        +install_logging()
+        +setup_scratch_pad()
+    }
+    
+    class SymbolManager {
+        +tool_broker: ToolBroker
+        +symbol_tracker: SymbolTrackerInline
+        +editor_parsing: EditorParsing
+        +llm_properties: LLMProperties
+    }
+    
+    class ToolBox {
+        +tool_broker: ToolBroker
+        +symbol_tracker: SymbolTrackerInline
+        +editor_parsing: EditorParsing
+    }
+    
+    class LLMBroker {
+        +clients: Map<LLMType, LLMClient>
+        +get_client()
+        +generate_completion()
+        +generate_chat_completion()
+    }
+    
+    class Webserver {
+        +start(app: Application)
+        +agentic_router()
+        +tree_sitter_router()
+        +file_operations_router()
+    }
+    
+    Application "1" *-- "1" SymbolManager
+    Application "1" *-- "1" ToolBox
+    Application "1" *-- "1" LLMBroker
+    Webserver "1" -- "1" Application
+```
 
 ## Getting Started
 
-1. Ensure you are using Rust 1.79
-2. Build the binary: `cargo build --bin webserver`
-3. Run the binary: `./target/debug/webserver`
-4. Profit!
+### Prerequisites
 
-## Bonus on how to get your Aide editor to talk to Sidecar
+- Rust 1.79 or later
+- Cargo with workspace support
+- Git (for repository analysis features)
 
-1. Run the Aide production build or build from source using [this](https://github.com/codestoryai/ide)
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/codestoryai/sidecar.git
+   cd sidecar
+   ```
+
+2. Build the project:
+   ```bash
+   cargo build --bin webserver
+   ```
+
+3. Run the webserver:
+   ```bash
+   ./target/debug/webserver
+   ```
+
+### Configuration
+
+Sidecar can be configured through command-line arguments or environment variables. Key configuration options include:
+
+- LLM provider API keys
+- Port and host settings
+- Repository indexing options
+- Logging levels and destinations
+
+## Project Structure
+
+```mermaid
+graph TD
+    Root["/ (Root)"] --> Sidecar["sidecar/"]  
+    Root --> LLMClient["llm_client/"]  
+    Root --> LLMPrompts["llm_prompts/"]  
+    Root --> Logging["logging/"]  
+    
+    Sidecar --> SrcSidecar["src/"]  
+    SrcSidecar --> Webserver["webserver/"]  
+    SrcSidecar --> MCTS["mcts/"]  
+    SrcSidecar --> Agentic["agentic/"]  
+    SrcSidecar --> Repomap["repomap/"]  
+    SrcSidecar --> LLM["llm/"]  
+    SrcSidecar --> Repo["repo/"]  
+    SrcSidecar --> Chunking["chunking/"]  
+    SrcSidecar --> Agent["agent/"]  
+    SrcSidecar --> Git["git/"]  
+    SrcSidecar --> Bin["bin/"]  
+    
+    LLMClient --> SrcLLM["src/"]  
+    SrcLLM --> Clients["clients/"]  
+    SrcLLM --> Format["format/"]  
+    SrcLLM --> Tokenizer["tokenizer/"]  
+    
+    LLMPrompts --> SrcPrompts["src/"]  
+    SrcPrompts --> FIM["fim/"]  
+    SrcPrompts --> Chat["chat/"]  
+    SrcPrompts --> InLineEdit["in_line_edit/"]  
+    
+    Logging --> SrcLogging["src/"]  
+```
+
+## Key Features
+
+### Symbol-Level Intelligence
+
+Sidecar can understand and operate on individual code symbols (functions, classes, variables) with context awareness.
+
+### Repository Mapping
+
+Builds a graph representation of your codebase to understand relationships between files and symbols.
+
+### Multi-Language Support
+
+Supports parsing and understanding of multiple programming languages:
+- Rust
+- Python
+- JavaScript/TypeScript
+- Go
+
+### Agentic Tools
+
+Provides a collection of tools that AI agents can use to perform complex code operations:
+- Code editing
+- Symbol analysis
+- Repository search
+- Context gathering
+
+### Monte Carlo Tree Search
+
+Uses MCTS to explore possible code changes and select the most promising ones for implementation.
+
+## Integration with Aide
+
+Sidecar is designed to work seamlessly with the Aide editor. To connect your local Sidecar instance with Aide:
+
+1. Run the Aide production build or build from source using [this repository](https://github.com/codestoryai/ide)
 2. Run the sidecar binary
-3. Since you have a sidecar binary already running, the editor will prefer to use this over starting its own process.
-4. Congratulations! You are now running sidecar for Aide locally with your own built binary.
+3. Since you have a sidecar binary already running, the editor will prefer to use this over starting its own process
+4. Congratulations! You are now running sidecar for Aide locally with your own built binary
+
+## Feature Ideas
+
+Here are 10 creative and easy-to-implement ideas for enhancing Sidecar:
+
+1. **Language-Specific Documentation Generator**: Automatically generate documentation comments based on code analysis and best practices for each language.
+
+2. **Code Health Metrics Dashboard**: Create a simple dashboard that shows code quality metrics and suggests improvements.
+
+3. **Commit Message Generator**: Analyze git diffs and generate meaningful commit messages based on the changes.
+
+4. **Test Case Generator**: Automatically generate unit tests for functions based on their signatures and usage patterns.
+
+5. **Code Explanation Mode**: Add a feature to explain complex code sections in plain English with customizable detail levels.
+
+6. **Dependency Analyzer**: Scan the codebase for outdated or vulnerable dependencies and suggest updates.
+
+7. **Code Style Enforcer**: Implement a tool that suggests style improvements based on language-specific best practices.
+
+8. **Performance Hotspot Detector**: Analyze code to identify potential performance bottlenecks and suggest optimizations.
+
+9. **Interactive Tutorial Generator**: Create interactive tutorials for new developers to understand the codebase structure.
+
+10. **Code Review Assistant**: Implement a tool that provides automated code review comments based on common issues and best practices.
 
 ## Contributing
 
