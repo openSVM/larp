@@ -59,6 +59,7 @@ pub struct GitDiffClientResponse {
     fs_file_path: String,
     old_version: String,
     new_version: String,
+    operation_id: Option<String>,
 }
 
 impl GitDiffClientResponse {
@@ -68,6 +69,10 @@ impl GitDiffClientResponse {
 
     pub fn new_version(&self) -> &str {
         &self.new_version
+    }
+    
+    pub fn operation_id(&self) -> Option<&str> {
+        self.operation_id.as_deref()
     }
 }
 
@@ -120,6 +125,9 @@ async fn run_command(
     }
 
     if !expanded {
+        // Try to extract operation ID from the git diff output
+        let operation_id = extract_operation_id(&output);
+        
         return Ok(GitDiffClientResponse {
             fs_file_path: "".to_owned(),
             old_version: "".to_owned(),
@@ -127,6 +135,7 @@ async fn run_command(
             // feeling too lazy to create a new tool so this is implict understood
             // behavior
             new_version: output,
+            operation_id,
         });
     }
 
@@ -154,6 +163,32 @@ async fn run_command(
 // +
 //      Ok(())
 //  }
+
+/// Extracts operation ID from PR description or title
+/// Returns None if no operation ID is found
+fn extract_operation_id(content: &str) -> Option<String> {
+    // Common patterns for operation IDs in PR titles or descriptions
+    let patterns = [
+        // Look for explicit operation ID format: "operation_id: XXX" or "operationId: XXX"
+        r"operation[_\s]?[iI]d:\s*([a-zA-Z0-9_-]+)",
+        // Look for operation ID in brackets: [XXX]
+        r"\[([a-zA-Z0-9_-]+)\]",
+        // Look for operation ID in parentheses: (XXX)
+        r"\(([a-zA-Z0-9_-]+)\)",
+        // Look for operation ID with prefix: op-XXX
+        r"op-([a-zA-Z0-9_-]+)",
+    ];
+
+    for pattern in patterns {
+        if let Some(captures) = regex::Regex::new(pattern).ok()?.captures(content) {
+            if let Some(id) = captures.get(1) {
+                return Some(id.as_str().to_string());
+            }
+        }
+    }
+
+    None
+}
 
 fn parse_git_diff_output_full_length(
     git_diff: &str,
@@ -192,11 +227,16 @@ fn parse_git_diff_output_full_length(
         // we start after the diff git -- and index {crap} lines
         let slice_limits = &git_diff_lines[idx + 2..=section_limit];
         let (old_version, new_version) = extract_versions(slice_limits);
+        
+        // Extract operation ID from the content (try both old and new versions)
+        let operation_id = extract_operation_id(&old_version)
+            .or_else(|| extract_operation_id(&new_version));
 
         diff_outputs.push(GitDiffClientResponse {
             fs_file_path: joined_path_str.to_owned(),
             old_version,
             new_version,
+            operation_id,
         });
         idx = section_limit;
     }
