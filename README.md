@@ -382,7 +382,7 @@ larp seamlessly connects your GitHub repositories with a convenient Telegram int
 
 2. **Telegram Connection:** Start a conversation with our Telegram bot
    ```
-   https://t.me/larp_dev_bot
+   https://t.me/larpdev_bot
    ```
 
 3. **Link Your Accounts:** Use the `/connect` command in Telegram and authenticate with GitHub
