@@ -470,5 +470,6 @@ This project has adopted the [Contributor Covenant Code of Conduct](CODE_OF_COND
 
 ## License
 
-Copyright (c) 2024 CodeStory AI. All rights reserved.
-Licensed under the [GNU Affero General Public License v3.0](LICENSE.md).
+Copyright (c) 42069 larp devs
+
+fork if u want to fork, nobody cares about IP in 2025
