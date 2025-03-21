@@ -27,19 +27,32 @@
                                                         
 ```
 
-<div id="vscodium-logo" align="center">
-    <img src="./media/logo.svg" alt="VSCodium Logo" width="200"/>
-    <h1>LARP</h1>
+<div align="center">
+    <h1>larp.dev</h1>
+    <p><strong>AI-powered autonomous code development, paid in memecoins</strong></p>
 </div>
 
-![Latest release](https://img.shields.io/github/v/release/codestoryai/binaries?label=version)
-![Discord Shield](https://discord.com/api/guilds/1138070673756004464/widget.png?style=shield)
+<p align="center">
+  <a href="https://github.com/opensvm/larp/releases/latest"><img src="https://img.shields.io/github/v/release/opensvm/binaries?label=version&color=blueviolet" alt="Latest release"></a>
+  <a href="https://telegram.me/larpdev_bot"><img src="https://img.shields.io/badge/Telegram-Bot-blue.svg" alt="Telegram Bot"></a>
+  <a href="https://github.com/opensvm/larp/stargazers"><img src="https://img.shields.io/github/stars/opensvm/larp?style=social" alt="GitHub Stars"></a>
+  <a href="LICENSE.md"><img src="https://img.shields.io/badge/License-AGPL%20v3-blue.svg" alt="License"></a>
+</p>
 
-# LARP: The AI Brain for Aide Editor
+# larp: Autonomous GitHub Agentic Developer
 
 ## Overview
 
-LARP is the AI intelligence engine that powers the Aide code editor. It handles everything from prompt creation and LLM communication to code analysis and intelligent editing assistance. This repository contains the core AI functionality that enables Aide to understand and interact with your codebase at a deep level.
+larp is a revolutionary autonomous AI agent that transforms how software development happens on GitHub. By combining state-of-the-art AI with blockchain technology, larp enables fully automated code development without human intervention:
+
+- **Add the bot** to your GitHub organization or repository
+- **Send development tasks** through our Telegram bot
+- **Pay with memecoins** at rates based on task complexity
+- **Receive completed PRs** ready for review and merge
+
+No more waiting for developer availability or paying excessive hourly rates. larp works 24/7, understands your codebase at a deep level, and delivers high-quality code changes at a fraction of traditional development costs.
+
+This repository contains the core AI functionality powering larp's ability to understand code context, generate appropriate solutions, and interact with GitHub repositories autonomously.
 
 ## Table of Contents
 
@@ -49,7 +62,7 @@ LARP is the AI intelligence engine that powers the Aide code editor. It handles 
 - [Getting Started](#getting-started)
 - [Project Structure](#project-structure)
 - [Key Features](#key-features)
-- [Integration with Aide](#integration-with-aide)
+- [Integration with GitHub & Telegram](#integration-with-github--telegram)
 - [Feature Ideas](#feature-ideas)
 - [Contributing](#contributing)
 - [Feedback](#feedback)
@@ -58,19 +71,20 @@ LARP is the AI intelligence engine that powers the Aide code editor. It handles 
 
 ## Architecture
 
-LARP is built as a Rust workspace with multiple crates that work together to provide AI-powered code assistance. The architecture follows a modular design with clear separation of concerns.
+larp is built as a Rust workspace with multiple crates that work together to provide autonomous GitHub development capabilities. The architecture follows a modular design with clear separation of concerns.
 
 ```mermaid
 flowchart TD
-    A[Aide Editor] <--> B[Webserver API]
+    A[Telegram Bot] <--> B[Webserver API]
     B <--> C[Application Core]
     C <--> D[LLM Client]
     C <--> E[Repository Analysis]
     C <--> F[Agentic Tools]
     C <--> G[MCTS Decision Engine]
     C <--> H[Code Chunking]
+    C <--> M[Memecoin Payment]
     D <--> I[External LLM Providers]
-    E <--> J[Git Repository]
+    E <--> J[GitHub Repository]
     F <--> K[Symbol Management]
     H <--> L[Language-Specific Parsers]
 ```
@@ -79,32 +93,41 @@ flowchart TD
 
 ```mermaid
 sequenceDiagram
-    participant Editor as Aide Editor
+    participant User as User
+    participant TG as Telegram Bot
+    participant Payment as Memecoin Payment
     participant API as Webserver API
     participant App as Application Core
     participant LLM as LLM Client
     participant Repo as Repository Analysis
     participant Agent as Agentic Tools
+    participant GitHub as GitHub API
     
-    Editor->>API: Request (code context, query)
+    User->>TG: Send development request
+    TG->>Payment: Verify payment in memecoin
+    Payment-->>TG: Payment confirmed
+    TG->>API: Forward development request
     API->>App: Process request
     App->>Repo: Analyze repository context
     Repo-->>App: Repository context
     App->>Agent: Select appropriate tools
     Agent->>LLM: Generate prompt with context
     LLM-->>Agent: LLM response
-    Agent->>App: Process LLM response
-    App->>API: Formatted response
-    API->>Editor: Display results to user
+    Agent->>GitHub: Create PR with changes
+    GitHub-->>Agent: PR created
+    Agent->>App: Process completed
+    App->>API: Development status
+    API->>TG: Development completed notification
+    TG->>User: Notify PR ready for review
 ```
 
 ## Core Components
 
-LARP consists of several key components that work together:
+larp consists of several key components that work together:
 
-### 1. Webserver
+### 1. Webserver & Telegram Bot Integration
 
-The entry point for the application, handling HTTP requests from the Aide editor. It provides API endpoints for various AI-assisted operations.
+The entry point for the application, handling requests from the Telegram bot and processing memecoin payments. It provides API endpoints for autonomous GitHub operations.
 
 **Key Files:**
 - `larp/src/bin/webserver.rs`: Main entry point
@@ -165,9 +188,9 @@ Parses and chunks code into meaningful segments for better understanding by LLMs
 ```mermaid
 graph TD
     subgraph Workspace
-        LARP["larp (Main Crate)"] --- LLMClient["llm_client"] 
-        LARP --- LLMPrompts["llm_prompts"]
-        LARP --- Logging["logging"]
+        larp["larp (Main Crate)"] --- LLMClient["llm_client"] 
+        larp --- LLMPrompts["llm_prompts"]
+        larp --- Logging["logging"]
     end
     
     subgraph LARPComponents
@@ -193,7 +216,7 @@ graph TD
         Broker --- Tokenizer["tokenizer"]
     end
     
-    LARP --- LARPComponents
+    larp --- LARPComponents
     Agentic --- AgenticComponents
     LLMClient --- LLMComponents
 ```
@@ -259,7 +282,7 @@ classDiagram
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/codestoryai/larp.git
+   git clone https://github.com/opensvm/larp.git
    cd larp
    ```
 
@@ -275,7 +298,7 @@ classDiagram
 
 ### Configuration
 
-LARP can be configured through command-line arguments or environment variables. Key configuration options include:
+larp can be configured through command-line arguments or environment variables. Key configuration options include:
 
 - LLM provider API keys
 - Port and host settings
@@ -286,12 +309,12 @@ LARP can be configured through command-line arguments or environment variables. 
 
 ```mermaid
 graph TD
-    Root["/ (Root)"] --> LARP["larp/"]  
+    Root["/ (Root)"] --> larp["larp/"]  
     Root --> LLMClient["llm_client/"]  
     Root --> LLMPrompts["llm_prompts/"]  
     Root --> Logging["logging/"]  
     
-    LARP --> SrcLARP["src/"]  
+    larp --> SrcLARP["src/"]  
     SrcLARP --> Webserver["webserver/"]  
     SrcLARP --> MCTS["mcts/"]  
     SrcLARP --> Agentic["agentic/"]  
@@ -320,7 +343,7 @@ graph TD
 
 ### Symbol-Level Intelligence
 
-LARP can understand and operate on individual code symbols (functions, classes, variables) with context awareness.
+larp can understand and operate on individual code symbols (functions, classes, variables) with context awareness.
 
 ### Repository Mapping
 
@@ -346,18 +369,59 @@ Provides a collection of tools that AI agents can use to perform complex code op
 
 Uses MCTS to explore possible code changes and select the most promising ones for implementation.
 
-## Integration with Aide
+## Integration with GitHub & Telegram
 
-LARP is designed to work seamlessly with the Aide editor. To connect your local LARP instance with Aide:
+larp seamlessly connects your GitHub repositories with a convenient Telegram interface, all powered by secure memecoin payments.
 
-1. Run the Aide production build or build from source using [this repository](https://github.com/codestoryai/ide)
-2. Run the larp binary
-3. Since you have a larp binary already running, the editor will prefer to use this over starting its own process
-4. Congratulations! You are now running larp for Aide locally with your own built binary
+### Setup Process
+
+1. **GitHub Integration:** Add the `@larp-bot` to your GitHub organization or repository
+   ```
+   /settings/installations
+   ```
+
+2. **Telegram Connection:** Start a conversation with our Telegram bot
+   ```
+   https://t.me/larp_dev_bot
+   ```
+
+3. **Link Your Accounts:** Use the `/connect` command in Telegram and authenticate with GitHub
+   ```
+   /connect
+   ```
+
+4. **Configure Memecoin Wallet:** Set up your preferred memecoin wallet 
+   ```
+   /wallet set <your-wallet-address>
+   ```
+
+### Using larp
+
+Once connected, development is as simple as:
+
+1. **Send Requirements:** Describe your task in plain English
+   ```
+   /dev Add a dark mode toggle to the navbar component
+   ```
+
+2. **Review Cost Estimate:** Confirm the quoted price in memecoins
+   ```
+   Task: Add dark mode toggle
+   Estimated complexity: Medium
+   Price: 420 DOGE
+   Type /confirm to proceed
+   ```
+
+3. **Track Progress:** Monitor development status
+   ```
+   /status
+   ```
+
+4. **Review & Merge:** Examine the completed PR directly in GitHub
 
 ## Feature Ideas
 
-Here are 10 creative and easy-to-implement ideas for enhancing LARP:
+Here are 10 creative and easy-to-implement ideas for enhancing larp:
 
 1. **Language-Specific Documentation Generator**: Automatically generate documentation comments based on code analysis and best practices for each language.
 
@@ -383,8 +447,8 @@ Here are 10 creative and easy-to-implement ideas for enhancing LARP:
 
 There are many ways in which you can participate in this project, for example:
 
-- [Submit bugs and feature requests](https://github.com/codestoryai/larp/issues), and help us verify as they are checked in
-- Review [source code changes](https://github.com/codestoryai/larp/pulls)
+- [Submit bugs and feature requests](https://github.com/opensvm/larp/issues), and help us verify as they are checked in
+- Review [source code changes](https://github.com/opensvm/larp/pulls)
 
 If you are interested in fixing issues and contributing directly to the code base,
 please see the document [How to Contribute](HOW_TO_CONTRIBUTE.md), which covers the following:
@@ -395,9 +459,9 @@ please see the document [How to Contribute](HOW_TO_CONTRIBUTE.md), which covers 
 
 ## Feedback
 
-- [File an issue](https://github.com/codestoryai/larp/issues)
+- [File an issue](https://github.com/opensvm/larp/issues)
 - [Request a new feature](CONTRIBUTING.md)
-- Upvote [popular feature requests](https://github.com/codestoryai/larp/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
+- Upvote [popular feature requests](https://github.com/opensvm/larp/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
 - Join our community: [Discord](https://discord.gg/mtgrhXM5Xf)
 
 ## Code of Conduct
