@@ -1,27 +1,27 @@
-# Sidecar Knowledge Graph
+# LARP Knowledge Graph
 
-This document provides a comprehensive knowledge graph of the Sidecar codebase, showing the relationships between different components and modules.
+This document provides a comprehensive knowledge graph of the LARP codebase, showing the relationships between different components and modules.
 
 ## Repository Structure
 
 ```mermaid
 graph TD
-    Root["/ (Root)"] --> Sidecar["sidecar/"]  
+    Root["/ (Root)"] --> LARP["larp/"]  
     Root --> LLMClient["llm_client/"]  
     Root --> LLMPrompts["llm_prompts/"]  
     Root --> Logging["logging/"]  
     
-    Sidecar --> SrcSidecar["src/"]  
-    SrcSidecar --> Webserver["webserver/"]  
-    SrcSidecar --> MCTS["mcts/"]  
-    SrcSidecar --> Agentic["agentic/"]  
-    SrcSidecar --> Repomap["repomap/"]  
-    SrcSidecar --> LLM["llm/"]  
-    SrcSidecar --> Repo["repo/"]  
-    SrcSidecar --> Chunking["chunking/"]  
-    SrcSidecar --> Agent["agent/"]  
-    SrcSidecar --> Git["git/"]  
-    SrcSidecar --> Bin["bin/"]  
+    LARP --> SrcLARP["src/"]  
+    SrcLARP --> Webserver["webserver/"]  
+    SrcLARP --> MCTS["mcts/"]  
+    SrcLARP --> Agentic["agentic/"]  
+    SrcLARP --> Repomap["repomap/"]  
+    SrcLARP --> LLM["llm/"]  
+    SrcLARP --> Repo["repo/"]  
+    SrcLARP --> Chunking["chunking/"]  
+    SrcLARP --> Agent["agent/"]  
+    SrcLARP --> Git["git/"]  
+    SrcLARP --> Bin["bin/"]  
     
     LLMClient --> SrcLLM["src/"]  
     SrcLLM --> Clients["clients/"]  
@@ -40,9 +40,9 @@ graph TD
 
 ```mermaid
 graph TD
-    Sidecar["sidecar"] --> LLMClient["llm_client"] 
-    Sidecar --> LLMPrompts["llm_prompts"]
-    Sidecar --> Logging["logging"]
+    LARP["larp"] --> LLMClient["llm_client"] 
+    LARP --> LLMPrompts["llm_prompts"]
+    LARP --> Logging["logging"]
     LLMPrompts --> LLMClient
     Logging --> LLMClient
 ```
@@ -402,7 +402,7 @@ sequenceDiagram
 
 ```mermaid
 mindmap
-  root((Sidecar))
+  root((LARP))
     Application
       Configuration
       Repository Pool
@@ -466,4 +466,4 @@ graph TD
 
 ## Conclusion
 
-This knowledge graph provides a comprehensive view of the Sidecar codebase structure and relationships between different components. It should help developers understand how the various parts of the system interact and how data flows through the application.
+This knowledge graph provides a comprehensive view of the LARP codebase structure and relationships between different components. It should help developers understand how the various parts of the system interact and how data flows through the application.

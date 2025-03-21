@@ -1,27 +1,45 @@
 ```
-
- ██████╗ ██████╗ ██████╗ ███████╗███████╗████████╗ ██████╗ ██████╗ ██╗   ██╗
-██╔════╝██╔═══██╗██╔══██╗██╔════╝██╔════╝╚══██╔══╝██╔═══██╗██╔══██╗╚██╗ ██╔╝
-██║     ██║   ██║██║  ██║█████╗  ███████╗   ██║   ██║   ██║██████╔╝ ╚████╔╝ 
-██║     ██║   ██║██║  ██║██╔══╝  ╚════██║   ██║   ██║   ██║██╔══██╗  ╚██╔╝  
-╚██████╗╚██████╔╝██████╔╝███████╗███████║   ██║   ╚██████╔╝██║  ██║   ██║   
- ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚══════╝   ╚═╝    ╚═════╝ ╚═╝  ╚═╝   ╚═╝   
-                                                                            
+▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▓▓▓▓▒▒▓▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▓
+▓▓▓▓▓▒▓▒▓▒▒▓▓▓▓█████▓▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒▒▒▒▒▓
+▓▓▓▒▒▒▒▒▒▓▓███████████▓▓██▓▓▓▓▓▓▓▒▒▒▒▒▒▒▒▒
+▓▒▒▓▒▒▒▓██████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒▒
+▓▒▒▒▒▒▓██▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒▒
+▓▒▒▒▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒
+▓▒▒▒▓▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▒▒▓▓▓▓▓▓▓▓▓▓▓▒▒▒▒
+▓▒▒▒▓▓▓▒▓▓▓▓▓▓▓▓▓▓▓███▓▓▓▒▒▓▓▓███▓▓▓▓▓▒▒▒▒
+▓▒▒▒▓▓▒▒▓▓▓▓▓▓▓▓▓█▒▒░░░░░░░░░░░░░▒█▒▓▓▒▒▒▒
+▓▒▒▒▓▓▒▒▓██▓▓▓▓█▒░░░░░░░░░░░░░▓██▓░░░▒▒▒▒▒
+▓▒▒▓▓▓▒▓▓▓▓▓░░░░░▓▓█▓░░░░░░░░▒█░██▓░░░▒░▒▒
+▓▒▒▓▓▒▓▓▓▒▒░░░░░██▓███▓░░░░░░█████░░░░░░░▒
+▓▒▒▓▓░░░░░░░░░░▓▒█████▓░░░░░░▒███▒░░░░░░░▒
+██▓▓▓▒░░░░░░░░░░░▓███▓▒░░░░░░░░░▒░░░▒▒▒▒▒▒
+███▓▓▓▓▒░░░░░░░░░░▒█▒░░░░░░░░░░░░░▒▓▒▓▓▓▒▒
+████▓▓▓▓██▓▒░░░░░░░░░░░░░░░▒░░░░░▒▓▒▓▓▓▓▓▓
+███████▓▓██████▓▒░░░░░░░░░░░░░░▒▓▓████████
+████████▓▓▓████████▓▒░░░░░░▒▓▓▓▓▓▓████████
+███████████▓▓██████▓▓▓▓▓▓▓▓███████████████
+███████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓█████████
+██████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓████████
+█████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓████████
+█████████████▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓███████
+    
+                                                                       
+                                                        
 ```
 
 <div id="vscodium-logo" align="center">
     <img src="./media/logo.svg" alt="VSCodium Logo" width="200"/>
-    <h1>Sidecar</h1>
+    <h1>LARP</h1>
 </div>
 
 ![Latest release](https://img.shields.io/github/v/release/codestoryai/binaries?label=version)
 ![Discord Shield](https://discord.com/api/guilds/1138070673756004464/widget.png?style=shield)
 
-# Sidecar: The AI Brain for Aide Editor
+# LARP: The AI Brain for Aide Editor
 
 ## Overview
 
-Sidecar is the AI intelligence engine that powers the Aide code editor. It handles everything from prompt creation and LLM communication to code analysis and intelligent editing assistance. This repository contains the core AI functionality that enables Aide to understand and interact with your codebase at a deep level.
+LARP is the AI intelligence engine that powers the Aide code editor. It handles everything from prompt creation and LLM communication to code analysis and intelligent editing assistance. This repository contains the core AI functionality that enables Aide to understand and interact with your codebase at a deep level.
 
 ## Table of Contents
 
@@ -40,7 +58,7 @@ Sidecar is the AI intelligence engine that powers the Aide code editor. It handl
 
 ## Architecture
 
-Sidecar is built as a Rust workspace with multiple crates that work together to provide AI-powered code assistance. The architecture follows a modular design with clear separation of concerns.
+LARP is built as a Rust workspace with multiple crates that work together to provide AI-powered code assistance. The architecture follows a modular design with clear separation of concerns.
 
 ```mermaid
 flowchart TD
@@ -82,15 +100,15 @@ sequenceDiagram
 
 ## Core Components
 
-Sidecar consists of several key components that work together:
+LARP consists of several key components that work together:
 
 ### 1. Webserver
 
 The entry point for the application, handling HTTP requests from the Aide editor. It provides API endpoints for various AI-assisted operations.
 
 **Key Files:**
-- `sidecar/src/bin/webserver.rs`: Main entry point
-- `sidecar/src/webserver/mod.rs`: API route definitions
+- `larp/src/bin/webserver.rs`: Main entry point
+- `larp/src/webserver/mod.rs`: API route definitions
 
 ### 2. LLM Client
 
@@ -147,12 +165,12 @@ Parses and chunks code into meaningful segments for better understanding by LLMs
 ```mermaid
 graph TD
     subgraph Workspace
-        Sidecar["sidecar (Main Crate)"] --- LLMClient["llm_client"] 
-        Sidecar --- LLMPrompts["llm_prompts"]
-        Sidecar --- Logging["logging"]
+        LARP["larp (Main Crate)"] --- LLMClient["llm_client"] 
+        LARP --- LLMPrompts["llm_prompts"]
+        LARP --- Logging["logging"]
     end
     
-    subgraph SidecarComponents
+    subgraph LARPComponents
         Webserver["webserver"] --- Application["application"]
         Application --- Agentic["agentic"]
         Application --- MCTS["mcts"]
@@ -175,7 +193,7 @@ graph TD
         Broker --- Tokenizer["tokenizer"]
     end
     
-    Sidecar --- SidecarComponents
+    LARP --- LARPComponents
     Agentic --- AgenticComponents
     LLMClient --- LLMComponents
 ```
@@ -241,8 +259,8 @@ classDiagram
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/codestoryai/sidecar.git
-   cd sidecar
+   git clone https://github.com/codestoryai/larp.git
+   cd larp
    ```
 
 2. Build the project:
@@ -257,7 +275,7 @@ classDiagram
 
 ### Configuration
 
-Sidecar can be configured through command-line arguments or environment variables. Key configuration options include:
+LARP can be configured through command-line arguments or environment variables. Key configuration options include:
 
 - LLM provider API keys
 - Port and host settings
@@ -268,22 +286,22 @@ Sidecar can be configured through command-line arguments or environment variable
 
 ```mermaid
 graph TD
-    Root["/ (Root)"] --> Sidecar["sidecar/"]  
+    Root["/ (Root)"] --> LARP["larp/"]  
     Root --> LLMClient["llm_client/"]  
     Root --> LLMPrompts["llm_prompts/"]  
     Root --> Logging["logging/"]  
     
-    Sidecar --> SrcSidecar["src/"]  
-    SrcSidecar --> Webserver["webserver/"]  
-    SrcSidecar --> MCTS["mcts/"]  
-    SrcSidecar --> Agentic["agentic/"]  
-    SrcSidecar --> Repomap["repomap/"]  
-    SrcSidecar --> LLM["llm/"]  
-    SrcSidecar --> Repo["repo/"]  
-    SrcSidecar --> Chunking["chunking/"]  
-    SrcSidecar --> Agent["agent/"]  
-    SrcSidecar --> Git["git/"]  
-    SrcSidecar --> Bin["bin/"]  
+    LARP --> SrcLARP["src/"]  
+    SrcLARP --> Webserver["webserver/"]  
+    SrcLARP --> MCTS["mcts/"]  
+    SrcLARP --> Agentic["agentic/"]  
+    SrcLARP --> Repomap["repomap/"]  
+    SrcLARP --> LLM["llm/"]  
+    SrcLARP --> Repo["repo/"]  
+    SrcLARP --> Chunking["chunking/"]  
+    SrcLARP --> Agent["agent/"]  
+    SrcLARP --> Git["git/"]  
+    SrcLARP --> Bin["bin/"]  
     
     LLMClient --> SrcLLM["src/"]  
     SrcLLM --> Clients["clients/"]  
@@ -302,7 +320,7 @@ graph TD
 
 ### Symbol-Level Intelligence
 
-Sidecar can understand and operate on individual code symbols (functions, classes, variables) with context awareness.
+LARP can understand and operate on individual code symbols (functions, classes, variables) with context awareness.
 
 ### Repository Mapping
 
@@ -330,16 +348,16 @@ Uses MCTS to explore possible code changes and select the most promising ones fo
 
 ## Integration with Aide
 
-Sidecar is designed to work seamlessly with the Aide editor. To connect your local Sidecar instance with Aide:
+LARP is designed to work seamlessly with the Aide editor. To connect your local LARP instance with Aide:
 
 1. Run the Aide production build or build from source using [this repository](https://github.com/codestoryai/ide)
-2. Run the sidecar binary
-3. Since you have a sidecar binary already running, the editor will prefer to use this over starting its own process
-4. Congratulations! You are now running sidecar for Aide locally with your own built binary
+2. Run the larp binary
+3. Since you have a larp binary already running, the editor will prefer to use this over starting its own process
+4. Congratulations! You are now running larp for Aide locally with your own built binary
 
 ## Feature Ideas
 
-Here are 10 creative and easy-to-implement ideas for enhancing Sidecar:
+Here are 10 creative and easy-to-implement ideas for enhancing LARP:
 
 1. **Language-Specific Documentation Generator**: Automatically generate documentation comments based on code analysis and best practices for each language.
 
@@ -365,8 +383,8 @@ Here are 10 creative and easy-to-implement ideas for enhancing Sidecar:
 
 There are many ways in which you can participate in this project, for example:
 
-- [Submit bugs and feature requests](https://github.com/codestoryai/sidecar/issues), and help us verify as they are checked in
-- Review [source code changes](https://github.com/codestoryai/sidecar/pulls)
+- [Submit bugs and feature requests](https://github.com/codestoryai/larp/issues), and help us verify as they are checked in
+- Review [source code changes](https://github.com/codestoryai/larp/pulls)
 
 If you are interested in fixing issues and contributing directly to the code base,
 please see the document [How to Contribute](HOW_TO_CONTRIBUTE.md), which covers the following:
@@ -377,9 +395,9 @@ please see the document [How to Contribute](HOW_TO_CONTRIBUTE.md), which covers 
 
 ## Feedback
 
-- [File an issue](https://github.com/codestoryai/sidecar/issues)
+- [File an issue](https://github.com/codestoryai/larp/issues)
 - [Request a new feature](CONTRIBUTING.md)
-- Upvote [popular feature requests](https://github.com/codestoryai/sidecar/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
+- Upvote [popular feature requests](https://github.com/codestoryai/larp/issues?q=is%3Aopen+is%3Aissue+label%3Afeature-request+sort%3Areactions-%2B1-desc)
 - Join our community: [Discord](https://discord.gg/mtgrhXM5Xf)
 
 ## Code of Conduct
